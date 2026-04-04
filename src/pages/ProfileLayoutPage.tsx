@@ -59,7 +59,7 @@ export default function ProfileLayoutPage() {
                   localStorage.removeItem("auth_block_until");
                   localStorage.removeItem("auth_block_reason");
                 } catch {}
-                window.location.href = "/auth?mode=login";
+                window.location.href = "/";
               }}
               style={{ padding: "10px 14px", borderRadius: 12, fontWeight: 900, cursor: "pointer" }}
             >
@@ -95,7 +95,7 @@ export default function ProfileLayoutPage() {
                 try {
                   localStorage.removeItem("token");
                 } catch {}
-                window.location.href = "/auth?mode=login";
+                window.location.href = "/";
               }}
               style={{ padding: "10px 14px", borderRadius: 12, fontWeight: 900, cursor: "pointer" }}
             >

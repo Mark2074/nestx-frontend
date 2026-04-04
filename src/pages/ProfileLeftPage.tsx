@@ -161,7 +161,7 @@ export default function ProfileLeftPage() {
       // frontend-only logout rapido (backend logout già esiste in api, ma SX per ora non fa business)
       localStorage.removeItem("token");
     } finally {
-      window.location.href = "/auth";
+      window.location.href = "/";
     }
   }
 
