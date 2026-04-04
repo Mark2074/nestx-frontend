@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>NestX — Moderation & Safety</title>
+  <style>
+    :root{
+      color-scheme: dark;
+      --bg:#0b0b0f;
+      --card:rgba(255,255,255,.06);
+      --border:rgba(255,255,255,.12);
+      --txt:rgba(255,255,255,.92);
+      --muted:rgba(255,255,255,.70);
+      --soft:rgba(255,255,255,.55);
+      --accent:rgba(99,102,241,.9);
+    }
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      background: radial-gradient(1200px 600px at 15% -10%, rgba(99,102,241,.18), transparent 60%),
+                  radial-gradient(900px 500px at 100% 0%, rgba(16,185,129,.10), transparent 55%),
+                  var(--bg);
+      color:var(--txt);
+      line-height:1.55;
+    }
+    .wrap{ max-width: 980px; margin: 0 auto; padding: 28px 18px 60px; }
+    .card{
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px 18px;
+      box-shadow: 0 10px 28px rgba(0,0,0,.28);
+    }
+    h1{ margin: 6px 0 10px; font-size: 26px; letter-spacing:.2px; }
+    h2{ margin: 18px 0 8px; font-size: 16px; }
+    p, li{ color: var(--muted); }
+    .meta{ color: var(--soft); font-size: 13px; margin-top: 6px; }
+    .badge{
+      display:inline-block;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border:1px solid var(--border);
+      background: rgba(255,255,255,.04);
+      font-weight: 800;
+      font-size: 12px;
+      color: rgba(255,255,255,.86);
+    }
+    a{ color: rgba(180,190,255,.95); }
+    .hr{ height:1px; background: rgba(255,255,255,.10); margin: 14px 0; }
+    ul{ margin: 8px 0 0 18px; }
+    .note{
+      border-left: 3px solid rgba(99,102,241,.7);
+      padding: 10px 12px;
+      background: rgba(99,102,241,.08);
+      border-radius: 10px;
+      margin-top: 12px;
+      color: rgba(255,255,255,.78);
+      font-size: 13px;
+    }
+    .strong{ color: rgba(255,255,255,.92); font-weight: 900; }
+    .nav{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top: 12px;
+      font-size: 13px;
+    }
+    .nav a{
+      text-decoration:none;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.04);
+      padding:6px 10px;
+      border-radius: 999px;
+      color: rgba(180,190,255,.95);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="badge">NestX — Moderation & Safety</div>
+      <h1>Moderation & Safety</h1>
+      <div class="meta">
+        Version: <span class="strong">1.0</span> — Last update: <span class="strong">2026-03-03</span>
+      </div>
+
+      <div class="nav">
+        <a href="index.html">Rules Home</a>
+        <a href="platform-rules.html">Platform Rules</a>
+        <a href="verification.html">Verification</a>
+        <a href="terms.html">Terms</a>
+      </div>
+
+      <div class="hr"></div>
+
+      <h2>Introduction</h2>
+      <p>
+        NestX adopts a moderation system to maintain a safe, coherent,
+        and respectful environment.
+      </p>
+      <p>
+        Moderation is an essential tool to protect the platform and its community.
+      </p>
+
+      <h2>8.1 Automated Moderation</h2>
+      <p>
+        NestX uses automated systems to detect potentially problematic content.
+      </p>
+      <ul>
+        <li>Flag suspicious content</li>
+        <li>Temporarily limit visibility</li>
+        <li>Send content for review</li>
+      </ul>
+      <p>
+        Final decisions are made by the platform after evaluation.
+      </p>
+
+      <h2>8.2 Human Moderation</h2>
+      <p>
+        The platform may intervene through manual review.
+      </p>
+      <ul>
+        <li>Remove content</li>
+        <li>Restrict account features</li>
+        <li>Revoke privileges</li>
+        <li>Suspend or terminate accounts</li>
+      </ul>
+      <p>
+        Actions may be taken at any time to ensure safety,
+        compliance, and platform integrity.
+      </p>
+
+      <h2>8.3 Reporting System</h2>
+      <p>
+        Users may report content or behavior they consider problematic.
+      </p>
+      <ul>
+        <li>Reports are reviewed by the platform</li>
+        <li>Reports do not automatically trigger immediate action</li>
+      </ul>
+      <p>
+        Abuse of the reporting system may result in limitations.
+      </p>
+
+      <h2>8.4 Safety Measures</h2>
+      <p>
+        To protect the ecosystem, NestX may:
+      </p>
+      <ul>
+        <li>Temporarily restrict features</li>
+        <li>Block suspicious access</li>
+        <li>Limit monetization-related functions during verification processes</li>
+      </ul>
+      <p>
+        Measures may be preventive or reactive.
+      </p>
+
+      <div class="hr"></div>
+
+      <div class="note">
+        <div class="strong">Shared Responsibility</div>
+        <div style="margin-top:6px;">
+          Safety is a shared responsibility.
+          The platform may intervene when necessary according to its internal rules and policies.
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

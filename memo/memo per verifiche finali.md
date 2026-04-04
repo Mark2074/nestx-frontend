@@ -1,0 +1,1 @@
+1 rivoluzionato blocco utente, vanno verificate tutte le variabili

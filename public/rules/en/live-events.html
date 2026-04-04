@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>NestX — Live, Events & CAM</title>
+  <style>
+    :root{
+      color-scheme: dark;
+      --bg:#0b0b0f;
+      --card:rgba(255,255,255,.06);
+      --border:rgba(255,255,255,.12);
+      --txt:rgba(255,255,255,.92);
+      --muted:rgba(255,255,255,.70);
+      --soft:rgba(255,255,255,.55);
+      --accent:rgba(99,102,241,.9);
+    }
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      background: radial-gradient(1200px 600px at 15% -10%, rgba(99,102,241,.18), transparent 60%),
+                  radial-gradient(900px 500px at 100% 0%, rgba(16,185,129,.10), transparent 55%),
+                  var(--bg);
+      color:var(--txt);
+      line-height:1.55;
+    }
+    .wrap{ max-width: 980px; margin: 0 auto; padding: 28px 18px 60px; }
+    .card{
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px 18px;
+      box-shadow: 0 10px 28px rgba(0,0,0,.28);
+    }
+    h1{ margin: 6px 0 10px; font-size: 26px; letter-spacing:.2px; }
+    h2{ margin: 18px 0 8px; font-size: 16px; }
+    p, li{ color: var(--muted); }
+    .meta{ color: var(--soft); font-size: 13px; margin-top: 6px; }
+    .badge{
+      display:inline-block;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border:1px solid var(--border);
+      background: rgba(255,255,255,.04);
+      font-weight: 800;
+      font-size: 12px;
+      color: rgba(255,255,255,.86);
+    }
+    a{ color: rgba(180,190,255,.95); }
+    .hr{ height:1px; background: rgba(255,255,255,.10); margin: 14px 0; }
+    ul{ margin: 8px 0 0 18px; }
+    .note{
+      border-left: 3px solid rgba(99,102,241,.7);
+      padding: 10px 12px;
+      background: rgba(99,102,241,.08);
+      border-radius: 10px;
+      margin-top: 12px;
+      color: rgba(255,255,255,.78);
+      font-size: 13px;
+    }
+    .strong{ color: rgba(255,255,255,.92); font-weight: 900; }
+    .nav{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top: 12px;
+      font-size: 13px;
+    }
+    .nav a{
+      text-decoration:none;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.04);
+      padding:6px 10px;
+      border-radius: 999px;
+      color: rgba(180,190,255,.95);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="badge">NestX — Live, Events & CAM</div>
+      <h1>Live, Events & CAM</h1>
+      <div class="meta">
+        Version: <span class="strong">1.1</span> — Last update: <span class="strong">2026-03-06</span>
+      </div>
+
+      <div class="nav">
+        <a href="index.html">Rules Home</a>
+        <a href="platform-rules.html">Platform Rules</a>
+        <a href="tokens.html">Tokens</a>
+        <a href="moderation.html">Moderation</a>
+      </div>
+
+      <div class="hr"></div>
+
+      <h2>Introduction</h2>
+      <p>
+        Live rooms and events are core tools on NestX. They enable real-time interaction,
+        audience building, and participation.
+      </p>
+      <p>
+        Every live session and event must follow platform rules, applicable laws,
+        and the core principles of authenticity and consent.
+      </p>
+
+      <h2 id="live-rooms">4.1 Live Rooms</h2>
+      <p>
+        Live Rooms are real-time sessions where a user can broadcast and interact with others.
+      </p>
+      <p>
+        Live Rooms may be public or access-limited, and may be linked to specific events.
+        Depending on platform rules and configuration, a live session can be adult or non-adult.
+      </p>
+      <ul>
+        <li>All interactions must remain respectful and compliant with platform rules.</li>
+        <li>Illegal, coercive, or manipulative behavior is not allowed.</li>
+        <li>The host is responsible for the content shown and the tone of the session.</li>
+      </ul>
+
+      <div class="note">
+        <div class="strong">Reminder</div>
+        <div style="margin-top:6px;">
+          Live sessions are not “outside the rules”. Moderation and enforcement can apply during active sessions.
+        </div>
+      </div>
+
+      <h2 id="events">4.2 Events</h2>
+      <p>
+        An Event is a scheduled session with a more defined structure than a standard live room.
+      </p>
+      <p>
+        Events may include scheduling, participation rules, a defined duration,
+        and where applicable, ticketed access.
+      </p>
+      <ul>
+        <li>Events must respect content rules, behavior rules, and moderation.</li>
+        <li>An event does not automatically grant Creator privileges.</li>
+        <li>An event does not guarantee any economic outcome or results.</li>
+      </ul>
+
+      <h2 id="adult-vs-non-adult">4.3 Adult vs Non-Adult Content</h2>
+      <p>
+        NestX may host adult content within clear boundaries. The core requirements are:
+      </p>
+      <ul>
+        <li>All participants must be 18+.</li>
+        <li>Consent must be real and never coerced.</li>
+        <li>No illegal, exploitative, or unsafe content is allowed.</li>
+      </ul>
+
+      <p>
+        Non-adult events and live rooms must remain coherent with their category.
+        Misclassification or attempts to bypass rules may result in platform action.
+      </p>
+
+      <h2 id="not-allowed">4.4 What Is Not Allowed</h2>
+      <p>
+        Live rooms and events must not be used for:
+      </p>
+      <ul>
+        <li>Escorting or prostitution-related services.</li>
+        <li>Unauthorized marketplaces for goods or services.</li>
+        <li>Dating activity disguised as “content”.</li>
+        <li>Coordination of illegal activity.</li>
+        <li>Any form of exploitation, coercion, or manipulation.</li>
+      </ul>
+
+      <div class="note">
+        <div class="strong">Clarity</div>
+        <div style="margin-top:6px;">
+          NestX is not a dating service and not a marketplace.
+          Live rooms and events exist for content and participation, within platform rules.
+        </div>
+      </div>
+
+      <h2 id="copyright">4.5 Copyright and Third-Party Content</h2>
+      <p>
+        Live sessions and events must also respect copyright and other third-party rights.
+      </p>
+      <p>
+        Users and creators should avoid broadcasting music, television channels, radio streams,
+        sports events, movies, clips, or other third-party material during live sessions or events
+        unless they have the legal right or license to do so.
+      </p>
+      <p>
+        This also includes background audio or media captured during a live session,
+        for example music playing in the room, content from streaming services,
+        or a television left on in the background.
+      </p>
+      <p>
+        NestX does not provide music, broadcast, or public performance licenses.
+        Responsibility for third-party content used during live sessions or events
+        remains with the user who streams it.
+      </p>
+
+      <div class="note">
+        <div class="strong">Tip</div>
+        <div style="margin-top:6px;">
+          To avoid unnecessary issues, keep background audio minimal and avoid using copyrighted
+          music or media during live sessions unless you clearly have the rights to use it.
+        </div>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="hr"></div>
+
+      <div class="note">
+        <div class="strong">Next</div>
+        <div style="margin-top:6px;">
+          Read <a href="platform-rules.html">Platform Rules</a> for safety boundaries and
+          <a href="moderation.html">Moderation</a> to understand how reports and reviews work.
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>NestX — Account Types & Status</title>
+  <style>
+    :root{
+      color-scheme: dark;
+      --bg:#0b0b0f;
+      --card:rgba(255,255,255,.06);
+      --border:rgba(255,255,255,.12);
+      --txt:rgba(255,255,255,.92);
+      --muted:rgba(255,255,255,.70);
+      --soft:rgba(255,255,255,.55);
+      --accent:rgba(99,102,241,.9);
+    }
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      background: radial-gradient(1200px 600px at 15% -10%, rgba(99,102,241,.18), transparent 60%),
+                  radial-gradient(900px 500px at 100% 0%, rgba(16,185,129,.10), transparent 55%),
+                  var(--bg);
+      color:var(--txt);
+      line-height:1.55;
+    }
+    .wrap{ max-width: 980px; margin: 0 auto; padding: 28px 18px 60px; }
+    .card{
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px 18px;
+      box-shadow: 0 10px 28px rgba(0,0,0,.28);
+    }
+    h1{ margin: 6px 0 10px; font-size: 26px; letter-spacing:.2px; }
+    h2{ margin: 18px 0 8px; font-size: 16px; }
+    p, li{ color: var(--muted); }
+    .meta{ color: var(--soft); font-size: 13px; margin-top: 6px; }
+    .badge{
+      display:inline-block;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border:1px solid var(--border);
+      background: rgba(255,255,255,.04);
+      font-weight: 800;
+      font-size: 12px;
+      color: rgba(255,255,255,.86);
+    }
+    a{ color: rgba(180,190,255,.95); }
+    .hr{ height:1px; background: rgba(255,255,255,.10); margin: 14px 0; }
+    ul{ margin: 8px 0 0 18px; }
+    .note{
+      border-left: 3px solid rgba(99,102,241,.7);
+      padding: 10px 12px;
+      background: rgba(99,102,241,.08);
+      border-radius: 10px;
+      margin-top: 12px;
+      color: rgba(255,255,255,.78);
+      font-size: 13px;
+    }
+    .strong{ color: rgba(255,255,255,.92); font-weight: 900; }
+    .nav{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top: 12px;
+      font-size: 13px;
+    }
+    .nav a{
+      text-decoration:none;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.04);
+      padding:6px 10px;
+      border-radius: 999px;
+      color: rgba(180,190,255,.95);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="badge">NestX — Account Types & Status</div>
+      <h1>Account Types & Status</h1>
+      <div class="meta">
+        Version: <span class="strong">1.0</span> — Last update: <span class="strong">2026-03-03</span>
+      </div>
+
+      <div class="nav">
+        <a href="index.html">Rules Home</a>
+        <a href="platform-rules.html">Platform Rules</a>
+        <a href="tokens.html">Tokens</a>
+        <a href="9_CREATOR_TERMS_AND_MONETIZATION.html">Creator Terms</a>
+      </div>
+
+      <div class="hr"></div>
+
+      <p>
+        On NestX there are different account types and statuses.
+        Each level enables specific features and has defined limits,
+        designed to ensure security, authenticity, and sustainability
+        for both users and the platform.
+      </p>
+
+      <p>
+        Your account type defines what you can do.
+        Your status may extend or enhance certain capabilities.
+      </p>
+
+      <h2 id="base">2.1 Base User</h2>
+
+      <p class="strong">What a Base User can do</p>
+      <ul>
+        <li>Register and create a profile.</li>
+        <li>Publish posts in the feed in compliance with platform rules.</li>
+        <li>View public content.</li>
+        <li>Follow other users and interact with content.</li>
+        <li>Access the main sections of the platform.</li>
+        <li>Access live rooms and events according to applicable access rules.</li>
+        <li>Send messages within defined limits.</li>
+        <li>Purchase tokens (when enabled).</li>
+      </ul>
+
+      <p class="strong">What a Base User cannot do</p>
+      <ul>
+        <li>Monetize content or events.</li>
+        <li>Redeem tokens.</li>
+        <li>Access Creator-only privileges.</li>
+      </ul>
+
+      <h2 id="verified">2.2 Verified User</h2>
+
+      <p class="strong">What verification is</p>
+      <p>
+        Verification is a procedure designed to confirm the authenticity of a profile.
+        It is completed through a verification video following the methods specified by the platform.
+      </p>
+
+      <ul>
+        <li>Confirms that the profile represents a real person.</li>
+        <li>Increases trust within the community.</li>
+        <li>Improves credibility in interactions.</li>
+      </ul>
+
+      <p>
+        Verification confirms authenticity, not reputation.
+      </p>
+
+      <p class="strong">What verification does not do</p>
+      <ul>
+        <li>It does not enable monetization by itself.</li>
+        <li>It does not replace VIP status.</li>
+        <li>It does not grant Creator privileges.</li>
+      </ul>
+
+      <h2 id="vip">2.3 VIP Status</h2>
+
+      <p>
+        VIP is an additional status, not a separate account type.
+        It may be activated according to platform rules.
+      </p>
+
+      <p>
+        VIP provides enhanced platform features and extended usage limits
+        compared to standard accounts.
+      </p>
+
+      <ul>
+        <li>Does not convert a user into a Creator.</li>
+        <li>Does not enable monetization by itself.</li>
+        <li>Does not guarantee visibility or earnings.</li>
+        <li>Does not override moderation rules or legal requirements.</li>
+      </ul>
+
+      <p>
+        VIP benefits remain active only while the status is valid.
+        When VIP expires, associated enhancements are automatically removed.
+      </p>
+
+      <h2 id="creator">2.4 Creator Account</h2>
+
+      <p class="strong">Requirements</p>
+      <ul>
+        <li>Platform approval (Creator access is not automatic).</li>
+        <li>Acceptance of Creator-specific terms and conditions.</li>
+        <li>Full compliance with platform content rules.</li>
+      </ul>
+
+      <p class="strong">Rights</p>
+      <ul>
+        <li>Create and manage live sessions and events.</li>
+        <li>Receive tokens through official platform features.</li>
+        <li>Promote content within permitted limits.</li>
+        <li>Access Creator tools where available.</li>
+      </ul>
+
+      <p class="strong">Responsibilities</p>
+      <ul>
+        <li>Publish only compliant content.</li>
+        <li>Respect users and the community.</li>
+        <li>Avoid misleading or manipulative behavior.</li>
+        <li>Properly manage live sessions and events.</li>
+        <li>Accept platform reviews and compliance checks.</li>
+      </ul>
+
+      <p class="strong">Allowed monetization</p>
+      <ul>
+        <li>Monetization is permitted exclusively through official platform token systems and flows.</li>
+        <li>External or unauthorized monetization methods are not allowed.</li>
+        <li>Token redemption is available only to approved Creators who complete required payout onboarding.</li>
+      </ul>
+
+      <div class="hr"></div>
+
+      <div class="note">
+        <div class="strong">General principle</div>
+        <div style="margin-top:6px;">
+          NestX is built on a balance between freedom of expression and clear rules.
+          Misuse of platform features, regardless of account type or status,
+          may result in limitations, suspensions, or revocation of privileges.
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>
