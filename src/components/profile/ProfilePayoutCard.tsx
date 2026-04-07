@@ -73,6 +73,8 @@ export default function ProfilePayoutCard() {
     const isCreator = Boolean(m.isCreator);
     const payoutEnabled = Boolean(m.payoutEnabled);
     const payoutStatus = String(m.payoutStatus || "").trim().toLowerCase();
+    const accountType = String(m.accountType || "").trim().toLowerCase();
+    const isAdmin = accountType === "admin";
 
     const canPayout = Boolean((e as any)?.canPayout);
     const eligible = Boolean((e as any)?.eligible ?? (e as any)?.isEligible);
@@ -90,6 +92,7 @@ export default function ProfilePayoutCard() {
     return {
       stage,
       isCreator,
+      isAdmin,
       creatorVerificationStatus,
       payoutEnabled,
       payoutStatus,
@@ -105,6 +108,7 @@ export default function ProfilePayoutCard() {
     if (loading) return "Loading...";
     if (err) return err;
 
+    if (normalized.isAdmin) return "Admin accounts cannot request creator access.";
     if (normalized.stage === "pending") return "Your creator request is under review.";
     if (normalized.stage === "approved_no_stripe") return "Creator approved. Complete Stripe payout setup.";
     if (normalized.stage === "stripe_verified") {
@@ -121,6 +125,11 @@ export default function ProfilePayoutCard() {
   async function onRequestCreator() {
     setToast("");
     setErr("");
+
+    if (me?.accountType === "admin") {
+      setErr("Admin accounts cannot request creator access");
+      return;
+    }
 
     if (!over18 || !acceptTerms) {
       setToast("Please confirm you are over 18 and accept Creator Terms.");
@@ -216,7 +225,11 @@ export default function ProfilePayoutCard() {
 
       {/* BODY */}
       <div style={{ marginTop: 12 }}>
-        {loading ? null : normalized.stage === "not_creator" ? (
+        {loading ? null : normalized.isAdmin ? (
+          <div style={{ opacity: 0.9, fontWeight: 800 }}>
+            Admin accounts cannot request creator access.
+          </div>
+        ) : normalized.stage === "not_creator" ? (
           <div style={{ display: "grid", gap: 10 }}>
             <label style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 800 }}>
               <input type="checkbox" checked={over18} onChange={(e) => setOver18(e.target.checked)} />

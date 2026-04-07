@@ -2,6 +2,23 @@ export type ApiWrapped<T> = { status: "success" | "error"; data?: T; message?: s
 
 type LiveScope = "public" | "private";
 
+export type LiveTokenResponse = {
+  eventId: string;
+  requestedScope?: LiveScope;
+  authorizedScope: LiveScope;
+  scope: LiveScope;
+  roomId?: string | null;
+  provider: "cloudflare" | string;
+  meetingId: string;
+  authToken: string;
+  participantId?: string;
+  participantPreset?: string;
+  role: "host" | "viewer";
+  isHost?: boolean;
+  isAdmin?: boolean;
+  viewerCountMode?: string;
+};
+
 export type LiveMessageItem = {
   _id: string;
   eventId?: string;
@@ -375,6 +392,7 @@ export type MeProfile = {
   isCreator?: boolean;
   isCreatorMonetizable?: boolean;
   isPrivate?: boolean;
+  accountType?: "base" | "creator" | "admin" | string;
 
   creatorVerificationStatus?: "pending" | "approved" | "rejected" | string;
   creatorEnabled?: boolean;
@@ -824,7 +842,7 @@ export const api = {
     form.append("file", file);
 
     // ✅ keep a known-working scope (you already used "post" successfully)
-    form.append("scope", "post");
+    form.append("scope", "showcase");
 
     const res: any = await requestForm(`/media/upload`, form);
 
@@ -868,6 +886,12 @@ export const api = {
       body: JSON.stringify({ scope }),
     });
   },
+
+  liveGetToken: (eventId: string, scope: LiveScope = "public") =>
+    request<LiveTokenResponse>(`/live/token`, {
+      method: "POST",
+      body: JSON.stringify({ eventId, scope }),
+    }),
 
   eventGetTicket: (eventId: string) =>
     request<TicketGetResponse>(`/events/${eventId}/ticket`, { method: "GET" }),
@@ -1077,6 +1101,7 @@ export const api = {
       isCreator: Boolean(me?.isCreator),
       isCreatorMonetizable: Boolean(me?.isCreatorMonetizable),
       isPrivate: Boolean(me?.isPrivate),
+      accountType: me?.accountType ?? "base",
 
       interestsVip: me?.interestsVip ?? [],
       interests: me?.interests ?? [],
@@ -1338,8 +1363,7 @@ export const api = {
     for (const f of arr) {
       const form = new FormData();
       form.append("file", f);
-      // backend supports only: verification | avatar | cover
-      // for posts we temporarily use verification (DEV)
+      // official media upload for post files
       form.append("scope", "post");
 
       const res: any = await requestForm(`/media/upload`, form);

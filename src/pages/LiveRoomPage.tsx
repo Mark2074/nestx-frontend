@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { api, mapApiErrorMessage, getApiRetryAfterMs, formatRetryAfterLabel } from "../api/nestxApi";
+import {
+  api,
+  mapApiErrorMessage,
+  getApiRetryAfterMs,
+  formatRetryAfterLabel,
+  type LiveTokenResponse,
+} from "../api/nestxApi";
+import RealtimeMeetingEmbed from "../components/live/RealtimeMeetingEmbed";
 
 type LiveScope = "public" | "private";
 type UiMode =
@@ -217,6 +224,10 @@ export default function LiveRoomPage() {
   const [err, setErr] = useState("");
   const [roomBlockCode, setRoomBlockCode] = useState<"" | "ROOM_FULL">("");
 
+  const [liveToken, setLiveToken] = useState<LiveTokenResponse | null>(null);
+  const [loadingLiveToken, setLoadingLiveToken] = useState(false);
+  const [liveTokenErr, setLiveTokenErr] = useState("");
+
   const [tipOpen, setTipOpen] = useState(false);
   const [tipAmount, setTipAmount] = useState<number>(10);
   const [loadingTip, setLoadingTip] = useState(false);
@@ -423,6 +434,9 @@ export default function LiveRoomPage() {
       setEntered(false);
       setRoomReady(false);
       setRoomBlockCode("");
+      setLiveToken(null);
+      setLiveTokenErr("");
+      setLoadingLiveToken(false);
 
       emitRuntimeState({
         entered: false,
@@ -445,6 +459,9 @@ export default function LiveRoomPage() {
       setEntered(false);
       setRoomReady(false);
       setRoomBlockCode(nextRoomBlockCode);
+      setLiveToken(null);
+      setLiveTokenErr("");
+      setLoadingLiveToken(false);
 
       if (emitNull) {
         emitRuntimeState({
@@ -1024,6 +1041,59 @@ export default function LiveRoomPage() {
   ]);
 
   useEffect(() => {
+    if (!eventId) return;
+    if (!isLive) {
+      setLiveToken(null);
+      setLiveTokenErr("");
+      setLoadingLiveToken(false);
+      return;
+    }
+
+    if (!entered || !roomReady || !runtimeScope) {
+      setLiveToken(null);
+      setLiveTokenErr("");
+      setLoadingLiveToken(false);
+      return;
+    }
+
+    if (shouldPausePublic) {
+      setLiveToken(null);
+      setLiveTokenErr("");
+      setLoadingLiveToken(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const run = async () => {
+      setLoadingLiveToken(true);
+      setLiveTokenErr("");
+
+      try {
+        const tokenRes = await api.liveGetToken(eventId, runtimeScope);
+        if (cancelled) return;
+
+        setLiveToken(tokenRes);
+      } catch (e: any) {
+        if (cancelled) return;
+
+        setLiveToken(null);
+        setLiveTokenErr(String(e?.message || "Failed to initialize live stream"));
+      } finally {
+        if (!cancelled) {
+          setLoadingLiveToken(false);
+        }
+      }
+    };
+
+    void run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [eventId, entered, isLive, roomReady, runtimeScope, shouldPausePublic]);
+
+  useEffect(() => {
     emitRuntimeState();
   }, [emitRuntimeState, runtimeScope, runtimeRoomId, entered, roomReady, shouldPausePublic]);
 
@@ -1129,6 +1199,10 @@ export default function LiveRoomPage() {
         <div style={{ marginTop: 10, color: "salmon", fontWeight: 900 }}>{err}</div>
       ) : null}
 
+      {liveTokenErr && uiMode !== "ENDED" ? (
+        <div style={{ marginTop: 10, color: "salmon", fontWeight: 900 }}>{liveTokenErr}</div>
+      ) : null}
+
       {!isHost && !canStay && access && access.reason !== "EVENT_NOT_LIVE" ? (
         <div
           style={{
@@ -1179,12 +1253,32 @@ export default function LiveRoomPage() {
             pointerEvents: shouldPausePublic ? "none" : "auto",
           }}
         >
-          <div style={{ opacity: 0.9 }}>
-            Video will appear here.
-            <div style={{ opacity: 0.75, marginTop: 6, fontSize: 13 }}>
-              (Phase 1 placebo UI — streaming wiring later)
+          {loadingLiveToken ? (
+            <div style={{ opacity: 0.9 }}>
+              Initializing live stream…
             </div>
-          </div>
+          ) : liveTokenErr ? (
+            <div style={{ opacity: 0.95, color: "salmon", fontWeight: 900 }}>
+              {liveTokenErr}
+            </div>
+          ) : liveToken?.authToken ? (
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+              }}
+            >
+              <RealtimeMeetingEmbed
+                key={`${liveToken.meetingId}:${liveToken.participantId || liveToken.role}:${runtimeScope}`}
+                authToken={liveToken.authToken}
+                isHost={isHost}
+              />
+            </div>
+          ) : (
+            <div style={{ opacity: 0.9 }}>
+              Waiting for live stream…
+            </div>
+          )}
 
           {shouldPausePublic ? (
             <div

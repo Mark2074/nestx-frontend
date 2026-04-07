@@ -120,7 +120,7 @@ export default function ProfileHeaderMy({
       // campi "base" che quasi sicuramente esistono nel backend update
       displayName: me.displayName ?? "",
       bio: (me as any).bio ?? "",
-      gender: (me as any).gender ?? "",
+      profileType: (me as any).profileType ?? "",
       language: (me as any).language ?? "",
       area: (me as any).area ?? "",
 
