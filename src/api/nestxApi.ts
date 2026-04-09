@@ -389,6 +389,9 @@ export type MeProfile = {
 
   isVip?: boolean;
   isVerified?: boolean;
+  verifiedUser?: boolean;
+  verificationStatus?: string;
+  verificationPublicVideoUrl?: string;
   isCreator?: boolean;
   isCreatorMonetizable?: boolean;
   isPrivate?: boolean;
@@ -1124,6 +1127,9 @@ export const api = {
 
       isVip: Boolean(me?.isVip),
       isVerified: Boolean(me?.isVerified || me?.verifiedUser),
+      verifiedUser: Boolean(me?.verifiedUser),
+      verificationStatus: me?.verificationStatus ?? null,
+      verificationPublicVideoUrl: me?.verificationPublicVideoUrl ?? "",
       isCreator: Boolean(me?.isCreator),
       isCreatorMonetizable: Boolean(me?.isCreatorMonetizable),
       isPrivate: Boolean(me?.isPrivate),
