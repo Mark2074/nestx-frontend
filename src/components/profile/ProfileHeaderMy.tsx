@@ -1,7 +1,7 @@
 import { persistLocalIdentity } from "../../api/nestxApi";
 import type { MeProfile } from "../../api/nestxApi";
 import EmailVerifyBanner from "../EmailVerifyBanner";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import SuspensionBanner from "../SuspensionBanner";
 
@@ -69,8 +69,16 @@ export default function ProfileHeaderMy({
   const avatar = me.avatar || "";
   const name = me.displayName || me.username || "No name";
 
+  const verificationUrl = String((me as any)?.verificationPublicVideoUrl || "").trim();
+  const canShowVerificationVideo =
+    Boolean(me?.isVerified || (me as any)?.verifiedUser) &&
+    String((me as any)?.verificationStatus || "").toLowerCase() === "approved" &&
+    !!verificationUrl;
+
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const coverInputRef = useRef<HTMLInputElement | null>(null);
+
+  const [verifOpen, setVerifOpen] = useState(false);
 
   const navigate = useNavigate();
 
@@ -247,7 +255,7 @@ export default function ProfileHeaderMy({
             </div>
 
             <div style={{ flex: 1 }}>
-              <div
+                            <div
                 style={{
                   display: "flex",
                   gap: 10,
@@ -266,6 +274,42 @@ export default function ProfileHeaderMy({
                   <IconBadge title="Payout approved" bg="#16a34a" glyph="$" />
                 ) : null}
                 {me.isPrivate ? <PillBadge>PRIVATE</PillBadge> : null}
+
+                <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+                  {canShowVerificationVideo ? (
+                    <button
+                      type="button"
+                      onClick={() => setVerifOpen(true)}
+                      title="Verification video"
+                      style={{
+                        width: 96,
+                        height: 96,
+                        borderRadius: 16,
+                        overflow: "hidden",
+                        padding: 0,
+                        border: "1px solid rgba(255,255,255,0.22)",
+                        background: "rgba(255,255,255,0.06)",
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <video
+                        src={verificationUrl}
+                        muted
+                        playsInline
+                        preload="metadata"
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          display: "block",
+                        }}
+                      />
+                    </button>
+                  ) : null}
+                </div>
               </div>
 
               <div
@@ -339,6 +383,45 @@ export default function ProfileHeaderMy({
           </div>
         </div>
       </div>
+            {verifOpen ? (
+        <div
+          onClick={() => setVerifOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.65)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "min(720px, calc(100vw - 32px))",
+              borderRadius: 16,
+              border: "1px solid rgba(255,255,255,0.14)",
+              background: "rgba(20,20,20,0.98)",
+              padding: 12,
+              boxShadow: "0 12px 40px rgba(0,0,0,0.45)",
+            }}
+          >
+            <video
+              src={verificationUrl}
+              controls
+              autoPlay
+              style={{
+                width: "100%",
+                borderRadius: 12,
+                border: "1px solid rgba(255,255,255,0.12)",
+                background: "rgba(255,255,255,0.03)",
+              }}
+            />
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }
