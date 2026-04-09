@@ -1,13 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import { api } from "../../api/nestxApi";
 
 type VerificationStatus = "none" | "pending" | "approved" | "rejected";
-
-function authHeaders() {
-  const token = localStorage.getItem("token") || "";
-  const h: Record<string, string> = {};
-  if (token) h.Authorization = `Bearer ${token}`;
-  return h;
-}
 
 export default function ProfileVerificationCard() {
   const [status, setStatus] = useState<VerificationStatus>("none");
@@ -37,19 +31,14 @@ export default function ProfileVerificationCard() {
     setOkMsg("");
 
     try {
-      const r = await fetch("/api/verification/profile/status", {
-        method: "GET",
-        headers: authHeaders(),
-      });
+      const d = await api.verificationProfileStatus();
 
-      const j = await r.json().catch(() => null);
-      if (!r.ok) throw new Error(j?.message || "Failed to load verification status");
-
-      const d = j?.data || {};
       const s = String(d?.verificationStatus || "none").toLowerCase();
 
       const normalized: VerificationStatus =
-        s === "pending" || s === "approved" || s === "rejected" ? (s as VerificationStatus) : "none";
+        s === "pending" || s === "approved" || s === "rejected"
+          ? (s as VerificationStatus)
+          : "none";
 
       setStatus(normalized);
       setPublicVideoUrl(String(d?.verificationPublicVideoUrl || "").trim());
@@ -75,31 +64,8 @@ export default function ProfileVerificationCard() {
     setOkMsg("");
 
     try {
-      // 1) Upload file (DEV local storage)
-      const fd = new FormData();
-      fd.append("file", file);
-      fd.append("scope", "verification");
-
-      const uploadRes = await fetch("/api/media/upload", {
-        method: "POST",
-        body: fd,
-      });
-
-      const uploadJson = await uploadRes.json().catch(() => null);
-      if (!uploadRes.ok) throw new Error(uploadJson?.message || "Upload failed");
-
-      const publicUrl = uploadJson?.data?.publicUrl;
-      if (!publicUrl) throw new Error("Missing publicUrl from upload response");
-
-      // 2) Submit verification
-      const verifyRes = await fetch("/api/verification/profile", {
-        method: "POST",
-        headers: { ...authHeaders(), "Content-Type": "application/json" },
-        body: JSON.stringify({ publicVideoUrl: publicUrl }),
-      });
-
-      const verifyJson = await verifyRes.json().catch(() => null);
-      if (!verifyRes.ok) throw new Error(verifyJson?.message || "Verification submit failed");
+      const publicUrl = await api.uploadVerificationVideo(file);
+      await api.verificationProfileSubmit(publicUrl);
 
       setOkMsg("Submitted. Your verification is now pending review.");
       setFile(null);

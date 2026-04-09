@@ -715,6 +715,32 @@ export const api = {
   verificationTotemStatus: () =>
     request<any>(`/verification/totem/status`),
 
+  verificationProfileSubmit: (publicVideoUrl: string) =>
+    request<any>(`/verification/profile`, {
+      method: "POST",
+      body: JSON.stringify({ publicVideoUrl }),
+    }),
+
+  uploadVerificationVideo: async (file: File): Promise<string> => {
+    if (!file) throw new Error("Missing file");
+
+    const form = new FormData();
+    form.append("file", file);
+    form.append("scope", "verification");
+
+    const res: any = await requestForm(`/media/upload`, form);
+
+    const url = String(
+      res?.data?.url ||
+      res?.url ||
+      res?.data?.data?.url ||
+      ""
+    ).trim();
+
+    if (!url) throw new Error("Upload failed: missing url");
+    return url;
+  },
+
   payoutEligibility: () =>
     request<any>(`/payout/me/eligibility`),
 
