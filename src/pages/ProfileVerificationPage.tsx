@@ -1,14 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import { api } from "../api/nestxApi";
 
 type VerificationStatus = "none" | "pending" | "approved" | "rejected";
-
-function authHeaders() {
-  const token = localStorage.getItem("token") || "";
-  const h: Record<string, string> = {};
-  if (token) h.Authorization = `Bearer ${token}`;
-  return h;
-}
-
 export default function ProfileVerificationPage() {
   const [status, setStatus] = useState<VerificationStatus>("none");
   const [publicVideoUrl, setPublicVideoUrl] = useState<string>("");
@@ -40,25 +33,19 @@ export default function ProfileVerificationPage() {
     setOkMsg("");
 
     try {
-      const r = await fetch("/api/verification/profile/status", {
-        method: "GET",
-        headers: { ...authHeaders(), "Content-Type": "application/json" },
-      });
+      const d = await api.verificationProfileStatus();
 
-      const j = await r.json().catch(() => null);
-      if (!r.ok) throw new Error(j?.message || "Failed to load verification status");
-
-      const d = j?.data || {};
       const s = String(d?.verificationStatus || "none").toLowerCase();
 
       const normalized: VerificationStatus =
-        s === "pending" || s === "approved" || s === "rejected" ? (s as VerificationStatus) : "none";
+        s === "pending" || s === "approved" || s === "rejected"
+          ? (s as VerificationStatus)
+          : "none";
 
       setStatus(normalized);
       setIsVerifiedUser(!!d?.verifiedUser || !!d?.isVerified);
 
       const vu = String(d?.verificationPublicVideoUrl || "").trim();
-      // sanity: accept only URLs that look like video files (basic)
       const looksLikeVideo =
         /\.(mp4|webm|ogg|mov|m4v)(\?.*)?$/i.test(vu) || vu.includes("/uploads/") || vu.includes("/media/");
       setPublicVideoUrl(looksLikeVideo ? vu : "");
@@ -84,31 +71,8 @@ export default function ProfileVerificationPage() {
     setOkMsg("");
 
     try {
-      // 1) upload to backend local storage
-      const fd = new FormData();
-      fd.append("file", file);
-
-      const up = await fetch("/api/media/upload", {
-        method: "POST",
-        headers: authHeaders(), // NO Content-Type for multipart
-        body: fd,
-      });
-
-      const upJson = await up.json().catch(() => null);
-      if (!up.ok) throw new Error(upJson?.message || "Upload failed");
-
-      const uploadedUrl = String(upJson?.data?.url || "").trim();
-      if (!uploadedUrl) throw new Error("Upload returned empty url");
-
-      // 2) submit verification with publicVideoUrl
-      const vr = await fetch("/api/verification/profile", {
-        method: "POST",
-        headers: { ...authHeaders(), "Content-Type": "application/json" },
-        body: JSON.stringify({ publicVideoUrl: uploadedUrl }),
-      });
-
-      const vrJson = await vr.json().catch(() => null);
-      if (!vr.ok) throw new Error(vrJson?.message || "Verification submit failed");
+      const uploadedUrl = await api.uploadVerificationVideo(file);
+      await api.verificationProfileSubmit(uploadedUrl);
 
       setFile(null);
       setOkMsg("Submitted. Your verification is now pending review.");
