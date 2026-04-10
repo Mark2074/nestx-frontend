@@ -63,7 +63,20 @@ export default function ProfileLeftPage() {
 
   const isAdmin = identity.accountType === "admin";
 
+  function hasSessionToken() {
+    try {
+      return !!localStorage.getItem("token");
+    } catch {
+      return false;
+    }
+  }
+
   async function refreshUnreadCount() {
+    if (!hasSessionToken()) {
+      setUnreadCount(0);
+      return;
+    }
+
     try {
       const c = await api.getUnreadNotificationsCount();
       setUnreadCount(Number.isFinite(c) ? c : 0);
@@ -73,6 +86,11 @@ export default function ProfileLeftPage() {
   }
 
   async function refreshChatUnreadCount() {
+    if (!hasSessionToken() || !meId) {
+      setChatUnreadCount(0);
+      return;
+    }
+
     try {
       const res: any = await api.listConversations();
       const list = Array.isArray(res) ? res : (res?.data || []);
@@ -126,12 +144,21 @@ export default function ProfileLeftPage() {
   }, []);
 
   useEffect(() => {
-    void refreshUnreadCount();
-    void refreshChatUnreadCount();
+    const runRefresh = () => {
+      if (!hasSessionToken()) {
+        setUnreadCount(0);
+        setChatUnreadCount(0);
+        return;
+      }
 
-    const onUpd = () => {
       void refreshUnreadCount();
       void refreshChatUnreadCount();
+    };
+
+    runRefresh();
+
+    const onUpd = () => {
+      runRefresh();
     };
 
     window.addEventListener("nx:notifications-updated", onUpd);
@@ -139,8 +166,7 @@ export default function ProfileLeftPage() {
     window.addEventListener("focus", onUpd);
 
     const t = window.setInterval(() => {
-      void refreshUnreadCount();
-      void refreshChatUnreadCount();
+      runRefresh();
     }, 5000);
 
     return () => {

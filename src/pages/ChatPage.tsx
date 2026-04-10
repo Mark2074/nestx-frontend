@@ -220,7 +220,9 @@ export default function ChatPage() {
 
     // ricarica thread solo se è cambiato l'ultimo messaggio
     if (String(latestConvMsgId) !== String(activeThreadLastMessageId || "")) {
-      await loadThread(activePeerId, "smart");
+      shouldAutoScrollRef.current = true;
+      forceScrollOnNextMessagesRef.current = true;
+      await loadThread(activePeerId, "force");
     }
   }
 
