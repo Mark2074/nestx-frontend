@@ -272,17 +272,6 @@ export default function ProfileHeaderMy({
                   flexWrap: "wrap",
                 }}
               >
-                <h2 style={{ margin: 0 }}>{name}</h2>
-
-                {me.isVip ? <PillBadge>VIP</PillBadge> : null}
-                {(me.isVerified || (me as any)?.verifiedUser) ? (
-                  <IconBadge title="Verified" bg="#2ecc71" glyph="✓" />
-                ) : null}
-                {me.isCreator ? <IconBadge title="Creator" bg="#3498db" glyph="★" /> : null}
-                {(me as any).isCreatorMonetizable ? (
-                  <IconBadge title="Payout approved" bg="#16a34a" glyph="$" />
-                ) : null}
-                {me.isPrivate ? <PillBadge>PRIVATE</PillBadge> : null}
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0, flex: "1 1 260px" }}>
                   <h2 style={{ margin: 0, lineHeight: 1.15, wordBreak: "break-word" }}>{name}</h2>
