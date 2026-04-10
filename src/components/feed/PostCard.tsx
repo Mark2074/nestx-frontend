@@ -501,10 +501,11 @@ export default function PostCard({
       onClick={openPostDetail}
       style={{
         border: "1px solid rgba(255,255,255,0.12)",
-        borderRadius: 14,
-        padding: 12,
+        borderRadius: 16,
+        padding: 14,
         background: "rgba(255,255,255,0.03)",
         cursor: shouldOpenPostDetail ? "pointer" : "default",
+        overflow: "hidden",
       }}
     >
             <div
@@ -587,9 +588,10 @@ export default function PostCard({
             marginTop: 10,
             display: "flex",
             gap: 10,
-            justifyContent: mediaItems.length <= 3 ? "center" : "flex-start",
-            overflowX: mediaItems.length > 3 ? "auto" : "hidden",
-            paddingBottom: mediaItems.length > 3 ? 6 : 0,
+            justifyContent: mediaItems.length === 1 ? "center" : "flex-start",
+            overflowX: mediaItems.length > 2 ? "auto" : "hidden",
+            paddingBottom: mediaItems.length > 2 ? 6 : 0,
+            alignItems: "stretch",
           }}
         >
           {mediaItems.map((m, idx) => (
@@ -597,10 +599,10 @@ export default function PostCard({
               key={`${m.url}-${idx}`}
               onContextMenu={stopCtx}
               style={{
-                width: mediaItems.length === 1 ? "100%" : 260,
-                height: 350,
-                aspectRatio: mediaItems.length === 1 ? "4 / 3" : undefined,
-                maxHeight: mediaItems.length === 1 ? 520 : undefined,
+                width: mediaItems.length === 1 ? "100%" : 280,
+                height: mediaItems.length === 1 ? "auto" : 320,
+                aspectRatio: mediaItems.length === 1 ? "16 / 10" : "4 / 5",
+                maxHeight: mediaItems.length === 1 ? 560 : undefined,
                 borderRadius: 14,
                 overflow: "hidden",
                 border: "1px solid rgba(255,255,255,0.12)",
@@ -676,7 +678,13 @@ export default function PostCard({
                     loading="lazy"
                     draggable={false}
                     onContextMenu={stopCtx}
-                    style={{ width: "100%", height: "100%", objectFit: mediaItems.length === 1 ? "contain" : "cover", display: "block", background: "rgba(0,0,0,0.35)" }}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "contain",
+                      display: "block",
+                      background: "rgba(0,0,0,0.35)",
+                    }}
                   />
                 </div>
               )}
@@ -1468,7 +1476,7 @@ function VideoPreviewTile({
         style={{
           width: "100%",
           height: "100%",
-          objectFit: "cover",
+          objectFit: "contain",
           display: "block",
           background: "black",
           pointerEvents: "none",

@@ -107,7 +107,6 @@ export default function ProfileEventBannerCard({
         background: "rgba(255,255,255,0.04)",
         cursor: id ? "pointer" : "default",
         width: "100%",
-        maxWidth: 322,
       }}
     >
       {/* TOP (click -> live details) */}
@@ -118,17 +117,16 @@ export default function ProfileEventBannerCard({
         }}
         style={{
           display: "grid",
-          gridTemplateColumns: "220px 102px",
+          gridTemplateColumns: "minmax(160px, 1fr) 132px",
           alignItems: "stretch",
-          minHeight: 110,
-          maxWidth: 322, // 220 + 102
+          minHeight: 120,
         }}
       >
         {/* Avatar square */}
         <div
           style={{
-            aspectRatio: "1 / 1",
             width: "100%",
+            minHeight: 120,
             background: "rgba(255,255,255,0.06)",
             borderRight: "1px solid rgba(255,255,255,0.10)",
             overflow: "hidden",
@@ -195,7 +193,14 @@ export default function ProfileEventBannerCard({
       {/* BOTTOM compact */}
       <div style={{ padding: "10px 12px 12px 12px" }}>
         {/* Title first row (left), creator as small meta if available */}
-        <div style={{ fontWeight: 950, fontSize: 14, lineHeight: 1.15 }}>
+        <div
+          style={{
+            fontWeight: 950,
+            fontSize: 14,
+            lineHeight: 1.2,
+            wordBreak: "break-word",
+          }}
+        >
           {title}
         </div>
 

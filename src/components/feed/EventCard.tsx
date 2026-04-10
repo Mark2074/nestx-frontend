@@ -194,7 +194,7 @@ export default function EventCard({ item, variant = "scheduled" }: EventCardProp
         <div
           style={{
             width: "100%",
-            aspectRatio: "1 / 1",
+            aspectRatio: "4 / 3",
             background: "rgba(255,255,255,0.06)",
             position: "relative",
             overflow: "hidden",
@@ -204,7 +204,7 @@ export default function EventCard({ item, variant = "scheduled" }: EventCardProp
             <img
               src={imageUrl}
               alt=""
-              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              style={{ width: "100%", height: "100%", objectFit: "contain", display: "block", background: "rgba(0,0,0,0.28)" }}
             />
           ) : (
             <div
@@ -306,18 +306,18 @@ export default function EventCard({ item, variant = "scheduled" }: EventCardProp
         tabIndex={0}
         style={{
           display: "grid",
-          gridTemplateColumns: "84px 1fr",
+          gridTemplateColumns: "96px 1fr",
           gap: 0,
           alignItems: "stretch",
-          minHeight: 84,
+          minHeight: 96,
         }}
       >
         {/* Avatar square */}
         <div
           style={{
-            width: 84,
-            minWidth: 84,
-            height: 84,
+            width: 96,
+            minWidth: 96,
+            height: 96,
             background: "rgba(255,255,255,0.06)",
             borderRight: "1px solid rgba(255,255,255,0.10)",
             position: "relative",
@@ -356,24 +356,15 @@ export default function EventCard({ item, variant = "scheduled" }: EventCardProp
             minWidth: 0,
           }}
         >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 8,
-              minWidth: 0,
-            }}
-          >
+          <div style={{ minWidth: 0 }}>
             <div
               style={{
                 fontWeight: 900,
                 fontSize: 13,
+                opacity: 0.82,
                 whiteSpace: "nowrap",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
-                flex: "1 1 auto",
-                textAlign: "left",
               }}
               title={creatorName}
             >
@@ -382,15 +373,11 @@ export default function EventCard({ item, variant = "scheduled" }: EventCardProp
 
             <div
               style={{
-                fontSize: 13,
-                fontWeight: 700,
-                opacity: 0.85,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                flex: "0 0 auto",
-                maxWidth: "55%",
-                textAlign: "right",
+                marginTop: 4,
+                fontSize: 15,
+                fontWeight: 950,
+                lineHeight: 1.2,
+                wordBreak: "break-word",
               }}
               title={title}
             >

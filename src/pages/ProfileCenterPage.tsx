@@ -344,7 +344,15 @@ export default function ProfileCenterPage() {
   }
 
   return (
-    <div style={{ padding: 20, maxWidth: 820, margin: "0 auto" }}>
+    <div
+      style={{
+        padding: "20px 16px",
+        width: "100%",
+        maxWidth: 960,
+        margin: "0 auto",
+        boxSizing: "border-box",
+      }}
+    >
       <ProfileHeaderMy
         me={me}
         setMe={setMe}
@@ -699,7 +707,15 @@ function OtherProfileView({ userId }: { userId: string }) {
 
   if (notFound) {
     return (
-      <div style={{ padding: 20, maxWidth: 820, margin: "0 auto" }}>
+      <div
+        style={{
+          padding: "20px 16px",
+          width: "100%",
+          maxWidth: 960,
+          margin: "0 auto",
+          boxSizing: "border-box",
+        }}
+      >
         <div
           style={{
             border: "1px solid rgba(255,255,255,0.12)",
@@ -1699,7 +1715,7 @@ function OtherProfileTabs({
                     style={{
                       display: "grid",
                       gap: 12,
-                      gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
                       alignItems: "stretch",
                     }}
                   >

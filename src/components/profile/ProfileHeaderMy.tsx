@@ -207,12 +207,20 @@ export default function ProfileHeaderMy({
 
         {/* Avatar + info */}
         <div style={{ padding: 16 }}>
-          <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+          <div
+            style={{
+              display: "flex",
+              gap: 16,
+              alignItems: "flex-start",
+              flexWrap: "wrap",
+            }}
+          >
             <div
               onClick={() => avatarInputRef.current?.click()}
               style={{
                 width: 96,
                 height: 96,
+                flex: "0 0 96px",
                 borderRadius: 16,
                 overflow: "hidden",
                 background: "rgba(255,255,255,0.08)",
@@ -254,12 +262,13 @@ export default function ProfileHeaderMy({
               ) : null}
             </div>
 
-            <div style={{ flex: 1 }}>
-                            <div
+            <div style={{ flex: "1 1 320px", minWidth: 0 }}>
+              <div
                 style={{
                   display: "flex",
                   gap: 10,
-                  alignItems: "center",
+                  alignItems: "flex-start",
+                  justifyContent: "space-between",
                   flexWrap: "wrap",
                 }}
               >
@@ -275,16 +284,32 @@ export default function ProfileHeaderMy({
                 ) : null}
                 {me.isPrivate ? <PillBadge>PRIVATE</PillBadge> : null}
 
-                <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
-                  {canShowVerificationVideo ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0, flex: "1 1 260px" }}>
+                  <h2 style={{ margin: 0, lineHeight: 1.15, wordBreak: "break-word" }}>{name}</h2>
+
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                    {me.isVip ? <PillBadge>VIP</PillBadge> : null}
+                    {(me.isVerified || (me as any)?.verifiedUser) ? (
+                      <IconBadge title="Verified" bg="#2ecc71" glyph="✓" />
+                    ) : null}
+                    {me.isCreator ? <IconBadge title="Creator" bg="#3498db" glyph="★" /> : null}
+                    {(me as any).isCreatorMonetizable ? (
+                      <IconBadge title="Payout approved" bg="#16a34a" glyph="$" />
+                    ) : null}
+                    {me.isPrivate ? <PillBadge>PRIVATE</PillBadge> : null}
+                  </div>
+                </div>
+
+                {canShowVerificationVideo ? (
+                  <div style={{ flex: "0 0 auto", marginLeft: "auto" }}>
                     <button
                       type="button"
                       onClick={() => setVerifOpen(true)}
                       title="Verification video"
                       style={{
-                        width: 96,
-                        height: 96,
-                        borderRadius: 16,
+                        width: 80,
+                        height: 80,
+                        borderRadius: 14,
                         overflow: "hidden",
                         padding: 0,
                         border: "1px solid rgba(255,255,255,0.22)",
@@ -308,8 +333,8 @@ export default function ProfileHeaderMy({
                         }}
                       />
                     </button>
-                  ) : null}
-                </div>
+                  </div>
+                ) : null}
               </div>
 
               <div

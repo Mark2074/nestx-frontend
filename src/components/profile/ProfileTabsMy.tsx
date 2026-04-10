@@ -256,7 +256,14 @@ export default function ProfileTabsMy({ me }: { me: MeProfile }) {
 
   return (
     <div style={{ marginTop: 16 }}>
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: 10,
+          flexWrap: "wrap",
+          alignItems: "center",
+        }}
+      >
         <TabButton active={tab === "posts"} label="Posts" onClick={() => setTab("posts")} />
         <TabButton
           active={tab === "following"}
@@ -386,7 +393,7 @@ export default function ProfileTabsMy({ me }: { me: MeProfile }) {
                     style={{
                       display: "grid",
                       gap: 12,
-                      gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
                       alignItems: "stretch",
                     }}
                   >
