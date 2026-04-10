@@ -2,10 +2,14 @@ import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 
 type UpdateItem = {
-  id: string;
+  _id?: string;
+  id?: string;
   text: string;
-  createdAt: string;
+  createdAt?: string;
 };
+
+const RAW_BASE = import.meta.env.VITE_API_BASE_URL || "";
+const API_BASE = RAW_BASE.endsWith("/api") ? RAW_BASE : `${RAW_BASE}/api`;
 
 export default function UpdatesRightWidget() {
   const [update, setUpdate] = useState<UpdateItem | null>(null);
@@ -19,19 +23,37 @@ export default function UpdatesRightWidget() {
       try {
         setLoading(true);
 
-        const res = await fetch("/api/updates/serve");
-        const data = await res.json();
+        const res = await fetch(`${API_BASE}/updates/serve`, {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+          },
+        });
+
+        let data: any = null;
+        try {
+          data = await res.json();
+        } catch {
+          data = null;
+        }
 
         if (!mounted) return;
 
-        if (data?.status === "success" && data.data) {
-          setUpdate(data.data);
+        if (!res.ok) {
+          setUpdate(null);
+          return;
+        }
+
+        const payload = data?.data ?? data ?? null;
+
+        if (payload && typeof payload === "object" && payload.text) {
+          setUpdate(payload);
         } else {
           setUpdate(null);
         }
       } catch (err) {
         console.error("Updates widget error:", err);
-        setUpdate(null);
+        if (mounted) setUpdate(null);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -42,7 +64,7 @@ export default function UpdatesRightWidget() {
     return () => {
       mounted = false;
     };
-  }, [location.pathname]); // 🔥 cambia ad ogni navigazione
+  }, [location.pathname]);
 
   return (
     <div

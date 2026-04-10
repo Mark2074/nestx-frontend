@@ -173,9 +173,9 @@ export default function ChatPage() {
       setActiveThreadLastMessageId(String(lastMsg?._id || lastMsg?.id || ""));
 
       if (scrollMode === "force") {
-        forceScrollToBottomAfterRender();
+        forceScrollOnNextMessagesRef.current = true;
       } else if (shouldAutoScrollRef.current) {
-        setTimeout(scrollToBottom, 0);
+        forceScrollOnNextMessagesRef.current = true;
       }
 
       // carica i peer mancanti in background, senza bloccare il render
@@ -375,6 +375,7 @@ export default function ChatPage() {
     setMessages([]);
     setActiveThreadLastMessageId("");
     shouldAutoScrollRef.current = true;
+    forceScrollOnNextMessagesRef.current = true;
     void loadThread(selectedPeerId, "force");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPeerId]);
@@ -392,11 +393,17 @@ export default function ChatPage() {
   }, []);
 
   useEffect(() => {
-    if (!forceScrollOnNextMessagesRef.current) return;
     if (!selectedPeerId) return;
 
-    forceScrollOnNextMessagesRef.current = false;
-    forceScrollToBottomAfterRender();
+    if (forceScrollOnNextMessagesRef.current) {
+      forceScrollOnNextMessagesRef.current = false;
+      forceScrollToBottomAfterRender();
+      return;
+    }
+
+    if (shouldAutoScrollRef.current) {
+      forceScrollToBottomAfterRender();
+    }
   }, [messages, selectedPeerId]);
 
   async function handleSend() {
