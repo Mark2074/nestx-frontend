@@ -110,6 +110,38 @@ function notificationExtra(n: NotificationItem): string {
   return "";
 }
 
+function isNotificationDeletable(n: NotificationItem): boolean {
+  const t = normalizeType(n.type);
+
+  // backend/system persistence wins
+  if (n.isPersistent === true) return false;
+
+  // admin/system/platform decisions
+  if (t.startsWith("system_")) return false;
+  if (t.startsWith("admin_")) return false;
+
+  // creator / vip / verification / moderation outcomes
+  if (
+    t === "adv_approved" ||
+    t === "adv_rejected" ||
+    t === "vetrina_approved" ||
+    t === "vetrina_rejected"
+  ) {
+    return false;
+  }
+
+  // payment / ticket / token history
+  if (
+    t === "ticket_purchased" ||
+    t === "ticket_refunded" ||
+    t === "token_received"
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
 export default function NotificationsPage() {
   const nav = useNavigate();
 
@@ -240,6 +272,7 @@ export default function NotificationsPage() {
             const aId = actorIdString(n);
             const aName = actorLabel(n);
             const aAvatar = actorAvatarUrl(n);
+            const canDelete = isNotificationDeletable(n);
 
             return (
               <div
@@ -359,26 +392,28 @@ export default function NotificationsPage() {
                       </button>
                     ) : null}
 
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void del(n._id);
-                      }}
-                      disabled={isBusy}
-                      title="Delete notification"
-                      style={{
-                        padding: "8px 10px",
-                        borderRadius: 12,
-                        fontWeight: 950,
-                        cursor: isBusy ? "not-allowed" : "pointer",
-                        border: "none",
-                        background: "rgba(255,255,255,0.08)",
-                        color: "rgba(255,255,255,0.92)",
-                        opacity: isBusy ? 0.6 : 1,
-                      }}
-                    >
-                      Delete
-                    </button>
+                    {canDelete ? (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void del(n._id);
+                        }}
+                        disabled={isBusy}
+                        title="Delete notification"
+                        style={{
+                          padding: "8px 10px",
+                          borderRadius: 12,
+                          fontWeight: 950,
+                          cursor: isBusy ? "not-allowed" : "pointer",
+                          border: "none",
+                          background: "rgba(255,255,255,0.08)",
+                          color: "rgba(255,255,255,0.92)",
+                          opacity: isBusy ? 0.6 : 1,
+                        }}
+                      >
+                        Delete
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               </div>
