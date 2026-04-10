@@ -588,9 +588,10 @@ export default function PostCard({
             marginTop: 10,
             display: "flex",
             gap: 10,
+            flexWrap: "wrap",
             justifyContent: mediaItems.length === 1 ? "center" : "flex-start",
-            overflowX: mediaItems.length > 2 ? "auto" : "hidden",
-            paddingBottom: mediaItems.length > 2 ? 6 : 0,
+            overflow: "hidden",
+            paddingBottom: 0,
             alignItems: "stretch",
           }}
         >
@@ -599,8 +600,8 @@ export default function PostCard({
               key={`${m.url}-${idx}`}
               onContextMenu={stopCtx}
               style={{
-                width: mediaItems.length === 1 ? "100%" : 280,
-                height: mediaItems.length === 1 ? "auto" : 320,
+                width: mediaItems.length === 1 ? "100%" : undefined,
+                height: mediaItems.length === 1 ? "auto" : 260,
                 aspectRatio: mediaItems.length === 1 ? "16 / 10" : "4 / 5",
                 maxHeight: mediaItems.length === 1 ? 560 : undefined,
                 borderRadius: 14,
@@ -610,7 +611,14 @@ export default function PostCard({
                 position: "relative",
                 cursor: m.type === "video" && mediaItems.length === 1 ? "default" : "pointer",
                 userSelect: "none",
-                flex: "0 0 auto",
+                flex:
+                  mediaItems.length === 1
+                    ? "1 1 100%"
+                    : mediaItems.length === 2
+                    ? "1 1 calc(50% - 5px)"
+                    : "1 1 calc(33.333% - 7px)",
+                minWidth: mediaItems.length === 1 ? "100%" : 180,
+                maxWidth: "100%",
               }}
               title="Open"
               onClick={() => {
