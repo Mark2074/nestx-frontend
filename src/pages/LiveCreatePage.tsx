@@ -12,6 +12,7 @@ export default function LiveCreatePage() {
   const [contentScope, setContentScope] = useState<Scope | null>(null);
 
   const [economyEnabled, setEconomyEnabled] = useState<boolean | null>(null);
+  const liveEnabled = false;
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -33,9 +34,20 @@ export default function LiveCreatePage() {
     isNoHot ? "private" : accessScope;
 
   const isPrivateModel = effectiveAccessScope === "private";
-  const canPromoteEvent = economyEnabled !== false && !!contentScope;
+  const canPromoteEvent = liveEnabled && economyEnabled !== false && !!contentScope;
 
   const interactionMode: "broadcast" | "interactive" = "broadcast";
+
+  const isPaidModel = isPrivateModel;
+
+  let blockingMessage = "";
+  if (!liveEnabled) {
+    blockingMessage = "Live creation is currently disabled by NestX.";
+  } else if (economyEnabled === false && isPaidModel) {
+    blockingMessage = "Tickets are disabled in this phase.";
+  }
+
+  const canCreateEvent = !blockingMessage;
 
   const [submitting, setSubmitting] = useState(false);
   const [submitErr, setSubmitErr] = useState("");
@@ -122,8 +134,14 @@ export default function LiveCreatePage() {
   async function handleSubmit() {
     if (submitting) return;
 
-    setSubmitting(true);
     setSubmitErr("");
+
+    if (!canCreateEvent) {
+      setSubmitErr(blockingMessage);
+      return;
+    }
+
+    setSubmitting(true);
     try {
       // 1) crea evento UNA SOLA volta
       const { eventId } = await createEventOnce();
@@ -415,7 +433,7 @@ export default function LiveCreatePage() {
         ) : null}
 
         {/* Hard warning when economy off + NON_HOT */}
-        {economyEnabled === false && contentScope === "NO_HOT" ? (
+        {!canCreateEvent ? (
           <div
             style={{
               marginTop: 6,
@@ -426,23 +444,23 @@ export default function LiveCreatePage() {
               fontWeight: 800,
             }}
           >
-            Tickets are disabled in this phase. NO_HOT events cannot be created.
+            {blockingMessage}
           </div>
         ) : null}
 
         <button
           onClick={handleSubmit}
-          disabled={submitting || (economyEnabled === false && contentScope === "NO_HOT")}
+          disabled={submitting || !canCreateEvent}
           style={{
             marginTop: 10,
             padding: "12px 14px",
             borderRadius: 12,
             fontWeight: 900,
-            cursor: submitting ? "not-allowed" : "pointer",
+            cursor: submitting || !canCreateEvent ? "not-allowed" : "pointer",
             border: "1px solid rgba(255,255,255,0.14)",
             background: "rgba(255,255,255,0.06)",
             color: "white",
-            opacity: submitting || (economyEnabled === false && contentScope === "NO_HOT") ? 0.6 : 1,
+            opacity: submitting || !canCreateEvent ? 0.6 : 1,
           }}
         >
           {submitting ? "Creating..." : "Create Event"}
