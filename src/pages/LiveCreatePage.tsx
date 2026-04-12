@@ -177,6 +177,11 @@ export default function LiveCreatePage() {
         return;
       }
 
+      if (code === "TOKENS_DISABLED") {
+        setSubmitErr("Tickets are currently disabled.");
+        return;
+      }
+
       setSubmitErr(
         mapApiErrorMessage(err, "Error creating event") +
           formatRetryAfterLabel(retryAfterMs)
