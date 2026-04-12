@@ -442,28 +442,34 @@ function OtherProfileView({ userId }: { userId: string }) {
   };
 
   const isBlocked = rel === "blocked_by_me" || rel === "blocked_me";
+  const isAdminViewer =
+    String(localStorage.getItem("accountType") || "").toLowerCase() === "admin";
 
   const canSeePosts = useMemo(() => {
     if (!p) return false;
     if (isBlocked) return false;
     if (isMuted) return false;
 
+    if (isAdminViewer) return true;
     if (rel === "accepted") return true;
     if (rel === "none" && p.isPrivate === false) return true;
 
     return false;
-  }, [p, rel, isBlocked, isMuted]);
+  }, [p, rel, isBlocked, isMuted, isAdminViewer]);
 
   const canSeeEventCard = useMemo(() => {
     if (!p) return false;
     if (isBlocked) return false;
     if (isMuted) return false;
-    // se profilo pubblico: visibile anche senza follow
+
+    if (isAdminViewer) return true;
     if (p.isPrivate === false) return true;
-    // se privato: solo accepted
     return rel === "accepted";
-  }, [p, rel, isBlocked, isMuted]);
-  const canSeeOldLive = useMemo(() => rel === "accepted", [rel]);
+  }, [p, rel, isBlocked, isMuted, isAdminViewer]);
+  const canSeeOldLive = useMemo(() => {
+    if (isAdminViewer) return true;
+    return rel === "accepted";
+  }, [rel, isAdminViewer]);
 
   function normalizeRelStatus(raw: any): FollowRelationship {
     const s = String(raw || "").toLowerCase();
@@ -1010,11 +1016,11 @@ function OtherProfileView({ userId }: { userId: string }) {
               )}
 
               {/* Messaggi privacy/pending */}
-              {p.isPrivate && rel === "pending" ? (
+              {!isAdminViewer && p.isPrivate && rel === "pending" ? (
                 <p style={{ marginTop: 10, opacity: 0.9 }}>
                   <b>Richiesta di follow inviata</b> · Questo profilo è privato
                 </p>
-              ) : p.isPrivate && rel === "none" ? (
+              ) : !isAdminViewer && p.isPrivate && rel === "none" ? (
                 <p style={{ marginTop: 10, opacity: 0.9 }}>
                   <b>Questo profilo è privato</b>
                 </p>
@@ -1035,40 +1041,42 @@ function OtherProfileView({ userId }: { userId: string }) {
           {/* CTA profilo altrui */}
           <div style={{ marginTop: 16, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
 
-            {rel === "none" ? (
-              <button
-                onClick={handleFollow}
-                style={{ padding: "10px 14px", borderRadius: 12, fontWeight: 800, cursor: "pointer" }}
-              >
-                Follow
-              </button>
-            ) : rel === "pending" ? (
-              <button
-                onClick={handleCancelRequest}
-                style={{
-                  padding: "10px 14px",
-                  borderRadius: 12,
-                  fontWeight: 800,
-                  cursor: "pointer",
-                  opacity: 0.9,
-                }}
-                title="Annulla richiesta di follow"
-              >
-                Richiesta inviata · Annulla
-              </button>
-            ) : rel === "accepted" ? (
-              <button
-                onClick={handleUnfollow}
-                style={{
-                  padding: "10px 14px",
-                  borderRadius: 12,
-                  fontWeight: 800,
-                  cursor: "pointer",
-                  opacity: 0.95,
-                }}
-              >
-                Unfollow
-              </button>
+            {!isAdminViewer ? (
+              rel === "none" ? (
+                <button
+                  onClick={handleFollow}
+                  style={{ padding: "10px 14px", borderRadius: 12, fontWeight: 800, cursor: "pointer" }}
+                >
+                  Follow
+                </button>
+              ) : rel === "pending" ? (
+                <button
+                  onClick={handleCancelRequest}
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: 12,
+                    fontWeight: 800,
+                    cursor: "pointer",
+                    opacity: 0.9,
+                  }}
+                  title="Annulla richiesta di follow"
+                >
+                  Richiesta inviata · Annulla
+                </button>
+              ) : rel === "accepted" ? (
+                <button
+                  onClick={handleUnfollow}
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: 12,
+                    fontWeight: 800,
+                    cursor: "pointer",
+                    opacity: 0.95,
+                  }}
+                >
+                  Unfollow
+                </button>
+              ) : null
             ) : null}
 
             <button
