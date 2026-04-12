@@ -12,6 +12,8 @@ export default function SearchPage() {
 
   const [me, setMe] = useState<MeProfile | null>(null);
   const isVip = me?.isVip === true;
+  const isAdmin = me?.accountType === "admin";
+  const canUseVipFilters = isVip || isAdmin;
 
   const [tab, setTab] = useState<Tab>("posts");
 
@@ -41,7 +43,6 @@ export default function SearchPage() {
   }, [tab, q, profileType, country, language]);
 
   const effectiveFilters = useMemo(() => {
-    // manteniamo valori in UI anche se disabled, ma in request NON mandiamo i VIP-only se base
     const f = {
       profileType: profileType.trim() || null,
       country: country.trim() || null,
@@ -49,22 +50,23 @@ export default function SearchPage() {
     };
 
     if (tab === "events") {
-      // base+vip: profileType/country ok
-      // VIP only: language
-      if (!isVip) f.language = null;
+      // base+vip+admin: profileType/country ok
+      // language: VIP or admin
+      if (!canUseVipFilters) f.language = null;
       return f;
     }
 
-    // posts/users: tutto VIP only
-    if (!isVip) {
+    // posts/users: advanced filters allowed for VIP or admin
+    if (!canUseVipFilters) {
       f.profileType = null;
       f.country = null;
       f.language = null;
     }
-    return f;
-  }, [tab, profileType, country, language, isVip]);
 
-    const canRunWithoutQ = useMemo(() => {
+    return f;
+  }, [tab, profileType, country, language, canUseVipFilters]);
+
+  const canRunWithoutQ = useMemo(() => {
     const hasAnyFilter = !!(
       effectiveFilters.profileType ||
       effectiveFilters.country ||
@@ -73,16 +75,18 @@ export default function SearchPage() {
 
     if (!hasAnyFilter) return false;
 
-    // EVENTS: Base ok con profileType/country; language solo VIP (già nullo se base)
     if (tab === "events") {
-      return !!(effectiveFilters.profileType || effectiveFilters.country);
+      return !!(
+        effectiveFilters.profileType ||
+        effectiveFilters.country ||
+        effectiveFilters.language
+      );
     }
 
-    // USERS/POSTS: solo VIP (e i filtri base vengono già nullati in effectiveFilters)
-    return isVip;
+    return canUseVipFilters;
   }, [
     tab,
-    isVip,
+    canUseVipFilters,
     effectiveFilters.profileType,
     effectiveFilters.country,
     effectiveFilters.language,
@@ -224,6 +228,7 @@ export default function SearchPage() {
       <SearchFilters
         tab={tab}
         isVip={isVip}
+        isAdmin={isAdmin}
         profileType={profileType}
         country={country}
         language={language}

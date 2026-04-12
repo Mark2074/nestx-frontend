@@ -7,22 +7,28 @@ const PROFILE_TYPES = ["male", "female", "couple", "gay", "trans"] as const;
 
 const LANGUAGES: string[] = ["it", "en", "es", "fr", "de", "pt", "ru", "tr", "ar", "zh", "ja", "ko"];
 
-function vipOnlyLabel(isVip: boolean) {
-  return isVip ? "" : "VIP only";
+function vipOnlyLabel(canUseVipFilters: boolean) {
+  return canUseVipFilters ? "" : "VIP only";
 }
 
-function canUseFilter(tab: SearchTab, filter: "profileType" | "country" | "language", isVip: boolean) {
+function canUseFilter(
+  tab: SearchTab,
+  filter: "profileType" | "country" | "language",
+  canUseVipFilters: boolean
+) {
   if (tab === "events") {
-    if (filter === "language") return isVip;
+    if (filter === "language") return canUseVipFilters;
     return true; // profileType + country => base + vip
   }
-  // posts/users: tutti VIP-only
-  return isVip;
+
+  // posts/users: VIP or admin
+  return canUseVipFilters;
 }
 
 export default function SearchFilters(props: {
   tab: SearchTab;
   isVip: boolean;
+  isAdmin?: boolean;
 
   profileType: string;
   country: string;
@@ -32,7 +38,19 @@ export default function SearchFilters(props: {
   setCountry: (v: string) => void;
   setLanguage: (v: string) => void;
 }) {
-  const { tab, isVip, profileType, country, language, setProfileType, setCountry, setLanguage } = props;
+  const {
+    tab,
+    isVip,
+    isAdmin = false,
+    profileType,
+    country,
+    language,
+    setProfileType,
+    setCountry,
+    setLanguage,
+  } = props;
+
+  const canUseVipFilters = isVip || isAdmin;
 
   const COUNTRY_OPTIONS = useMemo(
     () =>
@@ -57,8 +75,8 @@ export default function SearchFilters(props: {
         <select
           value={profileType}
           onChange={(e) => setProfileType(e.target.value)}
-          disabled={!canUseFilter(tab, "profileType", isVip)}
-          title={!canUseFilter(tab, "profileType", isVip) ? vipOnlyLabel(isVip) : ""}
+          disabled={!canUseFilter(tab, "profileType", canUseVipFilters)}
+          title={!canUseFilter(tab, "profileType", canUseVipFilters) ? vipOnlyLabel(canUseVipFilters) : ""}
           style={{
             width: "100%",
             padding: "10px 12px",
@@ -66,7 +84,7 @@ export default function SearchFilters(props: {
             border: "1px solid rgba(255,255,255,0.15)",
             background: "rgba(255,255,255,0.04)",
             color: "inherit",
-            opacity: !canUseFilter(tab, "profileType", isVip) ? 0.55 : 1,
+            opacity: !canUseFilter(tab, "profileType", canUseVipFilters) ? 0.55 : 1,
           }}
         >
           <option value="">Any</option>
@@ -84,8 +102,8 @@ export default function SearchFilters(props: {
         <select
           value={country}
           onChange={(e) => setCountry(e.target.value)}
-          disabled={!canUseFilter(tab, "country", isVip)}
-          title={!canUseFilter(tab, "country", isVip) ? vipOnlyLabel(isVip) : ""}
+          disabled={!canUseFilter(tab, "country", canUseVipFilters)}
+          title={!canUseFilter(tab, "country", canUseVipFilters) ? vipOnlyLabel(canUseVipFilters) : ""}
           style={{
             width: "100%",
             padding: "10px 12px",
@@ -93,7 +111,7 @@ export default function SearchFilters(props: {
             border: "1px solid rgba(255,255,255,0.15)",
             background: "rgba(255,255,255,0.04)",
             color: "inherit",
-            opacity: !canUseFilter(tab, "country", isVip) ? 0.55 : 1,
+            opacity: !canUseFilter(tab, "country", canUseVipFilters) ? 0.55 : 1,
           }}
         >
           <option value="">Any</option>
@@ -111,8 +129,8 @@ export default function SearchFilters(props: {
         <select
           value={language}
           onChange={(e) => setLanguage(e.target.value)}
-          disabled={!canUseFilter(tab, "language", isVip)}
-          title={!canUseFilter(tab, "language", isVip) ? vipOnlyLabel(isVip) : ""}
+          disabled={!canUseFilter(tab, "language", canUseVipFilters)}
+          title={!canUseFilter(tab, "language", canUseVipFilters) ? vipOnlyLabel(canUseVipFilters) : ""}
           style={{
             width: "100%",
             padding: "10px 12px",
@@ -120,7 +138,7 @@ export default function SearchFilters(props: {
             border: "1px solid rgba(255,255,255,0.15)",
             background: "rgba(255,255,255,0.04)",
             color: "inherit",
-            opacity: !canUseFilter(tab, "language", isVip) ? 0.55 : 1,
+            opacity: !canUseFilter(tab, "language", canUseVipFilters) ? 0.55 : 1,
           }}
         >
           <option value="">Any</option>
