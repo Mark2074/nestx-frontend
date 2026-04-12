@@ -451,7 +451,9 @@ export default function PostCard({
 
   const moderationStatus = String(post?.moderation?.status || "visible");
   const moderationIsDeleted = post?.moderation?.isDeleted === true;
-  const showUnderReviewBadge =
+
+  const showModeratedPlaceholder =
+    context === "myPosts" &&
     isMyPost &&
     !moderationIsDeleted &&
     moderationStatus !== "visible";
@@ -558,115 +560,71 @@ export default function PostCard({
           </div>
         </div>
       </div>
-      {showUnderReviewBadge ? (
+      {showModeratedPlaceholder ? (
         <div
           style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-            marginBottom: 8,
-            padding: "6px 10px",
-            borderRadius: 999,
+            marginTop: 8,
+            padding: "12px 14px",
+            borderRadius: 12,
             border: "1px solid rgba(255,200,120,0.35)",
             background: "rgba(255,200,120,0.10)",
             color: "rgba(255,230,180,0.95)",
-            fontSize: 12,
+            fontSize: 14,
             fontWeight: 800,
           }}
         >
-          Hidden – under review
+          This post has been moderated
         </div>
-      ) : null}
-      {post.text && (
-        <p style={{ margin: "8px 0", whiteSpace: "pre-wrap" }}>{post.text}</p>
-      )}
+      ) : (
+        <>
+          {post.text ? (
+            <p style={{ margin: "8px 0", whiteSpace: "pre-wrap" }}>{post.text}</p>
+          ) : null}
 
-      {/* Media */}
-      {mediaItems.length ? (
-        <div
-          style={{
-            marginTop: 10,
-            display: "flex",
-            gap: 10,
-            flexWrap: "wrap",
-            justifyContent: mediaItems.length === 1 ? "center" : "flex-start",
-            overflow: "hidden",
-            paddingBottom: 0,
-            alignItems: "stretch",
-          }}
-        >
-          {mediaItems.map((m, idx) => (
+          {/* Media */}
+          {mediaItems.length ? (
             <div
-              key={`${m.url}-${idx}`}
-              onContextMenu={stopCtx}
               style={{
-                width: mediaItems.length === 1 ? "100%" : undefined,
-                height: mediaItems.length === 1 ? "auto" : 260,
-                aspectRatio: mediaItems.length === 1 ? "16 / 10" : "4 / 5",
-                maxHeight: mediaItems.length === 1 ? 560 : undefined,
-                borderRadius: 14,
+                marginTop: 10,
+                display: "flex",
+                gap: 10,
+                flexWrap: "wrap",
+                justifyContent: mediaItems.length === 1 ? "center" : "flex-start",
                 overflow: "hidden",
-                border: "1px solid rgba(255,255,255,0.12)",
-                background: "rgba(0,0,0,0.25)",
-                position: "relative",
-                cursor: m.type === "video" && mediaItems.length === 1 ? "default" : "pointer",
-                userSelect: "none",
-                flex:
-                  mediaItems.length === 1
-                    ? "1 1 100%"
-                    : mediaItems.length === 2
-                    ? "1 1 calc(50% - 5px)"
-                    : "1 1 calc(33.333% - 7px)",
-                minWidth: mediaItems.length === 1 ? "100%" : 180,
-                maxWidth: "100%",
-              }}
-              title="Open"
-              onClick={() => {
-                if (shouldOpenPostDetail) {
-                  if (allowInlineMediaViewer) {
-                    setViewer({ url: m.url, type: m.type === "video" ? "video" : "image" });
-                    return;
-                  }
-
-                  openPostDetail();
-                  return;
-                }
-
-                if (m.type === "image") return;
-                if (m.type === "video" && mediaItems.length === 1) return;
-                if (m.type === "video") setViewer({ url: m.url, type: "video" });
+                paddingBottom: 0,
+                alignItems: "stretch",
               }}
             >
-              {m.type === "video" ? (
-                mediaItems.length === 1 ? (
-                  <VideoTile url={m.url} onTogglePlay={togglePlay} />
-                ) : (
-                  <VideoPreviewTile
-                    url={m.url}
-                    onOpen={() => {
-                      if (shouldOpenPostDetail) {
-                        if (allowInlineMediaViewer) {
-                          setViewer({ url: m.url, type: "video" });
-                          return;
-                        }
-
-                        openPostDetail();
-                        return;
-                      }
-
-                      setViewer({ url: m.url, type: "video" });
-                    }}
-                    stopCtx={stopCtx}
-                  />
-                )
-              ) : (
+              {mediaItems.map((m, idx) => (
                 <div
-                  onClick={(e) => {
-                    e.stopPropagation();
-
+                  key={`${m.url}-${idx}`}
+                  onContextMenu={stopCtx}
+                  style={{
+                    width: mediaItems.length === 1 ? "100%" : undefined,
+                    height: mediaItems.length === 1 ? "auto" : 260,
+                    aspectRatio: mediaItems.length === 1 ? "16 / 10" : "4 / 5",
+                    maxHeight: mediaItems.length === 1 ? 560 : undefined,
+                    borderRadius: 14,
+                    overflow: "hidden",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    background: "rgba(0,0,0,0.25)",
+                    position: "relative",
+                    cursor: m.type === "video" && mediaItems.length === 1 ? "default" : "pointer",
+                    userSelect: "none",
+                    flex:
+                      mediaItems.length === 1
+                        ? "1 1 100%"
+                        : mediaItems.length === 2
+                        ? "1 1 calc(50% - 5px)"
+                        : "1 1 calc(33.333% - 7px)",
+                    minWidth: mediaItems.length === 1 ? "100%" : 180,
+                    maxWidth: "100%",
+                  }}
+                  title="Open"
+                  onClick={() => {
                     if (shouldOpenPostDetail) {
                       if (allowInlineMediaViewer) {
-                        setViewer({ url: m.url, type: "image" });
+                        setViewer({ url: m.url, type: m.type === "video" ? "video" : "image" });
                         return;
                       }
 
@@ -674,32 +632,76 @@ export default function PostCard({
                       return;
                     }
 
-                    setViewer({ url: m.url, type: "image" });
+                    if (m.type === "image") return;
+                    if (m.type === "video" && mediaItems.length === 1) return;
+                    if (m.type === "video") setViewer({ url: m.url, type: "video" });
                   }}
-                  onContextMenu={stopCtx}
-                  style={{ display: "block", width: "100%", height: "100%" }}
-                  title="Open"
                 >
-                  <img
-                    src={m.url}
-                    alt=""
-                    loading="lazy"
-                    draggable={false}
-                    onContextMenu={stopCtx}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "contain",
-                      display: "block",
-                      background: "rgba(0,0,0,0.35)",
-                    }}
-                  />
+                  {m.type === "video" ? (
+                    mediaItems.length === 1 ? (
+                      <VideoTile url={m.url} onTogglePlay={togglePlay} />
+                    ) : (
+                      <VideoPreviewTile
+                        url={m.url}
+                        onOpen={() => {
+                          if (shouldOpenPostDetail) {
+                            if (allowInlineMediaViewer) {
+                              setViewer({ url: m.url, type: "video" });
+                              return;
+                            }
+
+                            openPostDetail();
+                            return;
+                          }
+
+                          setViewer({ url: m.url, type: "video" });
+                        }}
+                        stopCtx={stopCtx}
+                      />
+                    )
+                  ) : (
+                    <div
+                      onClick={(e) => {
+                        e.stopPropagation();
+
+                        if (shouldOpenPostDetail) {
+                          if (allowInlineMediaViewer) {
+                            setViewer({ url: m.url, type: "image" });
+                            return;
+                          }
+
+                          openPostDetail();
+                          return;
+                        }
+
+                        setViewer({ url: m.url, type: "image" });
+                      }}
+                      onContextMenu={stopCtx}
+                      style={{ display: "block", width: "100%", height: "100%" }}
+                      title="Open"
+                    >
+                      <img
+                        src={m.url}
+                        alt=""
+                        loading="lazy"
+                        draggable={false}
+                        onContextMenu={stopCtx}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "contain",
+                          display: "block",
+                          background: "rgba(0,0,0,0.35)",
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
-              )}
+              ))}
             </div>
-          ))}
-        </div>
-      ) : null}
+          ) : null}
+        </>
+      )}
 
       {viewer ? (
         <div
