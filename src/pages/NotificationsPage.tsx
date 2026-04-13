@@ -107,6 +107,27 @@ function notificationExtra(n: NotificationItem): string {
     return parts.join(" • ");
   }
 
+  const rejectionTypes = new Set([
+    "system_profile_verification_rejected",
+    "system_totem_verification_rejected",
+    "system_creator_rejected",
+    "system_creator_verification_rejected",
+  ]);
+
+  if (rejectionTypes.has(t)) {
+    const note =
+      String(
+        d.adminNote ||
+        d.note ||
+        d.reason ||
+        d.rejectionReason ||
+        d.rejectedReason ||
+        ""
+      ).trim();
+
+    if (note) return `Admin note: ${note}`;
+  }
+
   return "";
 }
 
