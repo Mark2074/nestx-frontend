@@ -82,6 +82,10 @@ function notificationText(n: NotificationItem): string {
   if (t === "post_like" || t === "social_post_liked") return `${a} liked your post`;
   if (t === "post_comment" || t === "social_post_commented") return `${a} commented on your post`;
 
+  // creator rejected: standard safe message, no admin detail exposed
+  if (t === "system_creator_rejected" || t === "system_creator_verification_rejected") {
+    return "Your creator application was not approved due to a violation of NestX policies.";
+  }
 
   // heuristic fallback: if we have a post target and type contains like/comment keywords
   if (n.targetType === "post") {
@@ -107,25 +111,28 @@ function notificationExtra(n: NotificationItem): string {
     return parts.join(" • ");
   }
 
-  const rejectionTypes = new Set([
+  // profile/totem verification rejected: show admin note if present
+  const verificationRejectionTypes = new Set([
     "system_profile_verification_rejected",
     "system_totem_verification_rejected",
-    "system_creator_rejected",
-    "system_creator_verification_rejected",
   ]);
 
-  if (rejectionTypes.has(t)) {
-    const note =
-      String(
-        d.adminNote ||
-        d.note ||
-        d.reason ||
-        d.rejectionReason ||
-        d.rejectedReason ||
-        ""
-      ).trim();
+  if (verificationRejectionTypes.has(t)) {
+    const note = String(
+      d.adminNote ||
+      d.note ||
+      d.reason ||
+      d.rejectionReason ||
+      d.rejectedReason ||
+      ""
+    ).trim();
 
     if (note) return `Admin note: ${note}`;
+  }
+
+  // creator rejected: no raw admin note shown to user
+  if (t === "system_creator_rejected" || t === "system_creator_verification_rejected") {
+    return "";
   }
 
   return "";
