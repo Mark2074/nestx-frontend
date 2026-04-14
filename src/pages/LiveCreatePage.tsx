@@ -12,7 +12,7 @@ export default function LiveCreatePage() {
   const [contentScope, setContentScope] = useState<Scope | null>(null);
 
   const [economyEnabled, setEconomyEnabled] = useState<boolean | null>(null);
-  const liveEnabled = false;
+  const liveEnabled = true;
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
