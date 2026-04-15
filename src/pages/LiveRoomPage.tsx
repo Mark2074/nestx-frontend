@@ -264,6 +264,7 @@ export default function LiveRoomPage() {
   const isLive = eventStatus === "live";
   const isFinished = eventStatus === "finished";
   const isCancelled = eventStatus === "cancelled";
+  const creatorShowSetupScreen = isHost && !isLive;
 
   const eventBaseScope = getEventBaseScope(eventDetail);
   const contentScope = getContentScope(eventDetail);
@@ -1042,14 +1043,8 @@ export default function LiveRoomPage() {
 
   useEffect(() => {
     if (!eventId) return;
-    if (!isLive) {
-      setLiveToken(null);
-      setLiveTokenErr("");
-      setLoadingLiveToken(false);
-      return;
-    }
 
-    if (!entered || !roomReady || !runtimeScope) {
+    if (isFinished || isCancelled) {
       setLiveToken(null);
       setLiveTokenErr("");
       setLoadingLiveToken(false);
@@ -1063,6 +1058,31 @@ export default function LiveRoomPage() {
       return;
     }
 
+    const shouldBootCreatorPreLive =
+      isHost &&
+      !isLive &&
+      !isFinished &&
+      !isCancelled &&
+      !!eventDetail;
+
+    const shouldBootActiveRoom =
+      isLive &&
+      !!entered &&
+      !!roomReady &&
+      !!runtimeScope;
+
+    if (!shouldBootCreatorPreLive && !shouldBootActiveRoom) {
+      setLiveToken(null);
+      setLiveTokenErr("");
+      setLoadingLiveToken(false);
+      return;
+    }
+
+    const tokenScope: LiveScope =
+      shouldBootCreatorPreLive
+        ? getEventBaseScope(eventDetail)
+        : (runtimeScope as LiveScope);
+
     let cancelled = false;
 
     const run = async () => {
@@ -1070,7 +1090,7 @@ export default function LiveRoomPage() {
       setLiveTokenErr("");
 
       try {
-        const tokenRes = await api.liveGetToken(eventId, runtimeScope);
+        const tokenRes = await api.liveGetToken(eventId, tokenScope);
         if (cancelled) return;
 
         setLiveToken(tokenRes);
@@ -1091,7 +1111,18 @@ export default function LiveRoomPage() {
     return () => {
       cancelled = true;
     };
-  }, [eventId, entered, isLive, roomReady, runtimeScope, shouldPausePublic]);
+  }, [
+    eventId,
+    eventDetail,
+    entered,
+    isCancelled,
+    isFinished,
+    isHost,
+    isLive,
+    roomReady,
+    runtimeScope,
+    shouldPausePublic,
+  ]);
 
   useEffect(() => {
     emitRuntimeState();
@@ -1269,9 +1300,10 @@ export default function LiveRoomPage() {
               }}
             >
               <RealtimeMeetingEmbed
-                key={`${liveToken.meetingId}:${liveToken.participantId || liveToken.role}:${runtimeScope}`}
+                key={`${liveToken.meetingId}:${liveToken.participantId || liveToken.role}:${runtimeScope || eventBaseScope}:${creatorShowSetupScreen ? "setup" : "direct"}`}
                 authToken={liveToken.authToken}
                 isHost={isHost}
+                showSetupScreen={creatorShowSetupScreen}
               />
             </div>
           ) : (

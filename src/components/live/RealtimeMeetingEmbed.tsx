@@ -19,6 +19,7 @@ import type { States } from "@cloudflare/realtimekit-react-ui";
 type Props = {
   authToken: string;
   isHost: boolean;
+  showSetupScreen?: boolean;
 };
 
 type ViewerMeetingState = "idle" | "setup" | "waiting" | "joined" | "ended";
@@ -200,7 +201,13 @@ function FullCenterMessage({ text }: { text: string }) {
   );
 }
 
-function HostMeeting({ meeting }: { meeting: any }) {
+function HostMeeting({
+  meeting,
+  showSetupScreen,
+}: {
+  meeting: any;
+  showSetupScreen: boolean;
+}) {
   const rootRef = useRef<HTMLDivElement | null>(null);
 
   useSdkUiHardening(rootRef, true);
@@ -210,7 +217,7 @@ function HostMeeting({ meeting }: { meeting: any }) {
       <RtkMeeting
         mode="fill"
         meeting={meeting}
-        showSetupScreen={true}
+        showSetupScreen={showSetupScreen}
       />
     </div>
   );
@@ -313,7 +320,11 @@ function ViewerMeeting({ meeting }: { meeting: any }) {
   );
 }
 
-export default function RealtimeMeetingEmbed({ authToken, isHost }: Props) {
+export default function RealtimeMeetingEmbed({
+  authToken,
+  isHost,
+  showSetupScreen = false,
+}: Props) {
   const [meeting, initMeeting] = useRealtimeKitClient();
 
   const defaults = useMemo(
@@ -344,7 +355,7 @@ export default function RealtimeMeetingEmbed({ authToken, isHost }: Props) {
   return (
     <RealtimeKitProvider value={meeting}>
       {isHost ? (
-        <HostMeeting meeting={meeting} />
+        <HostMeeting meeting={meeting} showSetupScreen={showSetupScreen} />
       ) : (
         <ViewerMeeting meeting={meeting} />
       )}
