@@ -4,7 +4,6 @@ import ProfileLeftPage from "./ProfileLeftPage.tsx";
 import ProfileRightPage from "./ProfileRightPage.tsx";
 import LiveRightPanel from "./LiveRightPanel.tsx";
 import AdminDictionaryDrawer from "./admin/AdminDictionaryDrawer";
-import LiveHostDock from "../components/live/LiveHostDock";
 
 export default function ProfileLayoutPage() {
 
@@ -171,7 +170,6 @@ export default function ProfileLayoutPage() {
           <ProfileRightPage key={rightKey} />
         )}
       </div>
-      <LiveHostDock />
       <AdminDictionaryDrawer
         open={dictOpen}
         onClose={() => setDictOpen(false)}

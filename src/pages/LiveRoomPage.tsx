@@ -308,45 +308,6 @@ export default function LiveRoomPage() {
     access,
   });
 
-  const syncHostDock = useCallback(
-    (payload?: Partial<{
-      active: boolean;
-      visible: boolean;
-      isLive: boolean;
-      authToken: string;
-      meetingId: string;
-      scope: LiveScope;
-    }>) => {
-      if (!isHost) return;
-
-      const scope = payload?.scope || runtimeScopeRef.current || getEventBaseScope(eventDetail);
-      const authToken = String(payload?.authToken || liveToken?.authToken || "").trim();
-      const meetingId = String(payload?.meetingId || liveToken?.meetingId || "").trim();
-
-      if (!payload?.active || !authToken || !meetingId) {
-        window.dispatchEvent(new CustomEvent("nx:live-host-dock:clear"));
-        return;
-      }
-
-      window.dispatchEvent(
-        new CustomEvent("nx:live-host-dock:sync", {
-          detail: {
-            active: true,
-            visible: payload?.visible === true,
-            eventId,
-            scope,
-            authToken,
-            meetingId,
-            role: "host",
-            isHost: true,
-            isLive: payload?.isLive === true,
-          },
-        })
-      );
-    },
-    [eventDetail, eventId, isHost, liveToken]
-  );
-
   const goal = eventDetail?.goal || eventDetail?.live?.goal || null;
   const goalIsActive = !!goal?.isActive;
 
@@ -725,7 +686,6 @@ export default function LiveRoomPage() {
           await leaveRuntimeScope(runtimeScopeRef.current);
         }
         clearRuntimeState(true);
-        syncHostDock({ active: false });
         nav("/app/live", { replace: true });
         return;
       }
@@ -737,7 +697,6 @@ export default function LiveRoomPage() {
           await leaveRuntimeScope(runtimeScopeRef.current);
         }
         clearRuntimeState(true);
-        syncHostDock({ active: false });
         nav("/app/live", { replace: true });
       }
     } catch (e: any) {
@@ -1136,7 +1095,6 @@ export default function LiveRoomPage() {
     };
 
     if (isFinished || isCancelled) {
-      if (isHost) syncHostDock({ active: false });
       resetTokenState();
       return;
     }
@@ -1180,7 +1138,6 @@ export default function LiveRoomPage() {
         return;
       }
 
-      if (isHost) syncHostDock({ active: false });
       resetTokenState();
       return;
     }
@@ -1213,16 +1170,6 @@ export default function LiveRoomPage() {
         liveTokenScopeRef.current = tokenScope;
         liveTokenRoleRef.current = desiredRole;
 
-        if (isHost && desiredRole === "host") {
-          syncHostDock({
-            active: true,
-            visible: false,
-            isLive,
-            authToken: tokenRes.authToken,
-            meetingId: tokenRes.meetingId,
-            scope: tokenScope,
-          });
-        }
       } catch (e: any) {
         if (cancelled) return;
 
@@ -1248,7 +1195,6 @@ export default function LiveRoomPage() {
     isFinished,
     isHost,
     isLive,
-    syncHostDock,
     liveToken,
     roomReady,
     runtimeScope,
@@ -1263,9 +1209,6 @@ export default function LiveRoomPage() {
     if (!eventId) return;
 
     return () => {
-      if (isHost) {
-        window.dispatchEvent(new CustomEvent("nx:live-host-dock:clear"));
-      }
       const current = runtimeScopeRef.current;
       if (current && joinedPresenceRef.current) {
         void api.liveLeaveRoom(eventId, current).catch(() => {});
@@ -1435,56 +1378,41 @@ export default function LiveRoomPage() {
               {liveTokenErr}
             </div>
           ) : liveToken?.authToken ? (
-            isHost ? (
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                alignItems: isHost && !isLive ? "flex-start" : "stretch",
+                justifyContent: "center",
+                padding: isHost && !isLive ? "16px 12px 24px" : 0,
+                overflowY: "hidden",
+                overflowX: "hidden",
+                boxSizing: "border-box",
+              }}
+            >
               <div
                 style={{
-                  position: "absolute",
-                  inset: 0,
-                  display: "grid",
-                  placeItems: "center",
-                  padding: 16,
+                  width: "100%",
+                  maxWidth: isHost && !isLive ? 400 : "100%",
+                  minHeight: isHost && !isLive ? "auto" : "100%",
+                  height: isHost && !isLive ? "auto" : "100%",
                 }}
               >
-                <div style={{ textAlign: "center" }}>
-                  <div style={{ fontWeight: 1000, fontSize: 16 }}>
-                    {isLive ? "Host live session active" : "Host setup active"}
-                  </div>
-                  <div style={{ marginTop: 8, opacity: 0.88, fontWeight: 800 }}>
-                    The host session is kept persistent by NestX.
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  display: "flex",
-                  alignItems: "stretch",
-                  justifyContent: "center",
-                  padding: 0,
-                  overflowY: "hidden",
-                  overflowX: "hidden",
-                  boxSizing: "border-box",
-                }}
-              >
-                <div
-                  style={{
-                    width: "100%",
-                    maxWidth: "100%",
-                    minHeight: "100%",
-                    height: "100%",
+                <RealtimeMeetingEmbed
+                  key={`${eventId}:${isHost ? "host" : "viewer"}:${runtimeScope || eventBaseScope}`}
+                  authToken={liveToken.authToken}
+                  isHost={isHost}
+                  showSetupScreen={isHost && !isLive}
+                  shouldStartBroadcast={isHost && isLive}
+                  onHostRealtimeStateSync={(state) => {
+                    if (isHost) {
+                      void syncHostRealtimeState(state);
+                    }
                   }}
-                >
-                  <RealtimeMeetingEmbed
-                    key={`${eventId}:viewer:${runtimeScope || eventBaseScope}`}
-                    authToken={liveToken.authToken}
-                    isHost={false}
-                    showSetupScreen={false}
-                  />
-                </div>
+                />
               </div>
-            )
+            </div>
           ) : (
             <div style={{ opacity: 0.9 }}>
               Waiting for live stream…
