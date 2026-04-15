@@ -948,6 +948,7 @@ export default function LiveRoomPage() {
 
   useEffect(() => {
     if (!eventId) return;
+    if (!isLive) return;
 
     const t = window.setInterval(async () => {
       const latest = await loadEvent();
