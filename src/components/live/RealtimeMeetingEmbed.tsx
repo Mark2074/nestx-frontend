@@ -360,6 +360,7 @@ export default function RealtimeMeetingEmbed({
   onHostMeetingStateChange,
 }: Props) {
   const [meeting, initMeeting] = useRealtimeKitClient();
+  const initializedAuthTokenRef = useRef("");
 
   const defaults = useMemo(
     () => ({
@@ -371,6 +372,9 @@ export default function RealtimeMeetingEmbed({
 
   useEffect(() => {
     if (!authToken) return;
+    if (initializedAuthTokenRef.current === authToken) return;
+
+    initializedAuthTokenRef.current = authToken;
 
     void initMeeting({
       authToken,

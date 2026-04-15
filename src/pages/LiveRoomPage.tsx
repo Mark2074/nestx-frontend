@@ -257,6 +257,10 @@ export default function LiveRoomPage() {
   const transitionSeqRef = useRef(0);
   const transitionInFlightRef = useRef(false);
 
+  const liveTokenEventIdRef = useRef("");
+  const liveTokenScopeRef = useRef<LiveScope | null>(null);
+  const liveTokenRoleRef = useRef<"host" | "viewer" | null>(null);
+
   const creatorId = useMemo(() => getCreatorId(eventDetail), [eventDetail]);
   const isHost = useMemo(() => !!meId && !!creatorId && meId === creatorId, [meId, creatorId]);
   const isAdmin = meAccountType === "admin";
@@ -441,6 +445,10 @@ export default function LiveRoomPage() {
       setLiveTokenErr("");
       setLoadingLiveToken(false);
 
+      liveTokenEventIdRef.current = "";
+      liveTokenScopeRef.current = null;
+      liveTokenRoleRef.current = null;
+
       emitRuntimeState({
         entered: false,
         joinedPresence: false,
@@ -466,6 +474,10 @@ export default function LiveRoomPage() {
       setLiveToken(null);
       setLiveTokenErr("");
       setLoadingLiveToken(false);
+
+      liveTokenEventIdRef.current = "";
+      liveTokenScopeRef.current = null;
+      liveTokenRoleRef.current = null;
 
       if (emitNull) {
         emitRuntimeState({
@@ -1049,17 +1061,22 @@ export default function LiveRoomPage() {
   useEffect(() => {
     if (!eventId) return;
 
-    if (isFinished || isCancelled) {
+    const resetTokenState = () => {
       setLiveToken(null);
       setLiveTokenErr("");
       setLoadingLiveToken(false);
+      liveTokenEventIdRef.current = "";
+      liveTokenScopeRef.current = null;
+      liveTokenRoleRef.current = null;
+    };
+
+    if (isFinished || isCancelled) {
+      resetTokenState();
       return;
     }
 
     if (shouldPausePublic) {
-      setLiveToken(null);
-      setLiveTokenErr("");
-      setLoadingLiveToken(false);
+      resetTokenState();
       return;
     }
 
@@ -1077,9 +1094,7 @@ export default function LiveRoomPage() {
       !!runtimeScope;
 
     if (!shouldBootCreatorPreLive && !shouldBootActiveRoom) {
-      setLiveToken(null);
-      setLiveTokenErr("");
-      setLoadingLiveToken(false);
+      resetTokenState();
       return;
     }
 
@@ -1087,6 +1102,21 @@ export default function LiveRoomPage() {
       shouldBootCreatorPreLive
         ? getEventBaseScope(eventDetail)
         : (runtimeScope as LiveScope);
+
+    const desiredRole: "host" | "viewer" = isHost ? "host" : "viewer";
+
+    const canReuseCurrentToken =
+      !!liveToken?.authToken &&
+      liveTokenEventIdRef.current === eventId &&
+      liveTokenScopeRef.current === tokenScope &&
+      liveTokenRoleRef.current === desiredRole &&
+      String(liveToken?.role || "").trim().toLowerCase() === desiredRole;
+
+    if (canReuseCurrentToken) {
+      setLoadingLiveToken(false);
+      setLiveTokenErr("");
+      return;
+    }
 
     let cancelled = false;
 
@@ -1099,10 +1129,13 @@ export default function LiveRoomPage() {
         if (cancelled) return;
 
         setLiveToken(tokenRes);
+        liveTokenEventIdRef.current = eventId;
+        liveTokenScopeRef.current = tokenScope;
+        liveTokenRoleRef.current = desiredRole;
       } catch (e: any) {
         if (cancelled) return;
 
-        setLiveToken(null);
+        resetTokenState();
         setLiveTokenErr(String(e?.message || "Failed to initialize live stream"));
       } finally {
         if (!cancelled) {
@@ -1124,6 +1157,7 @@ export default function LiveRoomPage() {
     isFinished,
     isHost,
     isLive,
+    liveToken,
     roomReady,
     runtimeScope,
     shouldPausePublic,
@@ -1321,7 +1355,7 @@ export default function LiveRoomPage() {
                 }}
               >
                 <RealtimeMeetingEmbed
-                  key={`${liveToken.meetingId}:${liveToken.participantId || liveToken.role}:${runtimeScope || eventBaseScope}`}
+                  key={`${eventId}:${isHost ? "host" : "viewer"}:${runtimeScope || eventBaseScope}`}
                   authToken={liveToken.authToken}
                   isHost={isHost}
                   showSetupScreen={creatorShowSetupScreen}
