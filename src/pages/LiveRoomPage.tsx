@@ -1310,7 +1310,7 @@ export default function LiveRoomPage() {
               <div
                 style={{
                   width: "100%",
-                  maxWidth: creatorShowSetupScreen ? 560 : "100%",
+                  maxWidth: creatorShowSetupScreen ? 520 : "100%",
                   minHeight: creatorShowSetupScreen ? "auto" : "100%",
                   height: creatorShowSetupScreen ? "auto" : "100%",
                 }}
