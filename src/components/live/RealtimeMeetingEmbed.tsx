@@ -20,9 +20,11 @@ type Props = {
   authToken: string;
   isHost: boolean;
   showSetupScreen?: boolean;
+  onHostMeetingStateChange?: (state: "idle" | "setup" | "waiting" | "joined" | "ended") => void;
 };
 
 type ViewerMeetingState = "idle" | "setup" | "waiting" | "joined" | "ended";
+type HostMeetingState = "idle" | "setup" | "waiting" | "joined" | "ended";
 
 function normalizeText(v: string): string {
   return String(v || "")
@@ -204,21 +206,52 @@ function FullCenterMessage({ text }: { text: string }) {
 function HostMeeting({
   meeting,
   showSetupScreen,
+  onHostMeetingStateChange,
 }: {
   meeting: any;
   showSetupScreen: boolean;
+  onHostMeetingStateChange?: (state: HostMeetingState) => void;
 }) {
   const rootRef = useRef<HTMLDivElement | null>(null);
 
   useSdkUiHardening(rootRef, true);
 
+  function handleHostStatesUpdate(event: { detail: States }) {
+    const next = String(event?.detail?.meeting || "").trim().toLowerCase();
+
+    if (
+      next === "idle" ||
+      next === "setup" ||
+      next === "waiting" ||
+      next === "joined" ||
+      next === "ended"
+    ) {
+      onHostMeetingStateChange?.(next as HostMeetingState);
+      return;
+    }
+
+    onHostMeetingStateChange?.("idle");
+  }
+
   return (
     <div ref={rootRef} style={{ height: "100%", width: "100%" }}>
-      <RtkMeeting
-        mode="fill"
+      <RtkUiProvider
         meeting={meeting}
         showSetupScreen={showSetupScreen}
-      />
+        onRtkStatesUpdate={handleHostStatesUpdate}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          height: "100%",
+          width: "100%",
+        }}
+      >
+        <RtkMeeting
+          mode="fill"
+          meeting={meeting}
+          showSetupScreen={showSetupScreen}
+        />
+      </RtkUiProvider>
     </div>
   );
 }
@@ -324,6 +357,7 @@ export default function RealtimeMeetingEmbed({
   authToken,
   isHost,
   showSetupScreen = false,
+  onHostMeetingStateChange,
 }: Props) {
   const [meeting, initMeeting] = useRealtimeKitClient();
 
@@ -355,7 +389,11 @@ export default function RealtimeMeetingEmbed({
   return (
     <RealtimeKitProvider value={meeting}>
       {isHost ? (
-        <HostMeeting meeting={meeting} showSetupScreen={showSetupScreen} />
+        <HostMeeting
+          meeting={meeting}
+          showSetupScreen={showSetupScreen}
+          onHostMeetingStateChange={onHostMeetingStateChange}
+        />
       ) : (
         <ViewerMeeting meeting={meeting} />
       )}

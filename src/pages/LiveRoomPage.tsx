@@ -227,6 +227,7 @@ export default function LiveRoomPage() {
   const [liveToken, setLiveToken] = useState<LiveTokenResponse | null>(null);
   const [loadingLiveToken, setLoadingLiveToken] = useState(false);
   const [liveTokenErr, setLiveTokenErr] = useState("");
+  const [hostSdkState, setHostSdkState] = useState<"idle" | "setup" | "waiting" | "joined" | "ended">("idle");
 
   const [tipOpen, setTipOpen] = useState(false);
   const [tipAmount, setTipAmount] = useState<number>(10);
@@ -264,7 +265,7 @@ export default function LiveRoomPage() {
   const isLive = eventStatus === "live";
   const isFinished = eventStatus === "finished";
   const isCancelled = eventStatus === "cancelled";
-  const creatorShowSetupScreen = isHost && !isLive;
+  const creatorShowSetupScreen = isHost && hostSdkState !== "joined";
 
   const eventBaseScope = getEventBaseScope(eventDetail);
   const contentScope = getContentScope(eventDetail);
@@ -435,6 +436,7 @@ export default function LiveRoomPage() {
       setEntered(false);
       setRoomReady(false);
       setRoomBlockCode("");
+      setHostSdkState("idle");
       setLiveToken(null);
       setLiveTokenErr("");
       setLoadingLiveToken(false);
@@ -460,6 +462,7 @@ export default function LiveRoomPage() {
       setEntered(false);
       setRoomReady(false);
       setRoomBlockCode(nextRoomBlockCode);
+      setHostSdkState("idle");
       setLiveToken(null);
       setLiveTokenErr("");
       setLoadingLiveToken(false);
@@ -799,6 +802,7 @@ export default function LiveRoomPage() {
       setRuntimeRoomId("");
       setEntered(false);
       setRoomReady(false);
+      setHostSdkState("idle");
 
       try {
         const [me, rawEvent, accessRes] = await Promise.all([
@@ -1317,10 +1321,15 @@ export default function LiveRoomPage() {
                 }}
               >
                 <RealtimeMeetingEmbed
-                  key={`${liveToken.meetingId}:${liveToken.participantId || liveToken.role}:${runtimeScope || eventBaseScope}:${creatorShowSetupScreen ? "setup" : "direct"}`}
+                  key={`${liveToken.meetingId}:${liveToken.participantId || liveToken.role}:${runtimeScope || eventBaseScope}`}
                   authToken={liveToken.authToken}
                   isHost={isHost}
                   showSetupScreen={creatorShowSetupScreen}
+                  onHostMeetingStateChange={(state) => {
+                    if (isHost) {
+                      setHostSdkState(state);
+                    }
+                  }}
                 />
               </div>
             </div>
