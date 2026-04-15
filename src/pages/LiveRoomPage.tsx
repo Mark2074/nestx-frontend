@@ -1302,7 +1302,7 @@ export default function LiveRoomPage() {
                 alignItems: creatorShowSetupScreen ? "flex-start" : "stretch",
                 justifyContent: "center",
                 padding: creatorShowSetupScreen ? "16px 12px 24px" : 0,
-                overflowY: creatorShowSetupScreen ? "auto" : "hidden",
+                overflowY: "hidden",
                 overflowX: "hidden",
                 boxSizing: "border-box",
               }}
@@ -1310,7 +1310,7 @@ export default function LiveRoomPage() {
               <div
                 style={{
                   width: "100%",
-                  maxWidth: creatorShowSetupScreen ? 760 : "100%",
+                  maxWidth: creatorShowSetupScreen ? 660 : "100%",
                   minHeight: creatorShowSetupScreen ? "auto" : "100%",
                   height: creatorShowSetupScreen ? "auto" : "100%",
                 }}
