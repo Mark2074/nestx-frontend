@@ -1269,7 +1269,8 @@ export default function LiveRoomPage() {
 
         <div
           style={{
-            height: 380,
+            height: isHost && !isLive ? 760 : 520,
+            minHeight: isHost && !isLive ? 760 : 520,
             borderRadius: 14,
             border: "1px solid rgba(255,255,255,0.10)",
             background: "rgba(0,0,0,0.25)",
