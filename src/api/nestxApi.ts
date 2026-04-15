@@ -1,6 +1,7 @@
 export type ApiWrapped<T> = { status: "success" | "error"; data?: T; message?: string };
 
 type LiveScope = "public" | "private";
+type HostRealtimeState = "idle" | "setup" | "joined" | "broadcasting" | "ended";
 
 export type LiveTokenResponse = {
   eventId: string;
@@ -920,6 +921,18 @@ export const api = {
     request<LiveTokenResponse>(`/live/token`, {
       method: "POST",
       body: JSON.stringify({ eventId, scope }),
+    }),
+
+  liveHostRealtimeState: (
+    eventId: string,
+    payload: { scope: LiveScope; state: HostRealtimeState }
+  ) =>
+    request<any>(`/live/${eventId}/host-realtime-state`, {
+      method: "POST",
+      body: JSON.stringify({
+        scope: payload.scope,
+        state: payload.state,
+      }),
     }),
 
   eventGetTicket: (eventId: string) =>

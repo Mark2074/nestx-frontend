@@ -413,6 +413,27 @@ export default function LiveRoomPage() {
     [eventId]
   );
 
+  const syncHostRealtimeState = useCallback(
+    async (state: "setup" | "joined" | "broadcasting" | "ended") => {
+      if (!eventId) return;
+      if (!isHost) return;
+
+      const scopeForSync: LiveScope =
+        runtimeScopeRef.current ||
+        getEventBaseScope(eventDetail);
+
+      try {
+        await api.liveHostRealtimeState(eventId, {
+          scope: scopeForSync,
+          state,
+        });
+      } catch {
+        // ignore
+      }
+    },
+    [eventDetail, eventId, isHost]
+  );  
+
   const loadStatus = useCallback(
     async (scope: LiveScope) => {
       if (!eventId) return;
@@ -440,7 +461,6 @@ export default function LiveRoomPage() {
       setEntered(false);
       setRoomReady(false);
       setRoomBlockCode("");
-      setHostSdkState("idle");
       setLiveToken(null);
       setLiveTokenErr("");
       setLoadingLiveToken(false);
@@ -470,7 +490,6 @@ export default function LiveRoomPage() {
       setEntered(false);
       setRoomReady(false);
       setRoomBlockCode(nextRoomBlockCode);
-      setHostSdkState("idle");
       setLiveToken(null);
       setLiveTokenErr("");
       setLoadingLiveToken(false);
@@ -663,6 +682,7 @@ export default function LiveRoomPage() {
       }
 
       if (action === "finish") {
+        await syncHostRealtimeState("ended");
         await api.eventFinish(eventId);
         if (runtimeScopeRef.current && joinedPresenceRef.current) {
           await leaveRuntimeScope(runtimeScopeRef.current);
@@ -673,6 +693,7 @@ export default function LiveRoomPage() {
       }
 
       if (action === "cancel") {
+        await syncHostRealtimeState("ended");
         await api.eventCancel(eventId);
         if (runtimeScopeRef.current && joinedPresenceRef.current) {
           await leaveRuntimeScope(runtimeScopeRef.current);
@@ -905,6 +926,7 @@ export default function LiveRoomPage() {
     if (status === "live" || status === "finished" || status === "cancelled") return;
 
     applyPreLiveHostState(getEventBaseScope(eventDetail));
+    void syncHostRealtimeState("setup");
   }, [
     applyPreLiveHostState,
     creatorId,
@@ -912,6 +934,7 @@ export default function LiveRoomPage() {
     eventId,
     isHost,
     meId,
+    syncHostRealtimeState,
   ]);
 
   useEffect(() => {
@@ -1193,6 +1216,13 @@ export default function LiveRoomPage() {
         void api.liveLeaveRoom(eventId, current).catch(() => {});
       }
 
+      if (isHost && (isFinished || isCancelled)) {
+        void api.liveHostRealtimeState(eventId, {
+          scope: current || getEventBaseScope(eventDetail),
+          state: "ended",
+        }).catch(() => {});
+      }
+
       runtimeScopeRef.current = null;
       joinedPresenceRef.current = false;
 
@@ -1214,7 +1244,7 @@ export default function LiveRoomPage() {
         // ignore
       }
     };
-  }, [eventId]);
+  }, [eventDetail, eventId, isCancelled, isFinished, isHost]);
 
   useEffect(() => {
     if (!eventId) return;
@@ -1380,6 +1410,11 @@ export default function LiveRoomPage() {
                   onHostMeetingStateChange={(state) => {
                     if (isHost) {
                       setHostSdkState(state);
+                    }
+                  }}
+                  onHostRealtimeStateSync={(state) => {
+                    if (isHost) {
+                      void syncHostRealtimeState(state);
                     }
                   }}
                 />

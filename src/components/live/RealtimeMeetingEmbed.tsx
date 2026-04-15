@@ -22,6 +22,7 @@ type Props = {
   showSetupScreen?: boolean;
   shouldStartBroadcast?: boolean;
   onHostMeetingStateChange?: (state: "idle" | "setup" | "waiting" | "joined" | "ended") => void;
+  onHostRealtimeStateSync?: (state: "setup" | "joined" | "broadcasting" | "ended") => void;
 };
 
 type ViewerMeetingState = "idle" | "setup" | "waiting" | "joined" | "ended";
@@ -162,6 +163,9 @@ function useSdkUiHardening(rootRef: React.RefObject<HTMLElement | null>, isHost:
           "start live",
           "start broadcast",
           "start streaming",
+          "end live",
+          "stop live",
+          "stop broadcast",
         ]);
       } else {
         // Viewer pure spectator
@@ -216,17 +220,19 @@ function HostMeeting({
   showSetupScreen,
   shouldStartBroadcast,
   onHostMeetingStateChange,
+  onHostRealtimeStateSync,
 }: {
   meeting: any;
   showSetupScreen: boolean;
   shouldStartBroadcast: boolean;
   onHostMeetingStateChange?: (state: HostMeetingState) => void;
+  onHostRealtimeStateSync?: (state: "setup" | "joined" | "broadcasting" | "ended") => void;
 }) {
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const autoStartBroadcastDoneRef = useRef(false);
+  const lastSyncedRealtimeStateRef = useRef<string>("");
 
   useSdkUiHardening(rootRef, true);
-
-  const autoStartBroadcastDoneRef = useRef(false);
 
   useEffect(() => {
     if (!shouldStartBroadcast) {
@@ -248,14 +254,15 @@ function HostMeeting({
 
       if (clicked) {
         autoStartBroadcastDoneRef.current = true;
+        onHostRealtimeStateSync?.("broadcasting");
       }
     };
 
     tryStart();
 
-    const t = window.setInterval(tryStart, 800);
+    const t = window.setInterval(tryStart, 700);
     return () => window.clearInterval(t);
-  }, [shouldStartBroadcast]);
+  }, [onHostRealtimeStateSync, shouldStartBroadcast]);
 
   function handleHostStatesUpdate(event: { detail: States }) {
     const next = String(event?.detail?.meeting || "").trim().toLowerCase();
@@ -268,6 +275,18 @@ function HostMeeting({
       next === "ended"
     ) {
       onHostMeetingStateChange?.(next as HostMeetingState);
+
+      let syncState: "setup" | "joined" | "broadcasting" | "ended" | null = null;
+
+      if (next === "setup" || next === "waiting") syncState = "setup";
+      if (next === "joined") syncState = shouldStartBroadcast ? "broadcasting" : "joined";
+      if (next === "ended") syncState = "ended";
+
+      if (syncState && lastSyncedRealtimeStateRef.current !== syncState) {
+        lastSyncedRealtimeStateRef.current = syncState;
+        onHostRealtimeStateSync?.(syncState);
+      }
+
       return;
     }
 
@@ -400,6 +419,7 @@ export default function RealtimeMeetingEmbed({
   showSetupScreen = false,
   shouldStartBroadcast = false,
   onHostMeetingStateChange,
+  onHostRealtimeStateSync,
 }: Props) {
   const [meeting, initMeeting] = useRealtimeKitClient();
   const initializedAuthTokenRef = useRef("");
@@ -440,6 +460,7 @@ export default function RealtimeMeetingEmbed({
           showSetupScreen={showSetupScreen}
           shouldStartBroadcast={shouldStartBroadcast}
           onHostMeetingStateChange={onHostMeetingStateChange}
+          onHostRealtimeStateSync={onHostRealtimeStateSync}
         />
       ) : (
         <ViewerMeeting meeting={meeting} />
