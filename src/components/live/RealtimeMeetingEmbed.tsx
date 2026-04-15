@@ -213,33 +213,12 @@ function HostMeeting({
   useSdkUiHardening(rootRef, true);
 
   return (
-    <div
-      ref={rootRef}
-      style={{
-        height: "100%",
-        width: "100%",
-        display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "center",
-        overflow: "auto",
-        padding: 12,
-        boxSizing: "border-box",
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: showSetupScreen ? 760 : "100%",
-          transform: showSetupScreen ? "scale(0.88)" : "none",
-          transformOrigin: "top center",
-        }}
-      >
-        <RtkMeeting
-          mode="fill"
-          meeting={meeting}
-          showSetupScreen={showSetupScreen}
-        />
-      </div>
+    <div ref={rootRef} style={{ height: "100%", width: "100%" }}>
+      <RtkMeeting
+        mode="fill"
+        meeting={meeting}
+        showSetupScreen={showSetupScreen}
+      />
     </div>
   );
 }

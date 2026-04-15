@@ -1298,14 +1298,30 @@ export default function LiveRoomPage() {
               style={{
                 position: "absolute",
                 inset: 0,
+                display: "flex",
+                alignItems: creatorShowSetupScreen ? "flex-start" : "stretch",
+                justifyContent: "center",
+                padding: creatorShowSetupScreen ? "16px 12px 24px" : 0,
+                overflowY: creatorShowSetupScreen ? "auto" : "hidden",
+                overflowX: "hidden",
+                boxSizing: "border-box",
               }}
             >
-              <RealtimeMeetingEmbed
-                key={`${liveToken.meetingId}:${liveToken.participantId || liveToken.role}:${runtimeScope || eventBaseScope}:${creatorShowSetupScreen ? "setup" : "direct"}`}
-                authToken={liveToken.authToken}
-                isHost={isHost}
-                showSetupScreen={creatorShowSetupScreen}
-              />
+              <div
+                style={{
+                  width: "100%",
+                  maxWidth: creatorShowSetupScreen ? 760 : "100%",
+                  minHeight: creatorShowSetupScreen ? "auto" : "100%",
+                  height: creatorShowSetupScreen ? "auto" : "100%",
+                }}
+              >
+                <RealtimeMeetingEmbed
+                  key={`${liveToken.meetingId}:${liveToken.participantId || liveToken.role}:${runtimeScope || eventBaseScope}:${creatorShowSetupScreen ? "setup" : "direct"}`}
+                  authToken={liveToken.authToken}
+                  isHost={isHost}
+                  showSetupScreen={creatorShowSetupScreen}
+                />
+              </div>
             </div>
           ) : (
             <div style={{ opacity: 0.9 }}>
