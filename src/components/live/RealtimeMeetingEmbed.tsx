@@ -20,6 +20,7 @@ type Props = {
   authToken: string;
   isHost: boolean;
   showSetupScreen?: boolean;
+  shouldStartBroadcast?: boolean;
   onHostMeetingStateChange?: (state: "idle" | "setup" | "waiting" | "joined" | "ended") => void;
 };
 
@@ -153,8 +154,15 @@ function useSdkUiHardening(rootRef: React.RefObject<HTMLElement | null>, isHost:
       hideByLabel(currentRoot, ["participants"]);
 
       if (isHost) {
-        // Host uses NestX buttons for flow; hide SDK leave
-        hideByLabel(currentRoot, ["leave"]);
+        hideByLabel(currentRoot, [
+          "leave",
+          "leave stage",
+          "join stage",
+          "go live",
+          "start live",
+          "start broadcast",
+          "start streaming",
+        ]);
       } else {
         // Viewer pure spectator
         hideByLabel(currentRoot, ["join stage", "leave"]);
@@ -206,15 +214,48 @@ function FullCenterMessage({ text }: { text: string }) {
 function HostMeeting({
   meeting,
   showSetupScreen,
+  shouldStartBroadcast,
   onHostMeetingStateChange,
 }: {
   meeting: any;
   showSetupScreen: boolean;
+  shouldStartBroadcast: boolean;
   onHostMeetingStateChange?: (state: HostMeetingState) => void;
 }) {
   const rootRef = useRef<HTMLDivElement | null>(null);
 
   useSdkUiHardening(rootRef, true);
+
+  const autoStartBroadcastDoneRef = useRef(false);
+
+  useEffect(() => {
+    if (!shouldStartBroadcast) {
+      autoStartBroadcastDoneRef.current = false;
+      return;
+    }
+
+    const tryStart = () => {
+      const root = rootRef.current;
+      if (!root) return;
+      if (autoStartBroadcastDoneRef.current) return;
+
+      const clicked = clickVisibleButtonByLabel(root, [
+        "go live",
+        "start live",
+        "start broadcast",
+        "start streaming",
+      ]);
+
+      if (clicked) {
+        autoStartBroadcastDoneRef.current = true;
+      }
+    };
+
+    tryStart();
+
+    const t = window.setInterval(tryStart, 800);
+    return () => window.clearInterval(t);
+  }, [shouldStartBroadcast]);
 
   function handleHostStatesUpdate(event: { detail: States }) {
     const next = String(event?.detail?.meeting || "").trim().toLowerCase();
@@ -357,6 +398,7 @@ export default function RealtimeMeetingEmbed({
   authToken,
   isHost,
   showSetupScreen = false,
+  shouldStartBroadcast = false,
   onHostMeetingStateChange,
 }: Props) {
   const [meeting, initMeeting] = useRealtimeKitClient();
@@ -396,6 +438,7 @@ export default function RealtimeMeetingEmbed({
         <HostMeeting
           meeting={meeting}
           showSetupScreen={showSetupScreen}
+          shouldStartBroadcast={shouldStartBroadcast}
           onHostMeetingStateChange={onHostMeetingStateChange}
         />
       ) : (

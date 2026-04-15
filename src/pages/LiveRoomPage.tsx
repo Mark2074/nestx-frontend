@@ -1061,13 +1061,17 @@ export default function LiveRoomPage() {
   useEffect(() => {
     if (!eventId) return;
 
+    const clearTokenIdentity = () => {
+      liveTokenEventIdRef.current = "";
+      liveTokenScopeRef.current = null;
+      liveTokenRoleRef.current = null;
+    };
+
     const resetTokenState = () => {
       setLiveToken(null);
       setLiveTokenErr("");
       setLoadingLiveToken(false);
-      liveTokenEventIdRef.current = "";
-      liveTokenScopeRef.current = null;
-      liveTokenRoleRef.current = null;
+      clearTokenIdentity();
     };
 
     if (isFinished || isCancelled) {
@@ -1093,17 +1097,30 @@ export default function LiveRoomPage() {
       !!roomReady &&
       !!runtimeScope;
 
-    if (!shouldBootCreatorPreLive && !shouldBootActiveRoom) {
+    const desiredRole: "host" | "viewer" = isHost ? "host" : "viewer";
+
+    const fallbackScope =
+      eventDetail ? getEventBaseScope(eventDetail) : null;
+
+    const tokenScope: LiveScope | null =
+      shouldBootCreatorPreLive
+        ? fallbackScope
+        : shouldBootActiveRoom
+        ? (runtimeScope as LiveScope)
+        : isHost && liveToken?.authToken && fallbackScope
+        ? fallbackScope
+        : null;
+
+    if (!tokenScope) {
+      if (isHost && liveToken?.authToken && fallbackScope && liveTokenScopeRef.current === fallbackScope) {
+        setLoadingLiveToken(false);
+        setLiveTokenErr("");
+        return;
+      }
+
       resetTokenState();
       return;
     }
-
-    const tokenScope: LiveScope =
-      shouldBootCreatorPreLive
-        ? getEventBaseScope(eventDetail)
-        : (runtimeScope as LiveScope);
-
-    const desiredRole: "host" | "viewer" = isHost ? "host" : "viewer";
 
     const canReuseCurrentToken =
       !!liveToken?.authToken &&
@@ -1359,6 +1376,7 @@ export default function LiveRoomPage() {
                   authToken={liveToken.authToken}
                   isHost={isHost}
                   showSetupScreen={creatorShowSetupScreen}
+                  shouldStartBroadcast={isHost && isLive}
                   onHostMeetingStateChange={(state) => {
                     if (isHost) {
                       setHostSdkState(state);
