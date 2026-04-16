@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { RealtimeKitProvider, useRealtimeKitClient } from "@cloudflare/realtimekit-react";
 import { api, type LiveTokenResponse } from "../api/nestxApi";
-import RealtimeMeetingEmbed from "../components/live/RealtimeMeetingEmbed";
 
 type LiveScope = "public" | "private";
 
@@ -28,6 +28,16 @@ type EventDetail = {
   live?: any;
 };
 
+type HostConsoleState =
+  | "BOOTING"
+  | "INITIALIZING"
+  | "CONNECTING"
+  | "READY"
+  | "GOING_LIVE"
+  | "LIVE"
+  | "FINISHING"
+  | "ERROR";
+
 function normalizeEventDetail(input: any): EventDetail {
   return {
     ...input,
@@ -47,15 +57,357 @@ function getEventBaseScope(ev: EventDetail | null): LiveScope {
   return ev?.accessScope === "private" ? "private" : "public";
 }
 
-type HostConsoleState =
-  | "BOOTING"
-  | "INITIALIZING"
-  | "CONNECTING"
-  | "READY"
-  | "GOING_LIVE"
-  | "LIVE"
-  | "FINISHING"
-  | "ERROR";
+type HostCoreConsoleProps = {
+  authToken: string;
+  onJoined: () => void;
+  onLeft: () => void;
+  onError: (msg: string) => void;
+};
+
+function HostCoreConsole({ authToken, onJoined, onLeft, onError }: HostCoreConsoleProps) {
+  const [meeting, initMeeting] = useRealtimeKitClient();
+
+  const initializedAuthTokenRef = useRef("");
+  const joinedRef = useRef(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
+  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
+  const [speakerDevices, setSpeakerDevices] = useState<MediaDeviceInfo[]>([]);
+
+  const [audioEnabled, setAudioEnabled] = useState(true);
+  const [videoEnabled, setVideoEnabled] = useState(true);
+  const [roomState, setRoomState] = useState("disconnected");
+
+  const [currentAudioId, setCurrentAudioId] = useState("");
+  const [currentVideoId, setCurrentVideoId] = useState("");
+  const [currentSpeakerId, setCurrentSpeakerId] = useState("");
+
+  const loadDevices = useCallback(async () => {
+    if (!meeting) return;
+
+    try {
+      const [audio, video, speaker] = await Promise.all([
+        meeting.self.getAudioDevices(),
+        meeting.self.getVideoDevices(),
+        meeting.self.getSpeakerDevices(),
+      ]);
+
+      setAudioDevices(Array.isArray(audio) ? audio : []);
+      setVideoDevices(Array.isArray(video) ? video : []);
+      setSpeakerDevices(Array.isArray(speaker) ? speaker : []);
+
+      const current = meeting.self.getCurrentDevices?.() || {};
+      setCurrentAudioId(String(current?.audio?.deviceId || ""));
+      setCurrentVideoId(String(current?.video?.deviceId || ""));
+      setCurrentSpeakerId(String(current?.speaker?.deviceId || ""));
+
+      setAudioEnabled(!!meeting.self.audioEnabled);
+      setVideoEnabled(!!meeting.self.videoEnabled);
+      setRoomState(String(meeting.self.roomState || "disconnected"));
+    } catch (e: any) {
+      onError(String(e?.message || "Failed to load devices"));
+    }
+  }, [meeting, onError]);
+
+  useEffect(() => {
+    if (!authToken) return;
+    if (initializedAuthTokenRef.current === authToken) return;
+
+    initializedAuthTokenRef.current = authToken;
+    joinedRef.current = false;
+
+    void initMeeting({
+      authToken,
+      defaults: {
+        audio: true,
+        video: true,
+      },
+    });
+  }, [authToken, initMeeting]);
+
+  useEffect(() => {
+    if (!meeting) return;
+    if (joinedRef.current) return;
+
+    let cancelled = false;
+
+    const run = async () => {
+      try {
+        await loadDevices();
+        await meeting.join();
+        if (cancelled) return;
+        joinedRef.current = true;
+      } catch (e: any) {
+        if (cancelled) return;
+        onError(String(e?.message || "Failed to join preview"));
+      }
+    };
+
+    void run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loadDevices, meeting, onError]);
+
+  useEffect(() => {
+    if (!meeting || !videoRef.current) return;
+
+    const el = videoRef.current;
+
+    try {
+      meeting.self.registerVideoElement(el, true);
+    } catch {
+      // ignore
+    }
+
+    return () => {
+      try {
+        meeting.self.deregisterVideoElement(el);
+      } catch {
+        // ignore
+      }
+    };
+  }, [meeting]);
+
+  useEffect(() => {
+    if (!meeting) return;
+
+    const handleRoomJoined = () => {
+      setRoomState(String(meeting.self.roomState || "joined"));
+      onJoined();
+      void loadDevices();
+    };
+
+    const handleRoomLeft = () => {
+      setRoomState(String(meeting.self.roomState || "left"));
+      onLeft();
+    };
+
+    const handleDeviceUpdate = ({ device }: any) => {
+      if (!device) return;
+
+      if (device.kind === "audioinput") {
+        setCurrentAudioId(String(device.deviceId || ""));
+      } else if (device.kind === "videoinput") {
+        setCurrentVideoId(String(device.deviceId || ""));
+      } else if (device.kind === "audiooutput") {
+        setCurrentSpeakerId(String(device.deviceId || ""));
+      }
+
+      setAudioEnabled(!!meeting.self.audioEnabled);
+      setVideoEnabled(!!meeting.self.videoEnabled);
+    };
+
+    const handleDeviceListUpdate = () => {
+      void loadDevices();
+    };
+
+    meeting.self.on("roomJoined", handleRoomJoined);
+    meeting.self.on("roomLeft", handleRoomLeft);
+    meeting.self.on("deviceUpdate", handleDeviceUpdate);
+    meeting.self.on("deviceListUpdate", handleDeviceListUpdate);
+
+    return () => {
+      try {
+        meeting.self.off("roomJoined", handleRoomJoined);
+        meeting.self.off("roomLeft", handleRoomLeft);
+        meeting.self.off("deviceUpdate", handleDeviceUpdate);
+        meeting.self.off("deviceListUpdate", handleDeviceListUpdate);
+      } catch {
+        // ignore
+      }
+    };
+  }, [loadDevices, meeting, onJoined, onLeft]);
+
+  async function toggleAudio() {
+    if (!meeting) return;
+
+    try {
+      if (meeting.self.audioEnabled) {
+        await meeting.self.disableAudio();
+        setAudioEnabled(false);
+      } else {
+        await meeting.self.enableAudio();
+        setAudioEnabled(true);
+      }
+    } catch (e: any) {
+      onError(String(e?.message || "Failed to toggle microphone"));
+    }
+  }
+
+  async function toggleVideo() {
+    if (!meeting) return;
+
+    try {
+      if (meeting.self.videoEnabled) {
+        await meeting.self.disableVideo();
+        setVideoEnabled(false);
+      } else {
+        await meeting.self.enableVideo();
+        setVideoEnabled(true);
+      }
+    } catch (e: any) {
+      onError(String(e?.message || "Failed to toggle camera"));
+    }
+  }
+
+  async function changeDevice(deviceId: string, list: MediaDeviceInfo[]) {
+    if (!meeting) return;
+    const device = list.find((d) => d.deviceId === deviceId);
+    if (!device) return;
+
+    try {
+      await meeting.self.setDevice(device);
+
+      if (device.kind === "audioinput") setCurrentAudioId(device.deviceId);
+      if (device.kind === "videoinput") setCurrentVideoId(device.deviceId);
+      if (device.kind === "audiooutput") setCurrentSpeakerId(device.deviceId);
+    } catch (e: any) {
+      onError(String(e?.message || "Failed to change device"));
+    }
+  }
+
+  return (
+    <RealtimeKitProvider value={meeting as any}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(340px, 1fr) 320px",
+          gap: 14,
+          alignItems: "stretch",
+        }}
+      >
+        <div
+          style={{
+            border: "1px solid rgba(255,255,255,0.10)",
+            borderRadius: 14,
+            background: "rgba(0,0,0,0.30)",
+            minHeight: 520,
+            overflow: "hidden",
+            position: "relative",
+          }}
+        >
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              background: "#111",
+              display: "block",
+            }}
+          />
+
+          <div
+            style={{
+              position: "absolute",
+              left: 12,
+              right: 12,
+              bottom: 12,
+              display: "flex",
+              justifyContent: "center",
+              gap: 10,
+              flexWrap: "wrap",
+            }}
+          >
+            <button onClick={() => void toggleAudio()} style={secondaryBtnStyle}>
+              {audioEnabled ? "Mute mic" : "Unmute mic"}
+            </button>
+
+            <button onClick={() => void toggleVideo()} style={secondaryBtnStyle}>
+              {videoEnabled ? "Turn camera off" : "Turn camera on"}
+            </button>
+          </div>
+        </div>
+
+        <div
+          style={{
+            border: "1px solid rgba(255,255,255,0.12)",
+            borderRadius: 14,
+            background: "rgba(255,255,255,0.05)",
+            padding: 14,
+            display: "grid",
+            gap: 12,
+            alignContent: "start",
+          }}
+        >
+          <div style={{ fontWeight: 900, fontSize: 16 }}>Device setup</div>
+
+          <div style={{ opacity: 0.85, fontSize: 13 }}>
+            Room state: <b>{roomState}</b>
+          </div>
+
+          <label style={labelStyle}>
+            <span>Microphone</span>
+            <select
+              value={currentAudioId}
+              onChange={(e) => void changeDevice(e.target.value, audioDevices)}
+              style={selectStyle}
+            >
+              <option value="">Select microphone</option>
+              {audioDevices.map((device) => (
+                <option key={device.deviceId} value={device.deviceId}>
+                  {device.label || "Microphone"}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label style={labelStyle}>
+            <span>Camera</span>
+            <select
+              value={currentVideoId}
+              onChange={(e) => void changeDevice(e.target.value, videoDevices)}
+              style={selectStyle}
+            >
+              <option value="">Select camera</option>
+              {videoDevices.map((device) => (
+                <option key={device.deviceId} value={device.deviceId}>
+                  {device.label || "Camera"}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label style={labelStyle}>
+            <span>Speakers</span>
+            <select
+              value={currentSpeakerId}
+              onChange={(e) => void changeDevice(e.target.value, speakerDevices)}
+              style={selectStyle}
+            >
+              <option value="">Select speakers</option>
+              {speakerDevices.map((device) => (
+                <option key={device.deviceId} value={device.deviceId}>
+                  {device.label || "Speakers"}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div
+            style={{
+              padding: 12,
+              borderRadius: 12,
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.10)",
+              fontSize: 13,
+              opacity: 0.9,
+              lineHeight: 1.45,
+            }}
+          >
+            Use this screen to test camera, microphone and speakers, and prepare before going live.
+          </div>
+        </div>
+      </div>
+    </RealtimeKitProvider>
+  );
+}
 
 export default function HostLiveConsolePage() {
   const nav = useNavigate();
@@ -75,9 +427,7 @@ export default function HostLiveConsolePage() {
   const [loadingLiveToken, setLoadingLiveToken] = useState(false);
   const [liveTokenErr, setLiveTokenErr] = useState("");
 
-  const [hostMeetingState, setHostMeetingState] = useState<
-    "idle" | "setup" | "waiting" | "joined" | "ended"
-  >("idle");
+  const [joinedPreview, setJoinedPreview] = useState(false);
 
   const liveTokenEventIdRef = useRef("");
   const liveTokenScopeRef = useRef<LiveScope | null>(null);
@@ -102,9 +452,9 @@ export default function HostLiveConsolePage() {
     if (loadingBootstrap) return "BOOTING";
     if (loadingLiveToken) return "INITIALIZING";
     if (!liveToken?.authToken) return "INITIALIZING";
-    if (hostMeetingState === "joined") return "READY";
+    if (joinedPreview) return "READY";
     return "CONNECTING";
-  }, [err, hostMeetingState, isLive, liveToken?.authToken, liveTokenErr, loadingBootstrap, loadingFinish, loadingGoLive, loadingLiveToken]);
+  }, [err, isLive, joinedPreview, liveToken?.authToken, liveTokenErr, loadingBootstrap, loadingFinish, loadingGoLive, loadingLiveToken]);
 
   const loadEvent = useCallback(async () => {
     if (!eventId) return null;
@@ -179,13 +529,11 @@ export default function HostLiveConsolePage() {
   }, [eventId, nav]);
 
   useEffect(() => {
-    if (!eventId) return;
-    if (!eventDetail) return;
-    if (!isHost) return;
+    if (!eventId || !eventDetail || !isHost) return;
     if (isLive || isFinished || isCancelled) return;
 
-    void syncHostRealtimeState("setup");
-  }, [eventDetail, eventId, isCancelled, isFinished, isHost, isLive, syncHostRealtimeState]);
+    void syncHostRealtimeState(joinedPreview ? "joined" : "setup");
+  }, [eventDetail, eventId, isCancelled, isFinished, isHost, isLive, joinedPreview, syncHostRealtimeState]);
 
   useEffect(() => {
     if (!eventId || !eventDetail || !isHost) return;
@@ -290,7 +638,7 @@ export default function HostLiveConsolePage() {
 
   if (!eventId) {
     return (
-      <div style={{ maxWidth: 980, margin: "0 auto", padding: 12 }}>
+      <div style={{ maxWidth: 1180, margin: "0 auto", padding: 12 }}>
         <div style={{ color: "salmon", fontWeight: 900 }}>Invalid event id</div>
       </div>
     );
@@ -298,14 +646,14 @@ export default function HostLiveConsolePage() {
 
   if (!loadingBootstrap && !isHost && !isAdmin) {
     return (
-      <div style={{ maxWidth: 980, margin: "0 auto", padding: 12 }}>
+      <div style={{ maxWidth: 1180, margin: "0 auto", padding: 12 }}>
         <div style={{ color: "salmon", fontWeight: 900 }}>Access denied</div>
       </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: 980, margin: "0 auto", padding: 12 }}>
+    <div style={{ maxWidth: 1180, margin: "0 auto", padding: 12 }}>
       <div
         style={{
           display: "flex",
@@ -333,7 +681,7 @@ export default function HostLiveConsolePage() {
             <span style={pillStyle}>{(eventDetail?.contentScope || "—").toString()}</span>
             <span style={pillStyle}>{eventBaseScope.toUpperCase()}</span>
             <span style={pillStyle}>{consoleState}</span>
-            <span style={pillStyle}>{hostMeetingState}</span>
+            <span style={pillStyle}>{joinedPreview ? "PREVIEW_JOINED" : "PREVIEW_NOT_JOINED"}</span>
           </div>
         </div>
 
@@ -369,72 +717,36 @@ export default function HostLiveConsolePage() {
           padding: 12,
         }}
       >
-        <div style={{ fontWeight: 900, marginBottom: 6 }}>Pre-live host console</div>
+        <div style={{ fontWeight: 900, marginBottom: 10 }}>Pre-live host console</div>
+
+        {loadingLiveToken ? (
+          <div style={{ minHeight: 560, display: "grid", placeItems: "center", opacity: 0.9 }}>
+            Initializing host preview…
+          </div>
+        ) : liveToken?.authToken ? (
+          <HostCoreConsole
+            authToken={liveToken.authToken}
+            onJoined={() => {
+              setJoinedPreview(true);
+              void syncHostRealtimeState("joined");
+            }}
+            onLeft={() => {
+              setJoinedPreview(false);
+              void syncHostRealtimeState("setup");
+            }}
+            onError={(msg) => {
+              setErr(msg);
+            }}
+          />
+        ) : (
+          <div style={{ minHeight: 560, display: "grid", placeItems: "center", opacity: 0.9 }}>
+            Waiting for host preview…
+          </div>
+        )}
 
         <div
           style={{
-            height: 540,
-            minHeight: 540,
-            borderRadius: 14,
-            border: "1px solid rgba(255,255,255,0.10)",
-            background: "rgba(0,0,0,0.25)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            textAlign: "center",
-            padding: 12,
-            position: "relative",
-            overflow: "hidden",
-          }}
-        >
-          {loadingLiveToken ? (
-            <div style={{ opacity: 0.9 }}>Initializing host preview…</div>
-          ) : liveTokenErr ? (
-            <div style={{ opacity: 0.95, color: "salmon", fontWeight: 900 }}>
-              {liveTokenErr}
-            </div>
-          ) : liveToken?.authToken ? (
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                display: "flex",
-                alignItems: "stretch",
-                justifyContent: "center",
-                padding: 0,
-                overflow: "hidden",
-                boxSizing: "border-box",
-              }}
-            >
-              <div
-                style={{
-                  width: "100%",
-                  height: "100%",
-                }}
-              >
-                <RealtimeMeetingEmbed
-                  key={`${eventId}:host-console:${eventBaseScope}`}
-                  authToken={liveToken.authToken}
-                  isHost={true}
-                  showSetupScreen={true}
-                  shouldStartBroadcast={false}
-                  onHostMeetingStateChange={(state) => {
-                    setHostMeetingState(state);
-                  }}
-                  onHostRealtimeStateSync={(state) => {
-                    void syncHostRealtimeState(state);
-                  }}
-                />
-              </div>
-            </div>
-          ) : (
-            <div style={{ opacity: 0.9 }}>Waiting for host preview…</div>
-          )}
-        </div>
-
-        <div
-          style={{
-            marginTop: 12,
+            marginTop: 14,
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
@@ -443,18 +755,13 @@ export default function HostLiveConsolePage() {
           }}
         >
           <div style={{ opacity: 0.86, lineHeight: 1.45 }}>
-            Configure camera, microphone and speakers, check preview, then go live.
+            Setup devices, check preview, prepare yourself, then go live.
           </div>
 
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button
               onClick={() => void handleGoLive()}
-              disabled={
-                loadingGoLive ||
-                loadingFinish ||
-                !liveToken?.authToken ||
-                !(hostMeetingState === "joined" || hostMeetingState === "setup" || hostMeetingState === "waiting")
-              }
+              disabled={loadingGoLive || loadingFinish || !liveToken?.authToken || !joinedPreview}
               style={primaryBtnStyle}
             >
               {loadingGoLive ? "Starting..." : "Go live"}
@@ -485,6 +792,23 @@ const pillStyle = {
   fontSize: 12,
   border: "1px solid rgba(255,255,255,0.14)",
   background: "rgba(255,255,255,0.06)",
+} as const;
+
+const labelStyle = {
+  display: "grid",
+  gap: 6,
+  fontSize: 13,
+  fontWeight: 800,
+} as const;
+
+const selectStyle = {
+  width: "100%",
+  padding: "10px 12px",
+  borderRadius: 12,
+  border: "1px solid rgba(255,255,255,0.14)",
+  background: "rgba(255,255,255,0.05)",
+  color: "white",
+  outline: "none",
 } as const;
 
 const primaryBtnStyle = {
