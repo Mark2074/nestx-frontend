@@ -47,6 +47,7 @@ import AdminSecurityLogPage from "./pages/admin/AdminSecurityLogPage.tsx";
 import AdminReportDetailPage from "./pages/admin/AdminReportDetailPage";
 import AdminDeletedAccountsPage from "./pages/admin/AdminDeletedAccountsPage.tsx";
 import FedPage from "./pages/FedPage";
+import HostLiveConsolePage from "./pages/HostLiveConsolePage";
 
 function isAdminAccount() {
   return (localStorage.getItem("accountType") || "").toLowerCase() === "admin";
@@ -200,7 +201,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           {/* Placeholder detail (Blocco 2) */}
           {/* Detail */}
           <Route path=":id" element={<LiveDetailPage />} />
-          {/* Room */}
+          <Route path=":id/host-console" element={<HostLiveConsolePage />} />
           <Route path=":id/room" element={<LiveRoomPage />} />
         </Route>
 
