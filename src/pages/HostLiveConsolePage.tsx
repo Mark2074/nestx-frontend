@@ -1020,8 +1020,8 @@ const overlayBtnStyle = {
 
 const gearBtnStyle = {
   position: "absolute" as const,
-  right: 10,
-  bottom: 10,
+  right: 12,
+  bottom: 12,
   width: 42,
   height: 42,
   borderRadius: 999,
@@ -1033,6 +1033,11 @@ const gearBtnStyle = {
   fontSize: 18,
   fontWeight: 900,
   zIndex: 6,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 0,
+  lineHeight: 1,
 };
 
 const settingsPanelStyle = {
