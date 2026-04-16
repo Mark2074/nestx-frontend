@@ -86,6 +86,8 @@ function HostCoreConsole({ authToken, step, onJoined, onLeft, onError }: HostCor
   const [currentVideoId, setCurrentVideoId] = useState("");
   const [currentSpeakerId, setCurrentSpeakerId] = useState("");
 
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
   const loadBrowserDevices = useCallback(async () => {
     try {
       if (!navigator.mediaDevices?.enumerateDevices) return;
@@ -149,7 +151,7 @@ function HostCoreConsole({ authToken, step, onJoined, onLeft, onError }: HostCor
           await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
         }
       } catch {
-        // ignore: no devices or denied permission
+        // ignore
       }
 
       if (!cancelled) {
@@ -296,12 +298,14 @@ function HostCoreConsole({ authToken, step, onJoined, onLeft, onError }: HostCor
     }
   }
 
+  const isDeviceSetup = step === "DEVICE_SETUP";
+
   return (
     <RealtimeKitProvider value={meeting as any}>
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "minmax(340px, 1fr) 320px",
+          gridTemplateColumns: isDeviceSetup ? "minmax(320px, 1fr) minmax(280px, 340px)" : "1fr",
           gap: 14,
           alignItems: "stretch",
         }}
@@ -331,112 +335,185 @@ function HostCoreConsole({ authToken, step, onJoined, onLeft, onError }: HostCor
           />
 
           {step === "PRE_GO_LIVE" ? (
-            <div
-              style={{
-                position: "absolute",
-                left: 12,
-                right: 12,
-                bottom: 12,
-                display: "flex",
-                justifyContent: "center",
-                gap: 10,
-                flexWrap: "wrap",
-              }}
-            >
-              <button onClick={() => void toggleAudio()} style={secondaryBtnStyle}>
-                {audioEnabled ? "Mute mic" : "Unmute mic"}
+            <>
+              <div
+                style={{
+                  position: "absolute",
+                  left: 12,
+                  right: 12,
+                  bottom: 12,
+                  display: "flex",
+                  justifyContent: "center",
+                  gap: 10,
+                  flexWrap: "wrap",
+                  pointerEvents: "none",
+                }}
+              >
+                <button onClick={() => void toggleAudio()} style={overlayBtnStyle}>
+                  {audioEnabled ? "Mute mic" : "Unmute mic"}
+                </button>
+
+                <button onClick={() => void toggleVideo()} style={overlayBtnStyle}>
+                  {videoEnabled ? "Turn camera off" : "Turn camera on"}
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSettingsOpen((v) => !v)}
+                style={gearBtnStyle}
+                aria-label="Open preview settings"
+              >
+                ⚙
               </button>
 
-              <button onClick={() => void toggleVideo()} style={secondaryBtnStyle}>
-                {videoEnabled ? "Turn camera off" : "Turn camera on"}
-              </button>
-            </div>
+              {settingsOpen ? (
+                <div style={settingsPanelStyle}>
+                  <div style={{ fontWeight: 900, marginBottom: 8 }}>Preview settings</div>
+
+                  <label style={labelStyle}>
+                    <span>Microphone</span>
+                    <select
+                      value={currentAudioId}
+                      onChange={(e) => void changeDevice(e.target.value, audioDevices)}
+                      style={selectStyle}
+                    >
+                      <option value="">Select microphone</option>
+                      {audioDevices.map((device) => (
+                        <option key={device.deviceId} value={device.deviceId}>
+                          {device.label || "Microphone"}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label style={labelStyle}>
+                    <span>Camera</span>
+                    <select
+                      value={currentVideoId}
+                      onChange={(e) => void changeDevice(e.target.value, videoDevices)}
+                      style={selectStyle}
+                    >
+                      <option value="">Select camera</option>
+                      {videoDevices.map((device) => (
+                        <option key={device.deviceId} value={device.deviceId}>
+                          {device.label || "Camera"}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label style={labelStyle}>
+                    <span>Speakers</span>
+                    <select
+                      value={currentSpeakerId}
+                      onChange={(e) => void changeDevice(e.target.value, speakerDevices)}
+                      style={selectStyle}
+                    >
+                      <option value="">Select speakers</option>
+                      {speakerDevices.map((device) => (
+                        <option key={device.deviceId} value={device.deviceId}>
+                          {device.label || "Speakers"}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
+                    <button onClick={() => void toggleAudio()} style={secondaryBtnStyle}>
+                      {audioEnabled ? "Mute mic" : "Unmute mic"}
+                    </button>
+                    <button onClick={() => void toggleVideo()} style={secondaryBtnStyle}>
+                      {videoEnabled ? "Turn camera off" : "Turn camera on"}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </>
           ) : null}
         </div>
 
-        <div
-          style={{
-            border: "1px solid rgba(255,255,255,0.12)",
-            borderRadius: 14,
-            background: "rgba(255,255,255,0.05)",
-            padding: 14,
-            display: "grid",
-            gap: 12,
-            alignContent: "start",
-          }}
-        >
-          <div style={{ fontWeight: 900, fontSize: 16 }}>
-            {step === "DEVICE_SETUP" ? "Device setup" : "Pre go live"}
-          </div>
-
-          <div style={{ opacity: 0.85, fontSize: 13 }}>
-            Room state: <b>{roomState}</b>
-          </div>
-
-          <label style={labelStyle}>
-            <span>Microphone</span>
-            <select
-              value={currentAudioId}
-              onChange={(e) => void changeDevice(e.target.value, audioDevices)}
-              style={selectStyle}
-            >
-              <option value="">Select microphone</option>
-              {audioDevices.map((device) => (
-                <option key={device.deviceId} value={device.deviceId}>
-                  {device.label || "Microphone"}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label style={labelStyle}>
-            <span>Camera</span>
-            <select
-              value={currentVideoId}
-              onChange={(e) => void changeDevice(e.target.value, videoDevices)}
-              style={selectStyle}
-            >
-              <option value="">Select camera</option>
-              {videoDevices.map((device) => (
-                <option key={device.deviceId} value={device.deviceId}>
-                  {device.label || "Camera"}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label style={labelStyle}>
-            <span>Speakers</span>
-            <select
-              value={currentSpeakerId}
-              onChange={(e) => void changeDevice(e.target.value, speakerDevices)}
-              style={selectStyle}
-            >
-              <option value="">Select speakers</option>
-              {speakerDevices.map((device) => (
-                <option key={device.deviceId} value={device.deviceId}>
-                  {device.label || "Speakers"}
-                </option>
-              ))}
-            </select>
-          </label>
-
+        {isDeviceSetup ? (
           <div
             style={{
-              padding: 12,
-              borderRadius: 12,
-              background: "rgba(255,255,255,0.04)",
-              border: "1px solid rgba(255,255,255,0.10)",
-              fontSize: 13,
-              opacity: 0.9,
-              lineHeight: 1.45,
+              border: "1px solid rgba(255,255,255,0.12)",
+              borderRadius: 14,
+              background: "rgba(255,255,255,0.05)",
+              padding: 14,
+              display: "grid",
+              gap: 12,
+              alignContent: "start",
             }}
           >
-            {step === "DEVICE_SETUP"
-              ? "Select camera, microphone and speakers, and make sure your preview is working before continuing."
-              : "Final preview before live. You can still mute microphone or turn camera off if needed."}
+            <div style={{ fontWeight: 900, fontSize: 16 }}>Device setup</div>
+
+            <div style={{ opacity: 0.85, fontSize: 13 }}>
+              Room state: <b>{roomState}</b>
+            </div>
+
+            <label style={labelStyle}>
+              <span>Microphone</span>
+              <select
+                value={currentAudioId}
+                onChange={(e) => void changeDevice(e.target.value, audioDevices)}
+                style={selectStyle}
+              >
+                <option value="">Select microphone</option>
+                {audioDevices.map((device) => (
+                  <option key={device.deviceId} value={device.deviceId}>
+                    {device.label || "Microphone"}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label style={labelStyle}>
+              <span>Camera</span>
+              <select
+                value={currentVideoId}
+                onChange={(e) => void changeDevice(e.target.value, videoDevices)}
+                style={selectStyle}
+              >
+                <option value="">Select camera</option>
+                {videoDevices.map((device) => (
+                  <option key={device.deviceId} value={device.deviceId}>
+                    {device.label || "Camera"}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label style={labelStyle}>
+              <span>Speakers</span>
+              <select
+                value={currentSpeakerId}
+                onChange={(e) => void changeDevice(e.target.value, speakerDevices)}
+                style={selectStyle}
+              >
+                <option value="">Select speakers</option>
+                {speakerDevices.map((device) => (
+                  <option key={device.deviceId} value={device.deviceId}>
+                    {device.label || "Speakers"}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div
+              style={{
+                padding: 12,
+                borderRadius: 12,
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.10)",
+                fontSize: 13,
+                opacity: 0.9,
+                lineHeight: 1.45,
+              }}
+            >
+              Select camera, microphone and speakers, and make sure your preview is working before continuing.
+            </div>
           </div>
-        </div>
+        ) : null}
       </div>
     </RealtimeKitProvider>
   );
@@ -888,3 +965,49 @@ const secondaryBtnStyle = {
   color: "white",
   border: "1px solid rgba(255,255,255,0.14)",
 } as const;
+
+const overlayBtnStyle = {
+  pointerEvents: "auto",
+  padding: "8px 12px",
+  borderRadius: 12,
+  fontWeight: 900,
+  fontSize: 13,
+  cursor: "pointer",
+  background: "rgba(0,0,0,0.42)",
+  color: "white",
+  border: "1px solid rgba(255,255,255,0.18)",
+  backdropFilter: "blur(4px)",
+} as const;
+
+const gearBtnStyle = {
+  position: "absolute" as const,
+  right: 12,
+  bottom: 12,
+  width: 42,
+  height: 42,
+  borderRadius: 999,
+  border: "1px solid rgba(255,255,255,0.18)",
+  background: "rgba(0,0,0,0.42)",
+  color: "white",
+  cursor: "pointer",
+  backdropFilter: "blur(4px)",
+  fontSize: 18,
+  fontWeight: 900,
+  zIndex: 6,
+};
+
+const settingsPanelStyle = {
+  position: "absolute" as const,
+  right: 12,
+  bottom: 62,
+  width: 300,
+  maxWidth: "calc(100% - 24px)",
+  borderRadius: 14,
+  border: "1px solid rgba(255,255,255,0.14)",
+  background: "rgba(18,18,18,0.96)",
+  color: "white",
+  padding: 12,
+  display: "grid",
+  gap: 10,
+  zIndex: 7,
+};
