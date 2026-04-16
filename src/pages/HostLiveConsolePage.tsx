@@ -1020,8 +1020,8 @@ const overlayBtnStyle = {
 
 const gearBtnStyle = {
   position: "absolute" as const,
-  right: 16,
-  bottom: 18,
+  right: 10,
+  bottom: 10,
   width: 42,
   height: 42,
   borderRadius: 999,
