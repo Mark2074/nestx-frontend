@@ -564,6 +564,12 @@ export default function LiveDetailPage() {
 
   function goRoom(scope: "public" | "private") {
     if (!eventId) return;
+
+    if (isHost) {
+      nav(`/app/live/${eventId}/host-console`);
+      return;
+    }
+
     nav(`/app/live/${eventId}/room?scope=${scope}`);
   }
 

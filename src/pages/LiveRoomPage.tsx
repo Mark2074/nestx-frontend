@@ -7,7 +7,7 @@ import {
   formatRetryAfterLabel,
   type LiveTokenResponse,
 } from "../api/nestxApi";
-import RealtimeMeetingEmbed from "../components/live/RealtimeMeetingEmbed";
+import ViewerLiveStage from "../components/live/ViewerLiveStage";
 
 type LiveScope = "public" | "private";
 type UiMode =
@@ -922,16 +922,14 @@ export default function LiveRoomPage() {
     const status = getEventStatus(eventDetail);
     if (status === "live" || status === "finished" || status === "cancelled") return;
 
-    applyPreLiveHostState(getEventBaseScope(eventDetail));
-    void syncHostRealtimeState("setup");
+    nav(`/app/live/${eventId}/host-console`, { replace: true });
   }, [
-    applyPreLiveHostState,
     creatorId,
     eventDetail,
     eventId,
     isHost,
     meId,
-    syncHostRealtimeState,
+    nav,
   ]);
 
   useEffect(() => {
@@ -1351,209 +1349,46 @@ export default function LiveRoomPage() {
       >
         <div style={{ fontWeight: 900, marginBottom: 6 }}>Live</div>
 
-        <div
-          style={{
-            height: isHost && !isLive ? 500 : 520,
-            minHeight: isHost && !isLive ? 500 : 520,
-            borderRadius: 14,
-            border: "1px solid rgba(255,255,255,0.10)",
-            background: "rgba(0,0,0,0.25)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            textAlign: "center",
-            padding: 12,
-            position: "relative",
-            overflow: "hidden",
-            opacity: shouldPausePublic ? 0 : 1,
-            pointerEvents: shouldPausePublic ? "none" : "auto",
+        <ViewerLiveStage
+          eventId={eventId}
+          authToken={liveToken?.authToken}
+          loadingLiveToken={loadingLiveToken}
+          liveTokenErr={liveTokenErr}
+          isHost={isHost}
+          shouldPausePublic={shouldPausePublic}
+          roomBlockCode={roomBlockCode}
+          uiMode={uiMode}
+          eventBaseScope={eventBaseScope}
+          runtimeScope={runtimeScope}
+          onBack={goBackToDetail}
+          onRetry={() => {
+            setRoomBlockCode("");
+            setErr("");
+            void loadAccess(requestedScope);
           }}
-        >
-          {loadingLiveToken ? (
-            <div style={{ opacity: 0.9 }}>
-              Initializing live stream…
-            </div>
-          ) : liveTokenErr ? (
-            <div style={{ opacity: 0.95, color: "salmon", fontWeight: 900 }}>
-              {liveTokenErr}
-            </div>
-          ) : liveToken?.authToken ? (
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                display: "flex",
-                alignItems: isHost && !isLive ? "flex-start" : "stretch",
-                justifyContent: "center",
-                padding: isHost && !isLive ? "16px 12px 24px" : 0,
-                overflowY: "hidden",
-                overflowX: "hidden",
-                boxSizing: "border-box",
-              }}
-            >
-              <div
-                style={{
-                  width: "100%",
-                  maxWidth: isHost && !isLive ? 400 : "100%",
-                  minHeight: isHost && !isLive ? "auto" : "100%",
-                  height: isHost && !isLive ? "auto" : "100%",
-                }}
-              >
-                <RealtimeMeetingEmbed
-                  key={`${eventId}:${isHost ? "host" : "viewer"}:${runtimeScope || eventBaseScope}`}
-                  authToken={liveToken.authToken}
-                  isHost={isHost}
-                  showSetupScreen={isHost && !isLive}
-                  shouldStartBroadcast={isHost && isLive}
-                  onHostRealtimeStateSync={(state) => {
-                    if (isHost) {
-                      void syncHostRealtimeState(state);
-                    }
-                  }}
-                />
-              </div>
-            </div>
-          ) : (
-            <div style={{ opacity: 0.9 }}>
-              Waiting for live stream…
-            </div>
-          )}
+          navToLive={() => nav("/app/live")}
+        />
 
-          {shouldPausePublic ? (
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                zIndex: 20,
-                display: "grid",
-                placeItems: "center",
-                padding: 16,
-                background: "rgba(0,0,0,0.92)",
-                pointerEvents: "all",
-              }}
-            >
-              <div style={{ maxWidth: 520 }}>
-                <div style={{ fontWeight: 1000, fontSize: 16 }}>
-                  Host is in a private session.
-                </div>
-                <div style={{ marginTop: 8, opacity: 0.9, fontWeight: 800 }}>
-                  Public live is temporarily paused.
-                </div>
-              </div>
-            </div>
-          ) : null}
-
-          {roomBlockCode === "ROOM_FULL" ? (
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                zIndex: 30,
-                display: "grid",
-                placeItems: "center",
-                padding: 16,
-                background: "rgba(0,0,0,0.94)",
-                pointerEvents: "all",
-              }}
-            >
-              <div style={{ maxWidth: 520, textAlign: "center" }}>
-                <div style={{ fontWeight: 1000, fontSize: 18, color: "salmon" }}>
-                  Room is full
-                </div>
-                <div style={{ marginTop: 8, opacity: 0.9, fontWeight: 800 }}>
-                  Maximum capacity reached. Try again later.
-                </div>
-
-                <div
-                  style={{
-                    marginTop: 14,
-                    display: "flex",
-                    justifyContent: "center",
-                    gap: 10,
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <button onClick={goBackToDetail} style={secondaryBtnStyle}>
-                    Back
-                  </button>
-                  <button
-                    onClick={() => {
-                      setRoomBlockCode("");
-                      setErr("");
-                      void loadAccess(requestedScope);
-                    }}
-                    style={secondaryBtnStyle}
-                  >
-                    Retry
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : null}
-
-          {uiMode === "ENDED" ? (
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                display: "grid",
-                placeItems: "center",
-                padding: 16,
-                background: "rgba(0,0,0,0.65)",
-              }}
-            >
-              <div style={{ maxWidth: 520, textAlign: "center" }}>
-                <div style={{ fontWeight: 1000, fontSize: 16, color: "salmon" }}>
-                  This live has ended.
-                </div>
-                <div style={{ marginTop: 8, opacity: 0.9, fontWeight: 800 }}>
-                  You can go back to Live.
-                </div>
-
-                <div style={{ marginTop: 12 }}>
-                  <button onClick={() => nav("/app/live")} style={secondaryBtnStyle}>
-                    Back to Live
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : null}
-        </div>
-
-        {isHost ? (
+        {isHost && isLive ? (
           <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {!isLive && !isFinished && !isCancelled ? (
-              <button
-                onClick={() => void hostAction("go-live")}
-                disabled={loadingHostAction}
-                style={primaryBtnStyle}
-              >
-                {loadingHostAction ? "Starting..." : "Go live"}
-              </button>
-            ) : null}
-
-            {isLive ? (
-              <>
-                <button
-                  onClick={() => void hostAction("finish")}
-                  disabled={loadingHostAction}
-                  style={secondaryBtnStyle}
-                >
-                  Finish
-                </button>
-                <button
-                  onClick={() => void hostAction("cancel")}
-                  disabled={loadingHostAction}
-                  style={{
-                    ...secondaryBtnStyle,
-                    borderColor: "rgba(255,100,120,0.35)",
-                    color: "salmon",
-                  }}
-                >
-                  Cancel
-                </button>
-              </>
-            ) : null}
+            <button
+              onClick={() => void hostAction("finish")}
+              disabled={loadingHostAction}
+              style={secondaryBtnStyle}
+            >
+              Finish
+            </button>
+            <button
+              onClick={() => void hostAction("cancel")}
+              disabled={loadingHostAction}
+              style={{
+                ...secondaryBtnStyle,
+                borderColor: "rgba(255,100,120,0.35)",
+                color: "salmon",
+              }}
+            >
+              Cancel
+            </button>
           </div>
         ) : null}
 
