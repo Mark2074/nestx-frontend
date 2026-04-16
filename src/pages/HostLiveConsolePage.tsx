@@ -38,6 +38,8 @@ type HostConsoleState =
   | "FINISHING"
   | "ERROR";
 
+type HostConsoleStep = "DEVICE_SETUP" | "PRE_GO_LIVE";
+
 function normalizeEventDetail(input: any): EventDetail {
   return {
     ...input,
@@ -59,12 +61,13 @@ function getEventBaseScope(ev: EventDetail | null): LiveScope {
 
 type HostCoreConsoleProps = {
   authToken: string;
+  step: HostConsoleStep;
   onJoined: () => void;
   onLeft: () => void;
   onError: (msg: string) => void;
 };
 
-function HostCoreConsole({ authToken, onJoined, onLeft, onError }: HostCoreConsoleProps) {
+function HostCoreConsole({ authToken, step, onJoined, onLeft, onError }: HostCoreConsoleProps) {
   const [meeting, initMeeting] = useRealtimeKitClient();
 
   const initializedAuthTokenRef = useRef("");
@@ -83,32 +86,43 @@ function HostCoreConsole({ authToken, onJoined, onLeft, onError }: HostCoreConso
   const [currentVideoId, setCurrentVideoId] = useState("");
   const [currentSpeakerId, setCurrentSpeakerId] = useState("");
 
-  const loadDevices = useCallback(async () => {
+  const loadBrowserDevices = useCallback(async () => {
+    try {
+      if (!navigator.mediaDevices?.enumerateDevices) return;
+
+      const devices = await navigator.mediaDevices.enumerateDevices();
+
+      const audios = devices.filter((d) => d.kind === "audioinput");
+      const videos = devices.filter((d) => d.kind === "videoinput");
+      const speakers = devices.filter((d) => d.kind === "audiooutput");
+
+      setAudioDevices(audios);
+      setVideoDevices(videos);
+      setSpeakerDevices(speakers);
+
+      if (!currentAudioId && audios[0]?.deviceId) setCurrentAudioId(audios[0].deviceId);
+      if (!currentVideoId && videos[0]?.deviceId) setCurrentVideoId(videos[0].deviceId);
+      if (!currentSpeakerId && speakers[0]?.deviceId) setCurrentSpeakerId(speakers[0].deviceId);
+    } catch (e: any) {
+      onError(String(e?.message || "Failed to enumerate devices"));
+    }
+  }, [currentAudioId, currentSpeakerId, currentVideoId, onError]);
+
+  const loadMeetingState = useCallback(async () => {
     if (!meeting) return;
 
     try {
-      const [audio, video, speaker] = await Promise.all([
-        meeting.self.getAudioDevices(),
-        meeting.self.getVideoDevices(),
-        meeting.self.getSpeakerDevices(),
-      ]);
-
-      setAudioDevices(Array.isArray(audio) ? audio : []);
-      setVideoDevices(Array.isArray(video) ? video : []);
-      setSpeakerDevices(Array.isArray(speaker) ? speaker : []);
-
       const current = meeting.self.getCurrentDevices?.() || {};
-      setCurrentAudioId(String(current?.audio?.deviceId || ""));
-      setCurrentVideoId(String(current?.video?.deviceId || ""));
-      setCurrentSpeakerId(String(current?.speaker?.deviceId || ""));
-
+      setCurrentAudioId(String(current?.audio?.deviceId || currentAudioId || ""));
+      setCurrentVideoId(String(current?.video?.deviceId || currentVideoId || ""));
+      setCurrentSpeakerId(String(current?.speaker?.deviceId || currentSpeakerId || ""));
       setAudioEnabled(!!meeting.self.audioEnabled);
       setVideoEnabled(!!meeting.self.videoEnabled);
       setRoomState(String(meeting.self.roomState || "disconnected"));
-    } catch (e: any) {
-      onError(String(e?.message || "Failed to load devices"));
+    } catch {
+      // ignore
     }
-  }, [meeting, onError]);
+  }, [currentAudioId, currentSpeakerId, currentVideoId, meeting]);
 
   useEffect(() => {
     if (!authToken) return;
@@ -127,6 +141,30 @@ function HostCoreConsole({ authToken, onJoined, onLeft, onError }: HostCoreConso
   }, [authToken, initMeeting]);
 
   useEffect(() => {
+    let cancelled = false;
+
+    const run = async () => {
+      try {
+        if (navigator.mediaDevices?.getUserMedia) {
+          await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+        }
+      } catch {
+        // ignore: no devices or denied permission
+      }
+
+      if (!cancelled) {
+        await loadBrowserDevices();
+      }
+    };
+
+    void run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loadBrowserDevices]);
+
+  useEffect(() => {
     if (!meeting) return;
     if (joinedRef.current) return;
 
@@ -134,10 +172,10 @@ function HostCoreConsole({ authToken, onJoined, onLeft, onError }: HostCoreConso
 
     const run = async () => {
       try {
-        await loadDevices();
         await meeting.join();
         if (cancelled) return;
         joinedRef.current = true;
+        await loadMeetingState();
       } catch (e: any) {
         if (cancelled) return;
         onError(String(e?.message || "Failed to join preview"));
@@ -149,7 +187,7 @@ function HostCoreConsole({ authToken, onJoined, onLeft, onError }: HostCoreConso
     return () => {
       cancelled = true;
     };
-  }, [loadDevices, meeting, onError]);
+  }, [loadMeetingState, meeting, onError]);
 
   useEffect(() => {
     if (!meeting || !videoRef.current) return;
@@ -176,8 +214,11 @@ function HostCoreConsole({ authToken, onJoined, onLeft, onError }: HostCoreConso
 
     const handleRoomJoined = () => {
       setRoomState(String(meeting.self.roomState || "joined"));
+      setAudioEnabled(!!meeting.self.audioEnabled);
+      setVideoEnabled(!!meeting.self.videoEnabled);
       onJoined();
-      void loadDevices();
+      void loadBrowserDevices();
+      void loadMeetingState();
     };
 
     const handleRoomLeft = () => {
@@ -185,41 +226,25 @@ function HostCoreConsole({ authToken, onJoined, onLeft, onError }: HostCoreConso
       onLeft();
     };
 
-    const handleDeviceUpdate = ({ device }: any) => {
-      if (!device) return;
-
-      if (device.kind === "audioinput") {
-        setCurrentAudioId(String(device.deviceId || ""));
-      } else if (device.kind === "videoinput") {
-        setCurrentVideoId(String(device.deviceId || ""));
-      } else if (device.kind === "audiooutput") {
-        setCurrentSpeakerId(String(device.deviceId || ""));
-      }
-
-      setAudioEnabled(!!meeting.self.audioEnabled);
-      setVideoEnabled(!!meeting.self.videoEnabled);
-    };
-
     const handleDeviceListUpdate = () => {
-      void loadDevices();
+      void loadBrowserDevices();
+      void loadMeetingState();
     };
 
     meeting.self.on("roomJoined", handleRoomJoined);
     meeting.self.on("roomLeft", handleRoomLeft);
-    meeting.self.on("deviceUpdate", handleDeviceUpdate);
     meeting.self.on("deviceListUpdate", handleDeviceListUpdate);
 
     return () => {
       try {
         meeting.self.off("roomJoined", handleRoomJoined);
         meeting.self.off("roomLeft", handleRoomLeft);
-        meeting.self.off("deviceUpdate", handleDeviceUpdate);
         meeting.self.off("deviceListUpdate", handleDeviceListUpdate);
       } catch {
         // ignore
       }
     };
-  }, [loadDevices, meeting, onJoined, onLeft]);
+  }, [loadBrowserDevices, loadMeetingState, meeting, onJoined, onLeft]);
 
   async function toggleAudio() {
     if (!meeting) return;
@@ -264,6 +289,8 @@ function HostCoreConsole({ authToken, onJoined, onLeft, onError }: HostCoreConso
       if (device.kind === "audioinput") setCurrentAudioId(device.deviceId);
       if (device.kind === "videoinput") setCurrentVideoId(device.deviceId);
       if (device.kind === "audiooutput") setCurrentSpeakerId(device.deviceId);
+
+      await loadMeetingState();
     } catch (e: any) {
       onError(String(e?.message || "Failed to change device"));
     }
@@ -303,26 +330,28 @@ function HostCoreConsole({ authToken, onJoined, onLeft, onError }: HostCoreConso
             }}
           />
 
-          <div
-            style={{
-              position: "absolute",
-              left: 12,
-              right: 12,
-              bottom: 12,
-              display: "flex",
-              justifyContent: "center",
-              gap: 10,
-              flexWrap: "wrap",
-            }}
-          >
-            <button onClick={() => void toggleAudio()} style={secondaryBtnStyle}>
-              {audioEnabled ? "Mute mic" : "Unmute mic"}
-            </button>
+          {step === "PRE_GO_LIVE" ? (
+            <div
+              style={{
+                position: "absolute",
+                left: 12,
+                right: 12,
+                bottom: 12,
+                display: "flex",
+                justifyContent: "center",
+                gap: 10,
+                flexWrap: "wrap",
+              }}
+            >
+              <button onClick={() => void toggleAudio()} style={secondaryBtnStyle}>
+                {audioEnabled ? "Mute mic" : "Unmute mic"}
+              </button>
 
-            <button onClick={() => void toggleVideo()} style={secondaryBtnStyle}>
-              {videoEnabled ? "Turn camera off" : "Turn camera on"}
-            </button>
-          </div>
+              <button onClick={() => void toggleVideo()} style={secondaryBtnStyle}>
+                {videoEnabled ? "Turn camera off" : "Turn camera on"}
+              </button>
+            </div>
+          ) : null}
         </div>
 
         <div
@@ -336,7 +365,9 @@ function HostCoreConsole({ authToken, onJoined, onLeft, onError }: HostCoreConso
             alignContent: "start",
           }}
         >
-          <div style={{ fontWeight: 900, fontSize: 16 }}>Device setup</div>
+          <div style={{ fontWeight: 900, fontSize: 16 }}>
+            {step === "DEVICE_SETUP" ? "Device setup" : "Pre go live"}
+          </div>
 
           <div style={{ opacity: 0.85, fontSize: 13 }}>
             Room state: <b>{roomState}</b>
@@ -401,7 +432,9 @@ function HostCoreConsole({ authToken, onJoined, onLeft, onError }: HostCoreConso
               lineHeight: 1.45,
             }}
           >
-            Use this screen to test camera, microphone and speakers, and prepare before going live.
+            {step === "DEVICE_SETUP"
+              ? "Select camera, microphone and speakers, and make sure your preview is working before continuing."
+              : "Final preview before live. You can still mute microphone or turn camera off if needed."}
           </div>
         </div>
       </div>
@@ -428,6 +461,7 @@ export default function HostLiveConsolePage() {
   const [liveTokenErr, setLiveTokenErr] = useState("");
 
   const [joinedPreview, setJoinedPreview] = useState(false);
+  const [step, setStep] = useState<HostConsoleStep>("DEVICE_SETUP");
 
   const liveTokenEventIdRef = useRef("");
   const liveTokenScopeRef = useRef<LiveScope | null>(null);
@@ -681,6 +715,7 @@ export default function HostLiveConsolePage() {
             <span style={pillStyle}>{(eventDetail?.contentScope || "—").toString()}</span>
             <span style={pillStyle}>{eventBaseScope.toUpperCase()}</span>
             <span style={pillStyle}>{consoleState}</span>
+            <span style={pillStyle}>{step}</span>
             <span style={pillStyle}>{joinedPreview ? "PREVIEW_JOINED" : "PREVIEW_NOT_JOINED"}</span>
           </div>
         </div>
@@ -726,6 +761,7 @@ export default function HostLiveConsolePage() {
         ) : liveToken?.authToken ? (
           <HostCoreConsole
             authToken={liveToken.authToken}
+            step={step}
             onJoined={() => {
               setJoinedPreview(true);
               void syncHostRealtimeState("joined");
@@ -755,17 +791,39 @@ export default function HostLiveConsolePage() {
           }}
         >
           <div style={{ opacity: 0.86, lineHeight: 1.45 }}>
-            Setup devices, check preview, prepare yourself, then go live.
+            {step === "DEVICE_SETUP"
+              ? "Complete device setup first, then continue to the final pre-live check."
+              : "Final preview before live. Go live only when you are fully ready."}
           </div>
 
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button
-              onClick={() => void handleGoLive()}
-              disabled={loadingGoLive || loadingFinish || !liveToken?.authToken || !joinedPreview}
-              style={primaryBtnStyle}
-            >
-              {loadingGoLive ? "Starting..." : "Go live"}
-            </button>
+            {step === "DEVICE_SETUP" ? (
+              <button
+                onClick={() => setStep("PRE_GO_LIVE")}
+                disabled={!liveToken?.authToken || !joinedPreview}
+                style={primaryBtnStyle}
+              >
+                Continue
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={() => setStep("DEVICE_SETUP")}
+                  disabled={loadingGoLive || loadingFinish}
+                  style={secondaryBtnStyle}
+                >
+                  Back to setup
+                </button>
+
+                <button
+                  onClick={() => void handleGoLive()}
+                  disabled={loadingGoLive || loadingFinish || !liveToken?.authToken || !joinedPreview}
+                  style={primaryBtnStyle}
+                >
+                  {loadingGoLive ? "Starting..." : "Go live"}
+                </button>
+              </>
+            )}
 
             <button
               onClick={() => void handleCancelEvent()}
