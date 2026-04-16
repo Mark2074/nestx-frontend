@@ -539,6 +539,7 @@ export default function HostLiveConsolePage() {
 
   const [joinedPreview, setJoinedPreview] = useState(false);
   const [step, setStep] = useState<HostConsoleStep>("DEVICE_SETUP");
+  const stepStorageKey = `nx_host_console_step_${eventId}`;
 
   const liveTokenEventIdRef = useRef("");
   const liveTokenScopeRef = useRef<LiveScope | null>(null);
@@ -596,6 +597,29 @@ export default function HostLiveConsolePage() {
     },
     [eventBaseScope, eventId, isHost]
   );
+
+  useEffect(() => {
+    if (!eventId) return;
+
+    try {
+        const saved = sessionStorage.getItem(stepStorageKey);
+        if (saved === "DEVICE_SETUP" || saved === "PRE_GO_LIVE") {
+        setStep(saved);
+        }
+    } catch {
+        // ignore
+    }
+    }, [eventId, stepStorageKey]);
+
+    useEffect(() => {
+    if (!eventId) return;
+
+    try {
+        sessionStorage.setItem(stepStorageKey, step);
+    } catch {
+        // ignore
+    }
+    }, [eventId, step, stepStorageKey]);
 
   useEffect(() => {
     if (!eventId) return;
@@ -713,6 +737,11 @@ export default function HostLiveConsolePage() {
       await syncHostRealtimeState("broadcasting");
       const latest = await loadEvent();
       const nextScope = getEventBaseScope(latest);
+    try {
+        sessionStorage.removeItem(stepStorageKey);
+        } catch {
+        // ignore
+        }
       nav(`/app/live/${eventId}/room?scope=${nextScope}`, { replace: true });
     } catch (e: any) {
       setErr(String(e?.message || "Failed to go live"));
@@ -735,6 +764,11 @@ export default function HostLiveConsolePage() {
     try {
       await syncHostRealtimeState("ended");
       await api.eventCancel(eventId);
+    try {
+        sessionStorage.removeItem(stepStorageKey);
+        } catch {
+        // ignore
+        }
       nav("/app/live", { replace: true });
     } catch (e: any) {
       setErr(String(e?.message || "Failed to cancel event"));
@@ -744,6 +778,11 @@ export default function HostLiveConsolePage() {
   }
 
   function goBack() {
+    try {
+    sessionStorage.removeItem(stepStorageKey);
+    } catch {
+    // ignore
+    }
     nav(`/app/live/${eventId}`);
   }
 
@@ -981,8 +1020,8 @@ const overlayBtnStyle = {
 
 const gearBtnStyle = {
   position: "absolute" as const,
-  right: 12,
-  bottom: 12,
+  right: 16,
+  bottom: 18,
   width: 42,
   height: 42,
   borderRadius: 999,
