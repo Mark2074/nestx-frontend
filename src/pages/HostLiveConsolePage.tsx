@@ -334,7 +334,7 @@ function HostCoreConsole({ authToken, step, onJoined, onLeft, onError }: HostCor
             }}
           />
 
-          {step === "PRE_GO_LIVE" ? (
+          {step === "PRE_GO_LIVE" || step === "LIVE_RUNNING" ? (
             <>
               <div
                 style={{
@@ -849,7 +849,13 @@ export default function HostLiveConsolePage() {
             <span style={pillStyle}>{eventBaseScope.toUpperCase()}</span>
             <span style={pillStyle}>{consoleState}</span>
             <span style={pillStyle}>{step}</span>
-            <span style={pillStyle}>{joinedPreview ? "PREVIEW_JOINED" : "PREVIEW_NOT_JOINED"}</span>
+            <span style={pillStyle}>
+              {step === "LIVE_RUNNING"
+                ? "LIVE_CONNECTED"
+                : joinedPreview
+                ? "PREVIEW_JOINED"
+                : "PREVIEW_NOT_JOINED"}
+            </span>
           </div>
         </div>
 
@@ -889,7 +895,9 @@ export default function HostLiveConsolePage() {
             padding: 12,
           }}
         >
-          <div style={{ fontWeight: 900, marginBottom: 10 }}>Pre-live host console</div>
+          <div style={{ fontWeight: 900, marginBottom: 10 }}>
+            {step === "LIVE_RUNNING" ? "Host live console" : "Pre-live host console"}
+          </div>
 
           {loadingLiveToken ? (
             <div style={{ minHeight: 560, display: "grid", placeItems: "center", opacity: 0.9 }}>
@@ -932,7 +940,7 @@ export default function HostLiveConsolePage() {
                 ? "Complete device setup first, then continue to the final pre-live check."
                 : step === "PRE_GO_LIVE"
                 ? "Final preview before live. Go live only when you are fully ready."
-                : "Host is live. Scope, goal and chat stay aligned with the shared NestX live logic."}
+                : "You are live. Audio, camera and settings remain available here while the live stays aligned with NestX scope, goal and chat logic."}
             </div>
 
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
