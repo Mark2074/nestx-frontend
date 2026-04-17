@@ -10,10 +10,12 @@ export default function ProfileLayoutPage() {
   const loc = useLocation();
   const rightKey = `${loc.pathname}${loc.search}`;
 
-  const isLiveRoom = useMemo(() => {
+  const isLiveRightPanelRoute = useMemo(() => {
     const p = String(loc.pathname || "");
-    // match: /app/live/:id/room
-    return /^\/app\/live\/[^/]+\/room\/?$/.test(p);
+    return (
+      /^\/app\/live\/[^/]+\/room\/?$/.test(p) ||
+      /^\/app\/live\/[^/]+\/host-console\/?$/.test(p)
+    );
   }, [loc.pathname]);
 
   const block = (() => {
@@ -164,7 +166,7 @@ export default function ProfileLayoutPage() {
           paddingBottom: 12,
         }}
       >
-        {isLiveRoom ? (
+        {isLiveRightPanelRoute ? (
           <LiveRightPanel />
         ) : (
           <ProfileRightPage key={rightKey} />

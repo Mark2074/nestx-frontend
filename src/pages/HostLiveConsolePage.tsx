@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { RealtimeKitProvider, useRealtimeKitClient } from "@cloudflare/realtimekit-react";
 import { api, type LiveTokenResponse } from "../api/nestxApi";
-import LiveRightPanel from "./LiveRightPanel";
 
 type LiveScope = "public" | "private";
 
@@ -880,10 +879,6 @@ export default function HostLiveConsolePage() {
       <div
         style={{
           marginTop: 14,
-          display: "grid",
-          gridTemplateColumns: "minmax(0, 1fr) 340px",
-          gap: 14,
-          alignItems: "start",
         }}
       >
         <div
@@ -1031,8 +1026,6 @@ export default function HostLiveConsolePage() {
             </div>
           </div>
         </div>
-
-        <LiveRightPanel />
       </div>
     </div>
   );
