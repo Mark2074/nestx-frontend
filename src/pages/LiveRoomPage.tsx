@@ -920,7 +920,7 @@ export default function LiveRoomPage() {
     if (!isHost) return;
 
     const status = getEventStatus(eventDetail);
-    if (status === "live" || status === "finished" || status === "cancelled") return;
+    if (status === "finished" || status === "cancelled") return;
 
     nav(`/app/live/${eventId}/host-console`, { replace: true });
   }, [
