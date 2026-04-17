@@ -577,6 +577,23 @@ export default function LiveRoomPage() {
       setErr("");
       setRoomBlockCode("");
 
+      joinedPresenceRef.current = false;
+      setEntered(false);
+      setRoomReady(false);
+      setCanWriteChat(false);
+      setCanWriteChatReason("");
+
+      emitRuntimeState({
+        entered: false,
+        joinedPresence: false,
+        authorizedScope: currentScope,
+        authorizedRoomId: runtimeRoomId,
+        shouldPausePublic: false,
+        canWriteChat: false,
+        canWriteChatReason: "",
+        roomBlockCode: "",
+      });
+
       try {
         if (currentScope && currentScope !== nextScope && joinedPresenceRef.current) {
           await leaveRuntimeScope(currentScope);
@@ -1211,7 +1228,17 @@ export default function LiveRoomPage() {
 
   useEffect(() => {
     emitRuntimeState();
-  }, [emitRuntimeState, runtimeScope, runtimeRoomId, entered, roomReady, shouldPausePublic]);
+  }, [
+    emitRuntimeState,
+    runtimeScope,
+    runtimeRoomId,
+    entered,
+    roomReady,
+    shouldPausePublic,
+    canWriteChat,
+    canWriteChatReason,
+    roomBlockCode,
+  ]);
 
   useEffect(() => {
     if (!eventId) return;

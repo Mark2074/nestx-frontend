@@ -32,7 +32,8 @@ export type LiveMessageItem = {
 };
 
 export type LiveMessagesResponse = {
-  items: LiveMessageItem[];
+  items?: LiveMessageItem[];
+  data?: LiveMessageItem[];
 };
 
 type TicketGetResponse = {
@@ -993,7 +994,7 @@ export const api = {
 
   liveGetMessages: (eventId: string, scope: LiveScope = "public", limit = 80) => {
     const lim = Math.max(1, Math.min(200, Number(limit || 80)));
-    return request<LiveMessagesResponse>(`/live/${eventId}/messages?scope=${scope}&limit=${lim}`, { method: "GET" });
+    return request<any>(`/live/${eventId}/messages?scope=${scope}&limit=${lim}`, { method: "GET" });
   },
 
   livePostMessage: (eventId: string, payload: { scope: LiveScope; text: string }) => {

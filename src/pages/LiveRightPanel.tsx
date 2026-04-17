@@ -230,7 +230,7 @@ export default function LiveRightPanel() {
     canShow &&
     !isFreeze &&
     !!runtimeScope &&
-    (isHost || chatState.entered || chatState.joinedPresence);
+    (isHost || chatState.joinedPresence);
 
   const isRoomFullBlocked = chatState.roomBlockCode === "ROOM_FULL";
   const isChatTemporarilyBlocked =
@@ -587,66 +587,55 @@ export default function LiveRightPanel() {
     }
   }, [canShow, goalActive, privateActive, tab]);
 
-  useEffect(() => {
-    const handler = (e: any) => {
-      const d = e?.detail || {};
-      if (String(d?.eventId || "") !== eventId) return;
+useEffect(() => {
+  const handler = (e: any) => {
+    const d = e?.detail || {};
+    if (String(d?.eventId || "") !== eventId) return;
 
-      const nextAuthorizedScope: LiveScope | null =
-        d?.authorizedScope === "private"
-          ? "private"
-          : d?.authorizedScope === "public"
-          ? "public"
-          : null;
+    const nextAuthorizedScope: LiveScope | null =
+      d?.authorizedScope === "private"
+        ? "private"
+        : d?.authorizedScope === "public"
+        ? "public"
+        : null;
 
-      setChatState((prev): ChatState => {
-        const nextRoomBlockCode: "" | "ROOM_FULL" =
-          d?.roomBlockCode === "ROOM_FULL" ? "ROOM_FULL" : "";
+    const nextRoomBlockCode: "" | "ROOM_FULL" =
+      d?.roomBlockCode === "ROOM_FULL" ? "ROOM_FULL" : "";
 
-        const nextState: ChatState = {
-          entered: Boolean(d?.entered),
-          joinedPresence: Boolean(d?.joinedPresence),
-          authorizedScope: nextAuthorizedScope,
-          authorizedRoomId: typeof d?.authorizedRoomId === "string" ? d.authorizedRoomId : "",
-          shouldPausePublic: Boolean(d?.shouldPausePublic),
-          canWriteChat: Boolean(d?.canWriteChat),
-          canWriteChatReason: String(d?.canWriteChatReason || ""),
-          roomBlockCode: nextRoomBlockCode,
-        };
+    setChatState({
+      entered: Boolean(d?.entered),
+      joinedPresence: Boolean(d?.joinedPresence),
+      authorizedScope: nextAuthorizedScope,
+      authorizedRoomId: typeof d?.authorizedRoomId === "string" ? d.authorizedRoomId : "",
+      shouldPausePublic: Boolean(d?.shouldPausePublic),
+      canWriteChat: Boolean(d?.canWriteChat),
+      canWriteChatReason: String(d?.canWriteChatReason || ""),
+      roomBlockCode: nextRoomBlockCode,
+    });
+  };
 
-        const isEmptyIncomingState =
-          nextState.authorizedScope === null &&
-          nextState.authorizedRoomId === "" &&
-          nextState.entered === false &&
-          nextState.joinedPresence === false &&
-          nextState.canWriteChat === false &&
-          nextState.roomBlockCode === "";
-
-        const hasExistingUsefulState =
-          prev.authorizedScope !== null ||
-          prev.authorizedRoomId !== "" ||
-          prev.entered === true ||
-          prev.joinedPresence === true ||
-          prev.canWriteChat === true;
-
-        if (isEmptyIncomingState && hasExistingUsefulState) {
-          console.log("BLOCK_EMPTY_LIVECHAT_STATE_OVERWRITE", { prev, incoming: nextState });
-          return prev;
-        }
-
-        return nextState;
-      });
-    };
-
-    window.addEventListener("nx:livechat:state", handler as any);
-    return () => window.removeEventListener("nx:livechat:state", handler as any);
-  }, [eventId]);
+  window.addEventListener("nx:livechat:state", handler as any);
+  return () => window.removeEventListener("nx:livechat:state", handler as any);
+}, [eventId]);
 
   useEffect(() => {
     setMessages([]);
     setChatErr("");
+    setChatRetryUntil(null);
+    setChatBlockedUntil(null);
     stickToBottomRef.current = true;
   }, [eventId, runtimeScope]);
+
+  useEffect(() => {
+    if (isHost) return;
+
+    if (!chatState.joinedPresence || !chatState.authorizedScope) {
+      setMessages([]);
+      setChatRetryUntil(null);
+      setChatBlockedUntil(null);
+      setSending(false);
+    }
+  }, [chatState.authorizedScope, chatState.joinedPresence, isHost]);
 
   useEffect(() => {
     if (isFreeze || isRoomFullBlocked) {
