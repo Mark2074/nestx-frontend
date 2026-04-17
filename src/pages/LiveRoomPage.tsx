@@ -1010,9 +1010,6 @@ export default function LiveRoomPage() {
 
   useEffect(() => {
     if (!eventId || !runtimeScope || !roomReady || !entered) return;
-
-    // During internal private/public transitions, avoid fighting with
-    // the event-driven scope navigation while runtime is still catching up.
     if (transitionInFlightRef.current) return;
 
     if (
@@ -1023,8 +1020,11 @@ export default function LiveRoomPage() {
       return;
     }
 
-    if (requestedScope !== runtimeScope) {
-      nav(`/app/live/${eventId}/room?scope=${runtimeScope}`, { replace: true });
+    const currentUrl = `${window.location.pathname}${window.location.search}`;
+    const targetUrl = `/app/live/${eventId}/room?scope=${runtimeScope}`;
+
+    if (requestedScope !== runtimeScope && currentUrl !== targetUrl) {
+      nav(targetUrl, { replace: true });
     }
   }, [
     entered,
@@ -1289,38 +1289,44 @@ export default function LiveRoomPage() {
 
     return () => {
       const current = runtimeScopeRef.current;
-      if (current && joinedPresenceRef.current) {
+      const isRealPageUnload =
+        document.visibilityState === "hidden" ||
+        !window.location.pathname.includes(`/app/live/${eventId}/room`);
+
+      if (current && joinedPresenceRef.current && isRealPageUnload) {
         void api.liveLeaveRoom(eventId, current).catch(() => {});
       }
 
-      if (isHost && (isFinished || isCancelled)) {
+      if (isHost && (isFinished || isCancelled) && isRealPageUnload) {
         void api.liveHostRealtimeState(eventId, {
           scope: current || getEventBaseScope(eventDetail),
           state: "ended",
         }).catch(() => {});
       }
 
-      runtimeScopeRef.current = null;
-      joinedPresenceRef.current = false;
+      if (isRealPageUnload) {
+        runtimeScopeRef.current = null;
+        joinedPresenceRef.current = false;
 
-      try {
-        window.dispatchEvent(
-          new CustomEvent("nx:livechat:state", {
-            detail: {
-              eventId,
-              entered: false,
-              joinedPresence: false,
-              authorizedScope: null,
-              authorizedRoomId: "",
-              shouldPausePublic: false,
-              canWriteChat: false,
-              canWriteChatReason: "",
-              roomBlockCode: "",
-            },
-          })
-        );
-      } catch {
-        // ignore
+        try {
+          window.dispatchEvent(
+            new CustomEvent("nx:livechat:state", {
+              detail: {
+                eventId,
+                entered: false,
+                joinedPresence: false,
+                authorizedScope: null,
+                authorizedRoomId: "",
+                shouldPausePublic: false,
+                canWriteChat: false,
+                canWriteChatReason: "",
+                roomBlockCode: "",
+              },
+            })
+          );
+        } catch {
+          // ignore
+        }
       }
     };
   }, [eventDetail, eventId, isCancelled, isFinished, isHost]);
