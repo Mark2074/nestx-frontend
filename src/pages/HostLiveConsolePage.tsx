@@ -733,15 +733,18 @@ export default function HostLiveConsolePage() {
     setErr("");
 
     try {
+      await api.liveStartBroadcast(eventId, eventBaseScope);
       await api.eventGoLive(eventId);
-      await syncHostRealtimeState("broadcasting");
+
       const latest = await loadEvent();
       const nextScope = getEventBaseScope(latest);
-    try {
+
+      try {
         sessionStorage.removeItem(stepStorageKey);
-        } catch {
+      } catch {
         // ignore
-        }
+      }
+
       nav(`/app/live/${eventId}/room?scope=${nextScope}`, { replace: true });
     } catch (e: any) {
       setErr(String(e?.message || "Failed to go live"));

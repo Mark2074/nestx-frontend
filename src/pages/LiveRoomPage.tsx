@@ -1097,17 +1097,15 @@ export default function LiveRoomPage() {
       return;
     }
 
-    if (shouldPausePublic) {
+    if (isHost) {
       resetTokenState();
       return;
     }
 
-    const shouldBootCreatorPreLive =
-      isHost &&
-      !isLive &&
-      !isFinished &&
-      !isCancelled &&
-      !!eventDetail;
+    if (shouldPausePublic) {
+      resetTokenState();
+      return;
+    }
 
     const shouldBootActiveRoom =
       isLive &&
@@ -1115,27 +1113,14 @@ export default function LiveRoomPage() {
       !!roomReady &&
       !!runtimeScope;
 
-    const desiredRole: "host" | "viewer" = isHost ? "host" : "viewer";
-
-    const fallbackScope =
-      eventDetail ? getEventBaseScope(eventDetail) : null;
+    const desiredRole: "viewer" = "viewer";
 
     const tokenScope: LiveScope | null =
-      shouldBootCreatorPreLive
-        ? fallbackScope
-        : shouldBootActiveRoom
+      shouldBootActiveRoom
         ? (runtimeScope as LiveScope)
-        : isHost && liveToken?.authToken && fallbackScope
-        ? fallbackScope
         : null;
 
     if (!tokenScope) {
-      if (isHost && liveToken?.authToken && fallbackScope && liveTokenScopeRef.current === fallbackScope) {
-        setLoadingLiveToken(false);
-        setLiveTokenErr("");
-        return;
-      }
-
       resetTokenState();
       return;
     }

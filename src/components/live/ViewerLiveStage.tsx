@@ -50,7 +50,22 @@ export default function ViewerLiveStage({
         pointerEvents: shouldPausePublic ? "none" : "auto",
       }}
     >
-      {loadingLiveToken ? (
+      {isHost ? (
+        <div
+          style={{
+            maxWidth: 560,
+            textAlign: "center",
+            opacity: 0.95,
+          }}
+        >
+          <div style={{ fontWeight: 1000, fontSize: 18 }}>
+            Live is running.
+          </div>
+          <div style={{ marginTop: 8, opacity: 0.9, fontWeight: 800, lineHeight: 1.45 }}>
+            Host realtime stays attached to the pre-live console to avoid a second join and duplicate video.
+          </div>
+        </div>
+      ) : loadingLiveToken ? (
         <div style={{ opacity: 0.9 }}>Initializing live stream…</div>
       ) : liveTokenErr ? (
         <div style={{ opacity: 0.95, color: "salmon", fontWeight: 900 }}>
@@ -76,11 +91,11 @@ export default function ViewerLiveStage({
             }}
           >
             <RealtimeMeetingEmbed
-              key={`${eventId}:${isHost ? "host" : "viewer"}:${runtimeScope || eventBaseScope}`}
+              key={`${eventId}:viewer:${runtimeScope || eventBaseScope}`}
               authToken={authToken}
-              isHost={isHost}
+              isHost={false}
               showSetupScreen={false}
-              shouldStartBroadcast={isHost}
+              shouldStartBroadcast={false}
             />
           </div>
         </div>

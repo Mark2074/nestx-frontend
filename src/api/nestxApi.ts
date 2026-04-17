@@ -923,6 +923,12 @@ export const api = {
       body: JSON.stringify({ eventId, scope }),
     }),
 
+  liveStartBroadcast: (eventId: string, scope: LiveScope = "public") =>
+    request<any>(`/live/${eventId}/start-broadcast`, {
+      method: "POST",
+      body: JSON.stringify({ scope }),
+    }),
+
   liveHostRealtimeState: (
     eventId: string,
     payload: { scope: LiveScope; state: HostRealtimeState }
