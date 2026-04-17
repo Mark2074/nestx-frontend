@@ -236,6 +236,17 @@ export default function LiveRightPanel() {
 
   const canWriteChat = isHost || chatState.canWriteChat === true;
 
+  console.log("LIVE_CHAT_DEBUG", {
+    isHost,
+    canShow,
+    canAccessChat,
+    runtimeScope,
+    canWriteChat,
+    chatState,
+    isRoomFullBlocked,
+    isChatTemporarilyBlocked,
+  });
+
   const canUseChatComposer =
     canShow &&
     canAccessChat &&
