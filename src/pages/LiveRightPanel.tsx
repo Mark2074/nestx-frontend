@@ -590,14 +590,41 @@ export default function LiveRightPanel() {
           ? "public"
           : null;
 
-      setChatState({
-        entered: Boolean(d?.entered),
-        joinedPresence: Boolean(d?.joinedPresence),
-        authorizedScope: nextAuthorizedScope,
-        authorizedRoomId: typeof d?.authorizedRoomId === "string" ? d.authorizedRoomId : "",
-        shouldPausePublic: Boolean(d?.shouldPausePublic),
-        canWriteChat: Boolean(d?.canWriteChat),
-        roomBlockCode: d?.roomBlockCode === "ROOM_FULL" ? "ROOM_FULL" : "",
+      setChatState((prev): ChatState => {
+        const nextRoomBlockCode: "" | "ROOM_FULL" =
+          d?.roomBlockCode === "ROOM_FULL" ? "ROOM_FULL" : "";
+
+        const nextState: ChatState = {
+          entered: Boolean(d?.entered),
+          joinedPresence: Boolean(d?.joinedPresence),
+          authorizedScope: nextAuthorizedScope,
+          authorizedRoomId: typeof d?.authorizedRoomId === "string" ? d.authorizedRoomId : "",
+          shouldPausePublic: Boolean(d?.shouldPausePublic),
+          canWriteChat: Boolean(d?.canWriteChat),
+          roomBlockCode: nextRoomBlockCode,
+        };
+
+        const isEmptyIncomingState =
+          nextState.authorizedScope === null &&
+          nextState.authorizedRoomId === "" &&
+          nextState.entered === false &&
+          nextState.joinedPresence === false &&
+          nextState.canWriteChat === false &&
+          nextState.roomBlockCode === "";
+
+        const hasExistingUsefulState =
+          prev.authorizedScope !== null ||
+          prev.authorizedRoomId !== "" ||
+          prev.entered === true ||
+          prev.joinedPresence === true ||
+          prev.canWriteChat === true;
+
+        if (isEmptyIncomingState && hasExistingUsefulState) {
+          console.log("BLOCK_EMPTY_LIVECHAT_STATE_OVERWRITE", { prev, incoming: nextState });
+          return prev;
+        }
+
+        return nextState;
       });
     };
 
