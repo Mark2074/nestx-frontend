@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { RealtimeKitProvider, useRealtimeKitClient } from "@cloudflare/realtimekit-react";
 import { api, type LiveTokenResponse } from "../api/nestxApi";
+import LiveRightColumn from "../components/live/LiveRightColumn";
 
 type LiveScope = "public" | "private";
 
@@ -534,6 +535,7 @@ export default function HostLiveConsolePage() {
 
   const [err, setErr] = useState("");
   const [liveToken, setLiveToken] = useState<LiveTokenResponse | null>(null);
+  const [viewersNow, setViewersNow] = useState(0);
   const [loadingLiveToken, setLoadingLiveToken] = useState(false);
   const [liveTokenErr, setLiveTokenErr] = useState("");
 
@@ -580,6 +582,17 @@ export default function HostLiveConsolePage() {
       return null;
     }
   }, [eventId]);
+
+  const loadStatus = useCallback(async () => {
+    if (!eventId) return;
+    try {
+      const res: any = await api.liveStatus(eventId, eventBaseScope);
+      const viewers = Number(res?.viewersNow ?? 0);
+      setViewersNow(Number.isFinite(viewers) ? viewers : 0);
+    } catch {
+      // ignore
+    }
+  }, [eventBaseScope, eventId]);
 
   const syncHostRealtimeState = useCallback(
     async (state: "setup" | "joined" | "broadcasting" | "ended") => {
@@ -744,6 +757,19 @@ export default function HostLiveConsolePage() {
     return () => window.clearInterval(t);
   }, [eventId, isCancelled, isFinished, isHost, loadEvent, nav, step, stepStorageKey]);
 
+  useEffect(() => {
+    if (!eventId) return;
+    if (!isHost) return;
+    if (step !== "LIVE_RUNNING") return;
+
+    const t = window.setInterval(() => {
+      void loadStatus();
+      void loadEvent();
+    }, 5000);
+
+    return () => window.clearInterval(t);
+  }, [eventId, isHost, loadEvent, loadStatus, step]);
+
   async function handleGoLive() {
     if (!eventId) return;
     if (!isHost) return;
@@ -879,146 +905,188 @@ export default function HostLiveConsolePage() {
       <div
         style={{
           marginTop: 14,
-          border: "1px solid rgba(255,255,255,0.12)",
-          borderRadius: 16,
-          background: "rgba(255,255,255,0.04)",
-          padding: 12,
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 1fr) 340px",
+          gap: 14,
+          alignItems: "start",
         }}
       >
-        <div style={{ fontWeight: 900, marginBottom: 10 }}>Pre-live host console</div>
-
-        {loadingLiveToken ? (
-          <div style={{ minHeight: 560, display: "grid", placeItems: "center", opacity: 0.9 }}>
-            Initializing host preview…
-          </div>
-        ) : liveToken?.authToken ? (
-          <HostCoreConsole
-            authToken={liveToken.authToken}
-            step={step}
-            onJoined={() => {
-              setJoinedPreview(true);
-              void syncHostRealtimeState("joined");
-            }}
-            onLeft={() => {
-              setJoinedPreview(false);
-              void syncHostRealtimeState("setup");
-            }}
-            onError={(msg) => {
-              setErr(msg);
-            }}
-          />
-        ) : (
-          <div style={{ minHeight: 560, display: "grid", placeItems: "center", opacity: 0.9 }}>
-            Waiting for host preview…
-          </div>
-        )}
-
         <div
           style={{
-            marginTop: 14,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 12,
-            flexWrap: "wrap",
+            border: "1px solid rgba(255,255,255,0.12)",
+            borderRadius: 16,
+            background: "rgba(255,255,255,0.04)",
+            padding: 12,
           }}
         >
-          <div style={{ opacity: 0.86, lineHeight: 1.45 }}>
-            {step === "DEVICE_SETUP"
-              ? "Complete device setup first, then continue to the final pre-live check."
-              : step === "PRE_GO_LIVE"
-              ? "Final preview before live. Go live only when you are fully ready."
-              : "You are live now. This host session stays here and does not move to the viewer room."}
-          </div>
+          <div style={{ fontWeight: 900, marginBottom: 10 }}>Pre-live host console</div>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {step === "DEVICE_SETUP" ? (
-              <button
-                onClick={() => setStep("PRE_GO_LIVE")}
-                disabled={!liveToken?.authToken || !joinedPreview}
-                style={primaryBtnStyle}
-              >
-                Continue
-              </button>
-            ) : step === "PRE_GO_LIVE" ? (
-              <>
-                <button
-                  onClick={() => setStep("DEVICE_SETUP")}
-                  disabled={loadingGoLive || loadingFinish}
-                  style={secondaryBtnStyle}
-                >
-                  Back to setup
-                </button>
+          {loadingLiveToken ? (
+            <div style={{ minHeight: 560, display: "grid", placeItems: "center", opacity: 0.9 }}>
+              Initializing host preview…
+            </div>
+          ) : liveToken?.authToken ? (
+            <HostCoreConsole
+              authToken={liveToken.authToken}
+              step={step}
+              onJoined={() => {
+                setJoinedPreview(true);
+                void syncHostRealtimeState("joined");
+              }}
+              onLeft={() => {
+                setJoinedPreview(false);
+                void syncHostRealtimeState("setup");
+              }}
+              onError={(msg) => {
+                setErr(msg);
+              }}
+            />
+          ) : (
+            <div style={{ minHeight: 560, display: "grid", placeItems: "center", opacity: 0.9 }}>
+              Waiting for host preview…
+            </div>
+          )}
 
+          <div
+            style={{
+              marginTop: 14,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              flexWrap: "wrap",
+            }}
+          >
+            <div style={{ opacity: 0.86, lineHeight: 1.45 }}>
+              {step === "DEVICE_SETUP"
+                ? "Complete device setup first, then continue to the final pre-live check."
+                : step === "PRE_GO_LIVE"
+                ? "Final preview before live. Go live only when you are fully ready."
+                : "Host is live. Scope, goal and chat stay aligned with the shared NestX live logic."}
+            </div>
+
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {step === "DEVICE_SETUP" ? (
                 <button
-                  onClick={() => void handleGoLive()}
-                  disabled={loadingGoLive || loadingFinish || !liveToken?.authToken || !joinedPreview}
+                  onClick={() => setStep("PRE_GO_LIVE")}
+                  disabled={!liveToken?.authToken || !joinedPreview}
                   style={primaryBtnStyle}
                 >
-                  {loadingGoLive ? "Starting..." : "Go live"}
+                  Continue
                 </button>
+              ) : step === "PRE_GO_LIVE" ? (
+                <>
+                  <button
+                    onClick={() => setStep("DEVICE_SETUP")}
+                    disabled={loadingGoLive || loadingFinish}
+                    style={secondaryBtnStyle}
+                  >
+                    Back to setup
+                  </button>
 
-                <button
-                  onClick={() => void handleCancelEvent()}
-                  disabled={loadingGoLive || loadingFinish}
-                  style={{
-                    ...secondaryBtnStyle,
-                    borderColor: "rgba(255,100,120,0.35)",
-                    color: "salmon",
-                  }}
-                >
-                  {loadingFinish ? "Cancelling..." : "Cancel event"}
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={() => void loadEvent()}
-                  disabled={loadingFinish}
-                  style={secondaryBtnStyle}
-                >
-                  Refresh status
-                </button>
+                  <button
+                    onClick={() => void handleGoLive()}
+                    disabled={loadingGoLive || loadingFinish || !liveToken?.authToken || !joinedPreview}
+                    style={primaryBtnStyle}
+                  >
+                    {loadingGoLive ? "Starting..." : "Go live"}
+                  </button>
 
-                <button
-                  onClick={async () => {
-                    if (!eventId || loadingFinish) return;
-                    setLoadingFinish(true);
-                    setErr("");
-                    try {
-                      await syncHostRealtimeState("ended");
-                      await api.eventFinish(eventId);
+                  <button
+                    onClick={() => void handleCancelEvent()}
+                    disabled={loadingGoLive || loadingFinish}
+                    style={{
+                      ...secondaryBtnStyle,
+                      borderColor: "rgba(255,100,120,0.35)",
+                      color: "salmon",
+                    }}
+                  >
+                    {loadingFinish ? "Cancelling..." : "Cancel event"}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => void loadStatus()}
+                    disabled={loadingFinish}
+                    style={secondaryBtnStyle}
+                  >
+                    Refresh status
+                  </button>
+
+                  <button
+                    onClick={async () => {
+                      if (!eventId || loadingFinish) return;
+                      setLoadingFinish(true);
+                      setErr("");
                       try {
-                        sessionStorage.removeItem(stepStorageKey);
-                      } catch {}
-                      nav("/app/live", { replace: true });
-                    } catch (e: any) {
-                      setErr(String(e?.message || "Failed to finish event"));
-                    } finally {
-                      setLoadingFinish(false);
-                    }
-                  }}
-                  disabled={loadingFinish}
-                  style={secondaryBtnStyle}
-                >
-                  {loadingFinish ? "Finishing..." : "Finish"}
-                </button>
+                        await syncHostRealtimeState("ended");
+                        await api.eventFinish(eventId);
+                        try {
+                          sessionStorage.removeItem(stepStorageKey);
+                        } catch {}
+                        nav("/app/live", { replace: true });
+                      } catch (e: any) {
+                        setErr(String(e?.message || "Failed to finish event"));
+                      } finally {
+                        setLoadingFinish(false);
+                      }
+                    }}
+                    disabled={loadingFinish}
+                    style={secondaryBtnStyle}
+                  >
+                    {loadingFinish ? "Finishing..." : "Finish"}
+                  </button>
 
-                <button
-                  onClick={() => void handleCancelEvent()}
-                  disabled={loadingFinish}
-                  style={{
-                    ...secondaryBtnStyle,
-                    borderColor: "rgba(255,100,120,0.35)",
-                    color: "salmon",
-                  }}
-                >
-                  {loadingFinish ? "Cancelling..." : "Cancel event"}
-                </button>
-              </>
-            )}
+                  <button
+                    onClick={() => void handleCancelEvent()}
+                    disabled={loadingFinish}
+                    style={{
+                      ...secondaryBtnStyle,
+                      borderColor: "rgba(255,100,120,0.35)",
+                      color: "salmon",
+                    }}
+                  >
+                    {loadingFinish ? "Cancelling..." : "Cancel event"}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
+
+        <LiveRightColumn
+          eventId={eventId}
+          eventDetail={eventDetail}
+          isHost={true}
+          isLive={isLive}
+          supportsGoal={true}
+          shouldPausePublic={false}
+          runtimeScope={eventBaseScope}
+          eventBaseScope={eventBaseScope}
+          viewersNow={viewersNow}
+          onReloadEvent={loadEvent}
+          onRefreshStatus={loadStatus}
+          onFinishHost={async () => {
+            if (!eventId || loadingFinish) return;
+            setLoadingFinish(true);
+            setErr("");
+            try {
+              await syncHostRealtimeState("ended");
+              await api.eventFinish(eventId);
+              try {
+                sessionStorage.removeItem(stepStorageKey);
+              } catch {}
+              nav("/app/live", { replace: true });
+            } catch (e: any) {
+              setErr(String(e?.message || "Failed to finish event"));
+            } finally {
+              setLoadingFinish(false);
+            }
+          }}
+          onCancelHost={handleCancelEvent}
+          chatScopeLabel={eventBaseScope.toUpperCase()}
+        />
       </div>
     </div>
   );
