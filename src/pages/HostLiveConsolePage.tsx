@@ -556,6 +556,52 @@ export default function HostLiveConsolePage() {
 
   const eventBaseScope = getEventBaseScope(eventDetail);
 
+  const emitHostLiveChatState = useCallback(
+    (overrides?: Partial<{
+      entered: boolean;
+      joinedPresence: boolean;
+      authorizedScope: LiveScope | null;
+      authorizedRoomId: string;
+      shouldPausePublic: boolean;
+      canWriteChat: boolean;
+      roomBlockCode: "" | "ROOM_FULL";
+    }>) => {
+      try {
+        const authorizedScope =
+          overrides?.authorizedScope !== undefined
+            ? overrides.authorizedScope
+            : (isLive ? eventBaseScope : eventBaseScope);
+
+        const authorizedRoomId =
+          overrides?.authorizedRoomId !== undefined
+            ? overrides.authorizedRoomId
+            : (
+                eventBaseScope === "private"
+                  ? String(eventDetail?.privateSession?.roomId || "")
+                  : String(eventDetail?.live?.roomId || eventDetail?._id || "")
+              );
+
+        window.dispatchEvent(
+          new CustomEvent("nx:livechat:state", {
+            detail: {
+              eventId,
+              entered: overrides?.entered ?? true,
+              joinedPresence: overrides?.joinedPresence ?? true,
+              authorizedScope,
+              authorizedRoomId,
+              shouldPausePublic: overrides?.shouldPausePublic ?? false,
+              canWriteChat: overrides?.canWriteChat ?? true,
+              roomBlockCode: overrides?.roomBlockCode ?? "",
+            },
+          })
+        );
+      } catch {
+        // ignore
+      }
+    },
+    [eventBaseScope, eventDetail, eventId, isLive]
+  );
+
   const consoleState: HostConsoleState = useMemo(() => {
     if (err || liveTokenErr) return "ERROR";
     if (loadingFinish) return "FINISHING";
@@ -671,6 +717,34 @@ export default function HostLiveConsolePage() {
   }, [eventDetail, eventId, isCancelled, isFinished, isHost, isLive, joinedPreview, syncHostRealtimeState]);
 
   useEffect(() => {
+    if (!eventId) return;
+    if (!isHost) return;
+    if (!eventDetail) return;
+    if (isFinished || isCancelled) return;
+
+    emitHostLiveChatState({
+      entered: true,
+      joinedPresence: true,
+      authorizedScope: eventBaseScope,
+      authorizedRoomId:
+        eventBaseScope === "private"
+          ? String(eventDetail?.privateSession?.roomId || "")
+          : String(eventDetail?.live?.roomId || eventDetail?._id || ""),
+      shouldPausePublic: false,
+      canWriteChat: true,
+      roomBlockCode: "",
+    });
+  }, [
+    emitHostLiveChatState,
+    eventBaseScope,
+    eventDetail,
+    eventId,
+    isCancelled,
+    isFinished,
+    isHost,
+  ]);
+
+  useEffect(() => {
     if (!eventId || !eventDetail || !isHost) return;
     if (isFinished || isCancelled) return;
 
@@ -743,6 +817,31 @@ export default function HostLiveConsolePage() {
 
     return () => window.clearInterval(t);
   }, [eventId, isCancelled, isFinished, isHost, loadEvent, nav, step, stepStorageKey]);
+
+  useEffect(() => {
+    if (!eventId) return;
+
+    return () => {
+      try {
+        window.dispatchEvent(
+          new CustomEvent("nx:livechat:state", {
+            detail: {
+              eventId,
+              entered: false,
+              joinedPresence: false,
+              authorizedScope: null,
+              authorizedRoomId: "",
+              shouldPausePublic: false,
+              canWriteChat: false,
+              roomBlockCode: "",
+            },
+          })
+        );
+      } catch {
+        // ignore
+      }
+    };
+  }, [eventId]);
 
   async function handleGoLive() {
     if (!eventId) return;
