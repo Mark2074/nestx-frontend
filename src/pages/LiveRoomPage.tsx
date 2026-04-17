@@ -260,6 +260,7 @@ export default function LiveRoomPage() {
   const joinedPresenceRef = useRef(false);
   const transitionSeqRef = useRef(0);
   const transitionInFlightRef = useRef(false);
+  const lastAppliedTargetScopeRef = useRef<LiveScope | null>(null);
 
   const liveTokenEventIdRef = useRef("");
   const liveTokenScopeRef = useRef<LiveScope | null>(null);
@@ -495,6 +496,7 @@ export default function LiveRoomPage() {
     (emitNull = true, nextRoomBlockCode: "" | "ROOM_FULL" = "") => {
       runtimeScopeRef.current = null;
       joinedPresenceRef.current = false;
+      lastAppliedTargetScopeRef.current = null;
 
       setRuntimeScope(null);
       setRuntimeRoomId("");
@@ -625,6 +627,7 @@ export default function LiveRoomPage() {
 
         runtimeScopeRef.current = authorizedScope;
         joinedPresenceRef.current = true;
+        lastAppliedTargetScopeRef.current = authorizedScope;
 
         setAccess((prev) => ({
           ...(prev || { canEnter: true }),
@@ -982,6 +985,16 @@ export default function LiveRoomPage() {
     if (transitionInFlightRef.current) return;
     if (roomBlockCode === "ROOM_FULL") return;
 
+    const alreadyStable =
+      targetRuntimeScope !== null &&
+      lastAppliedTargetScopeRef.current === targetRuntimeScope &&
+      runtimeScopeRef.current === targetRuntimeScope &&
+      joinedPresenceRef.current === true &&
+      entered === true &&
+      roomReady === true;
+
+    if (alreadyStable) return;
+
     void transitionToRuntimeScope(targetRuntimeScope);
   }, [
     creatorId,
@@ -991,6 +1004,8 @@ export default function LiveRoomPage() {
     roomBlockCode,
     targetRuntimeScope,
     transitionToRuntimeScope,
+    entered,
+    roomReady,
   ]);
 
   useEffect(() => {
@@ -1086,16 +1101,45 @@ export default function LiveRoomPage() {
         const httpStatus = Number(e?.status || e?.response?.status || 0);
 
         if (httpStatus === 403) {
-          clearRuntimeState(true);
-          const latest = await loadEvent();
-          const latestStatus = getEventStatus(latest);
+          try {
+            const joinAccess: any = await api.eventJoin(eventId, currentScope);
+            const accessObj = (joinAccess?.access || joinAccess) as any;
+            const authorizedScope: LiveScope =
+              accessObj?.authorizedScope === "private" ? "private" : "public";
 
-          if (latestStatus === "finished" || latestStatus === "cancelled") {
-            return;
-          }
+            await api.liveJoinRoom(eventId, authorizedScope);
 
-          if (currentScope === "private" && supportsInternalPrivate) {
-            nav(`/app/live/${eventId}/room?scope=public`, { replace: true });
+            runtimeScopeRef.current = authorizedScope;
+            joinedPresenceRef.current = true;
+            lastAppliedTargetScopeRef.current = authorizedScope;
+
+            setRuntimeScope(authorizedScope);
+            setEntered(true);
+            setRoomReady(true);
+            setCanWriteChat(Boolean(joinAccess?.permissions?.canChat));
+            setCanWriteChatReason(String(joinAccess?.permissions?.canChatReason || ""));
+
+            emitRuntimeState({
+              entered: true,
+              joinedPresence: true,
+              authorizedScope: authorizedScope,
+              authorizedRoomId: String(accessObj?.authorizedRoomId || ""),
+              canWriteChat: Boolean(joinAccess?.permissions?.canChat),
+              canWriteChatReason: String(joinAccess?.permissions?.canChatReason || ""),
+            });
+          } catch {
+            clearRuntimeState(true);
+
+            const latest = await loadEvent();
+            const latestStatus = getEventStatus(latest);
+
+            if (latestStatus === "finished" || latestStatus === "cancelled") {
+              return;
+            }
+
+            if (currentScope === "private" && supportsInternalPrivate) {
+              nav(`/app/live/${eventId}/room?scope=public`, { replace: true });
+            }
           }
         }
         return;
