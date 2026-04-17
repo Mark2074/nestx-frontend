@@ -62,6 +62,7 @@ type RuntimeStatePayload = {
   authorizedRoomId: string;
   shouldPausePublic: boolean;
   canWriteChat: boolean;
+  canWriteChatReason: string;
 };
 
 function normalizeEventDetail(input: any): EventDetail {
@@ -215,6 +216,7 @@ export default function LiveRoomPage() {
   const [entered, setEntered] = useState(false);
   const [roomReady, setRoomReady] = useState(false);
   const [canWriteChat, setCanWriteChat] = useState(false);
+  const [canWriteChatReason, setCanWriteChatReason] = useState("");
 
   const [meta, setMeta] = useState<any>(null);
   const [viewersNow, setViewersNow] = useState(0);
@@ -348,6 +350,8 @@ export default function LiveRoomPage() {
             payload?.shouldPausePublic !== undefined ? payload.shouldPausePublic : shouldPausePublic,
           canWriteChat:
             payload?.canWriteChat !== undefined ? payload.canWriteChat : canWriteChat,
+          canWriteChatReason:
+            payload?.canWriteChatReason !== undefined ? payload.canWriteChatReason : canWriteChatReason,
           roomBlockCode:
             payload?.roomBlockCode !== undefined ? payload.roomBlockCode : roomBlockCode,
         };
@@ -464,6 +468,7 @@ export default function LiveRoomPage() {
       setEntered(false);
       setRoomReady(false);
       setCanWriteChat(true);
+      setCanWriteChatReason("HOST");
       setRoomBlockCode("");
       setLiveToken(null);
       setLiveTokenErr("");
@@ -480,6 +485,7 @@ export default function LiveRoomPage() {
         authorizedRoomId: "",
         shouldPausePublic: false,
         canWriteChat: true,
+        canWriteChatReason: "HOST",
       });
     },
     [emitRuntimeState]
@@ -495,6 +501,7 @@ export default function LiveRoomPage() {
       setEntered(false);
       setRoomReady(false);
       setCanWriteChat(false);
+      setCanWriteChatReason("");
       setRoomBlockCode(nextRoomBlockCode);
       setLiveToken(null);
       setLiveTokenErr("");
@@ -512,6 +519,7 @@ export default function LiveRoomPage() {
           authorizedRoomId: "",
           shouldPausePublic: false,
           canWriteChat: false,
+          canWriteChatReason: "",
           roomBlockCode: nextRoomBlockCode,
         });
       }
@@ -614,7 +622,10 @@ export default function LiveRoomPage() {
         setRoomReady(true);
 
         const joinCanWriteChat = Boolean(joinAccess?.permissions?.canChat);
+        const joinCanWriteChatReason = String(joinAccess?.permissions?.canChatReason || "");
+
         setCanWriteChat(joinCanWriteChat);
+        setCanWriteChatReason(joinCanWriteChatReason);
 
         if (Number.isFinite(viewers)) {
           setViewersNow(viewers);
@@ -626,6 +637,7 @@ export default function LiveRoomPage() {
           authorizedScope,
           authorizedRoomId,
           canWriteChat: joinCanWriteChat,
+          canWriteChatReason: joinCanWriteChatReason,
         });
 
         await loadStatus(authorizedScope);
@@ -1231,6 +1243,7 @@ export default function LiveRoomPage() {
               authorizedRoomId: "",
               shouldPausePublic: false,
               canWriteChat: false,
+              canWriteChatReason: "",
               roomBlockCode: "",
             },
           })

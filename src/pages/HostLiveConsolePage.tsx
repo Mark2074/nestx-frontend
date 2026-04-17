@@ -591,6 +591,7 @@ export default function HostLiveConsolePage() {
               authorizedRoomId,
               shouldPausePublic: overrides?.shouldPausePublic ?? false,
               canWriteChat: overrides?.canWriteChat ?? true,
+              canWriteChatReason: "HOST",
               roomBlockCode: overrides?.roomBlockCode ?? "",
             },
           })
@@ -833,6 +834,7 @@ export default function HostLiveConsolePage() {
               authorizedRoomId: "",
               shouldPausePublic: false,
               canWriteChat: false,
+              canWriteChatReason: "",
               roomBlockCode: "",
             },
           })

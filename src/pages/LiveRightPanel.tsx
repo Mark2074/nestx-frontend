@@ -41,6 +41,7 @@ type ChatState = {
   authorizedRoomId: string;
   shouldPausePublic: boolean;
   canWriteChat: boolean;
+  canWriteChatReason: string;
   roomBlockCode?: "" | "ROOM_FULL";
 };
 
@@ -128,6 +129,7 @@ export default function LiveRightPanel() {
     authorizedRoomId: "",
     shouldPausePublic: false,
     canWriteChat: false,
+    canWriteChatReason: "",
     roomBlockCode: "",
   });
 
@@ -235,6 +237,13 @@ export default function LiveRightPanel() {
     !!chatBlockedUntil && Date.now() < chatBlockedUntil;
 
   const canWriteChat = isHost || chatState.canWriteChat === true;
+
+  const chatWriteBlockedMessage =
+    chatState.canWriteChatReason === "CHAT_DISABLED"
+      ? "Chat is currently disabled for viewers"
+      : chatState.canWriteChatReason === "MUTED"
+      ? "You are muted in this live chat"
+      : "Chat available only for VIP or users with tokens";
 
   console.log("LIVE_CHAT_DEBUG", {
     isHost,
@@ -601,6 +610,7 @@ export default function LiveRightPanel() {
           authorizedRoomId: typeof d?.authorizedRoomId === "string" ? d.authorizedRoomId : "",
           shouldPausePublic: Boolean(d?.shouldPausePublic),
           canWriteChat: Boolean(d?.canWriteChat),
+          canWriteChatReason: String(d?.canWriteChatReason || ""),
           roomBlockCode: nextRoomBlockCode,
         };
 
@@ -1099,7 +1109,7 @@ export default function LiveRightPanel() {
                   : !canShow
                   ? "Chat available when live starts"
                   : !canWriteChat
-                  ? "Chat available only for VIP or users with tokens"
+                  ? chatWriteBlockedMessage
                   : isChatTemporarilyBlocked
                   ? "Chat available only for VIP or users with tokens"
                   : "Write a message..."
@@ -1156,7 +1166,7 @@ export default function LiveRightPanel() {
 
           {!chatErr && (!canWriteChat || isChatTemporarilyBlocked) ? (
             <div style={{ marginTop: 8, color: "salmon", fontWeight: 900 }}>
-              Chat available only for VIP or users with tokens
+              {!canWriteChat ? chatWriteBlockedMessage : "Chat available only for VIP or users with tokens"}
             </div>
           ) : null}
         </div>
@@ -1675,7 +1685,7 @@ export default function LiveRightPanel() {
               isRoomFullBlocked
                 ? "Room is full"
                 : !canWriteChat
-                ? "Chat available only for VIP or users with tokens"
+                ? chatWriteBlockedMessage
                 : isChatTemporarilyBlocked
                 ? "Chat available only for VIP or users with tokens"
                 : "Write a message..."
@@ -1730,7 +1740,7 @@ export default function LiveRightPanel() {
 
         {!chatErr && (!canWriteChat || isChatTemporarilyBlocked) ? (
           <div style={{ marginTop: 8, color: "salmon", fontWeight: 900 }}>
-            Chat available only for VIP or users with tokens
+            {!canWriteChat ? chatWriteBlockedMessage : "Chat available only for VIP or users with tokens"}
           </div>
         ) : null}
       </div>
