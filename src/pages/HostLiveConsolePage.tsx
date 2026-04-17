@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { RealtimeKitProvider, useRealtimeKitClient } from "@cloudflare/realtimekit-react";
 import { api, type LiveTokenResponse } from "../api/nestxApi";
-import LiveRightColumn from "../components/live/LiveRightColumn";
+import LiveRightPanel from "./LiveRightPanel";
 
 type LiveScope = "public" | "private";
 
@@ -535,7 +535,6 @@ export default function HostLiveConsolePage() {
 
   const [err, setErr] = useState("");
   const [liveToken, setLiveToken] = useState<LiveTokenResponse | null>(null);
-  const [viewersNow, setViewersNow] = useState(0);
   const [loadingLiveToken, setLoadingLiveToken] = useState(false);
   const [liveTokenErr, setLiveTokenErr] = useState("");
 
@@ -582,17 +581,6 @@ export default function HostLiveConsolePage() {
       return null;
     }
   }, [eventId]);
-
-  const loadStatus = useCallback(async () => {
-    if (!eventId) return;
-    try {
-      const res: any = await api.liveStatus(eventId, eventBaseScope);
-      const viewers = Number(res?.viewersNow ?? 0);
-      setViewersNow(Number.isFinite(viewers) ? viewers : 0);
-    } catch {
-      // ignore
-    }
-  }, [eventBaseScope, eventId]);
 
   const syncHostRealtimeState = useCallback(
     async (state: "setup" | "joined" | "broadcasting" | "ended") => {
@@ -756,19 +744,6 @@ export default function HostLiveConsolePage() {
 
     return () => window.clearInterval(t);
   }, [eventId, isCancelled, isFinished, isHost, loadEvent, nav, step, stepStorageKey]);
-
-  useEffect(() => {
-    if (!eventId) return;
-    if (!isHost) return;
-    if (step !== "LIVE_RUNNING") return;
-
-    const t = window.setInterval(() => {
-      void loadStatus();
-      void loadEvent();
-    }, 5000);
-
-    return () => window.clearInterval(t);
-  }, [eventId, isHost, loadEvent, loadStatus, step]);
 
   async function handleGoLive() {
     if (!eventId) return;
@@ -1007,7 +982,9 @@ export default function HostLiveConsolePage() {
               ) : (
                 <>
                   <button
-                    onClick={() => void loadStatus()}
+                    onClick={() => {
+                      void loadEvent();
+                    }}
                     disabled={loadingFinish}
                     style={secondaryBtnStyle}
                   >
@@ -1055,38 +1032,7 @@ export default function HostLiveConsolePage() {
           </div>
         </div>
 
-        <LiveRightColumn
-          eventId={eventId}
-          eventDetail={eventDetail}
-          isHost={true}
-          isLive={isLive}
-          supportsGoal={true}
-          shouldPausePublic={false}
-          runtimeScope={eventBaseScope}
-          eventBaseScope={eventBaseScope}
-          viewersNow={viewersNow}
-          onReloadEvent={loadEvent}
-          onRefreshStatus={loadStatus}
-          onFinishHost={async () => {
-            if (!eventId || loadingFinish) return;
-            setLoadingFinish(true);
-            setErr("");
-            try {
-              await syncHostRealtimeState("ended");
-              await api.eventFinish(eventId);
-              try {
-                sessionStorage.removeItem(stepStorageKey);
-              } catch {}
-              nav("/app/live", { replace: true });
-            } catch (e: any) {
-              setErr(String(e?.message || "Failed to finish event"));
-            } finally {
-              setLoadingFinish(false);
-            }
-          }}
-          onCancelHost={handleCancelEvent}
-          chatScopeLabel={eventBaseScope.toUpperCase()}
-        />
+        <LiveRightPanel />
       </div>
     </div>
   );
