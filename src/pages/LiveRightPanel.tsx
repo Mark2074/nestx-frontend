@@ -40,6 +40,7 @@ type ChatState = {
   authorizedScope: LiveScope | null;
   authorizedRoomId: string;
   shouldPausePublic: boolean;
+  canWriteChat: boolean;
   roomBlockCode?: "" | "ROOM_FULL";
 };
 
@@ -126,6 +127,7 @@ export default function LiveRightPanel() {
     authorizedScope: null,
     authorizedRoomId: "",
     shouldPausePublic: false,
+    canWriteChat: false,
     roomBlockCode: "",
   });
 
@@ -232,10 +234,13 @@ export default function LiveRightPanel() {
   const isChatTemporarilyBlocked =
     !!chatBlockedUntil && Date.now() < chatBlockedUntil;
 
+  const canWriteChat = isHost || chatState.canWriteChat === true;
+
   const canUseChatComposer =
     canShow &&
     canAccessChat &&
     !!runtimeScope &&
+    canWriteChat &&
     !isRoomFullBlocked &&
     !isChatTemporarilyBlocked;
 
@@ -430,6 +435,7 @@ export default function LiveRightPanel() {
 
   const sendMessage = useCallback(async () => {
     if (!eventId || !runtimeScope) return;
+    if (!canWriteChat) return;
     if (chatRetryUntil && Date.now() < chatRetryUntil) return;
 
     const txt = chatText.trim();
@@ -484,6 +490,7 @@ export default function LiveRightPanel() {
       if (code === "CHAT_NOT_ALLOWED") {
         setChatBlockedUntil(Date.now() + 5000);
         setChatErr("Chat available only for VIP or users with tokens");
+        setMessages((prev) => prev.filter((m) => m._id !== tempId));
       } else {
         if (retryAfterMs) {
           setChatRetryUntil(Date.now() + retryAfterMs);
@@ -578,6 +585,7 @@ export default function LiveRightPanel() {
         authorizedScope: nextAuthorizedScope,
         authorizedRoomId: typeof d?.authorizedRoomId === "string" ? d.authorizedRoomId : "",
         shouldPausePublic: Boolean(d?.shouldPausePublic),
+        canWriteChat: Boolean(d?.canWriteChat),
         roomBlockCode: d?.roomBlockCode === "ROOM_FULL" ? "ROOM_FULL" : "",
       });
     };
@@ -1052,6 +1060,8 @@ export default function LiveRightPanel() {
                   ? "Room is full"
                   : !canShow
                   ? "Chat available when live starts"
+                  : !canWriteChat
+                  ? "Chat available only for VIP or users with tokens"
                   : isChatTemporarilyBlocked
                   ? "Chat available only for VIP or users with tokens"
                   : "Write a message..."
@@ -1106,7 +1116,7 @@ export default function LiveRightPanel() {
             <div style={{ marginTop: 8, color: "salmon", fontWeight: 900 }}>{chatErr}</div>
           ) : null}
 
-          {!chatErr && isChatTemporarilyBlocked ? (
+          {!chatErr && (!canWriteChat || isChatTemporarilyBlocked) ? (
             <div style={{ marginTop: 8, color: "salmon", fontWeight: 900 }}>
               Chat available only for VIP or users with tokens
             </div>
@@ -1626,6 +1636,8 @@ export default function LiveRightPanel() {
             placeholder={
               isRoomFullBlocked
                 ? "Room is full"
+                : !canWriteChat
+                ? "Chat available only for VIP or users with tokens"
                 : isChatTemporarilyBlocked
                 ? "Chat available only for VIP or users with tokens"
                 : "Write a message..."
@@ -1678,7 +1690,7 @@ export default function LiveRightPanel() {
           <div style={{ marginTop: 8, color: "salmon", fontWeight: 900 }}>{chatErr}</div>
         ) : null}
 
-        {!chatErr && isChatTemporarilyBlocked ? (
+        {!chatErr && (!canWriteChat || isChatTemporarilyBlocked) ? (
           <div style={{ marginTop: 8, color: "salmon", fontWeight: 900 }}>
             Chat available only for VIP or users with tokens
           </div>

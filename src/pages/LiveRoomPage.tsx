@@ -61,6 +61,7 @@ type RuntimeStatePayload = {
   authorizedScope: LiveScope | null;
   authorizedRoomId: string;
   shouldPausePublic: boolean;
+  canWriteChat: boolean;
 };
 
 function normalizeEventDetail(input: any): EventDetail {
@@ -213,6 +214,7 @@ export default function LiveRoomPage() {
   const [runtimeRoomId, setRuntimeRoomId] = useState("");
   const [entered, setEntered] = useState(false);
   const [roomReady, setRoomReady] = useState(false);
+  const [canWriteChat, setCanWriteChat] = useState(false);
 
   const [meta, setMeta] = useState<any>(null);
   const [viewersNow, setViewersNow] = useState(0);
@@ -240,6 +242,7 @@ export default function LiveRoomPage() {
   const [reportSending, setReportSending] = useState(false);
   const [reportOkMsg, setReportOkMsg] = useState<string | null>(null);
   const [reportErrMsg, setReportErrMsg] = useState<string | null>(null);
+
 
   const REPORT_REASONS: { value: string; label: string }[] = [
     { value: "minor_involved", label: "Minor in stream" },
@@ -343,6 +346,8 @@ export default function LiveRoomPage() {
             payload?.authorizedRoomId !== undefined ? payload.authorizedRoomId : runtimeRoomId,
           shouldPausePublic:
             payload?.shouldPausePublic !== undefined ? payload.shouldPausePublic : shouldPausePublic,
+          canWriteChat:
+            payload?.canWriteChat !== undefined ? payload.canWriteChat : canWriteChat,
           roomBlockCode:
             payload?.roomBlockCode !== undefined ? payload.roomBlockCode : roomBlockCode,
         };
@@ -458,6 +463,7 @@ export default function LiveRoomPage() {
       setRuntimeRoomId("");
       setEntered(false);
       setRoomReady(false);
+      setCanWriteChat(true);
       setRoomBlockCode("");
       setLiveToken(null);
       setLiveTokenErr("");
@@ -473,6 +479,7 @@ export default function LiveRoomPage() {
         authorizedScope: scope,
         authorizedRoomId: "",
         shouldPausePublic: false,
+        canWriteChat: true,
       });
     },
     [emitRuntimeState]
@@ -487,6 +494,7 @@ export default function LiveRoomPage() {
       setRuntimeRoomId("");
       setEntered(false);
       setRoomReady(false);
+      setCanWriteChat(false);
       setRoomBlockCode(nextRoomBlockCode);
       setLiveToken(null);
       setLiveTokenErr("");
@@ -503,6 +511,7 @@ export default function LiveRoomPage() {
           authorizedScope: null,
           authorizedRoomId: "",
           shouldPausePublic: false,
+          canWriteChat: false,
           roomBlockCode: nextRoomBlockCode,
         });
       }
@@ -604,6 +613,9 @@ export default function LiveRoomPage() {
         setEntered(true);
         setRoomReady(true);
 
+        const joinCanWriteChat = Boolean(joinAccess?.permissions?.canChat);
+        setCanWriteChat(joinCanWriteChat);
+
         if (Number.isFinite(viewers)) {
           setViewersNow(viewers);
         }
@@ -613,6 +625,7 @@ export default function LiveRoomPage() {
           joinedPresence: true,
           authorizedScope,
           authorizedRoomId,
+          canWriteChat: joinCanWriteChat,
         });
 
         await loadStatus(authorizedScope);
@@ -1217,6 +1230,7 @@ export default function LiveRoomPage() {
               authorizedScope: null,
               authorizedRoomId: "",
               shouldPausePublic: false,
+              canWriteChat: false,
               roomBlockCode: "",
             },
           })
