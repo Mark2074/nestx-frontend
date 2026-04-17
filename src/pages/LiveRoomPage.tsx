@@ -598,23 +598,7 @@ export default function LiveRoomPage() {
 
       try {
         if (currentScope && currentScope !== nextScope && joinedPresenceRef.current) {
-          joinedPresenceRef.current = false;
-          setEntered(false);
-          setRoomReady(false);
-          setCanWriteChat(false);
-          setCanWriteChatReason("");
-
-          emitRuntimeState({
-            entered: false,
-            joinedPresence: false,
-            authorizedScope: currentScope,
-            authorizedRoomId: runtimeRoomId,
-            shouldPausePublic: false,
-            canWriteChat: false,
-            canWriteChatReason: "",
-            roomBlockCode: "",
-          });
-
+          await leaveRuntimeScope(currentScope);
           if (seq !== transitionSeqRef.current) return;
         }
 
@@ -1309,6 +1293,10 @@ export default function LiveRoomPage() {
         document.visibilityState === "hidden" ||
         !window.location.pathname.includes(`/app/live/${eventId}/room`);
 
+      if (current && joinedPresenceRef.current && isRealPageUnload) {
+        void api.liveLeaveRoom(eventId, current).catch(() => {});
+      }
+
       if (isHost && (isFinished || isCancelled) && isRealPageUnload) {
         void api.liveHostRealtimeState(eventId, {
           scope: current || getEventBaseScope(eventDetail),
@@ -1319,7 +1307,6 @@ export default function LiveRoomPage() {
       if (isRealPageUnload) {
         runtimeScopeRef.current = null;
         joinedPresenceRef.current = false;
-        lastAppliedTargetScopeRef.current = null;
 
         try {
           window.dispatchEvent(
