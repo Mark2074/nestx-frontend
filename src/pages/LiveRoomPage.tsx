@@ -645,7 +645,18 @@ export default function LiveRoomPage() {
           accessObj?.authorizedScope === "private" ? "private" : "public";
         const authorizedRoomId = String(accessObj?.authorizedRoomId || "").trim();
 
+        console.log("[LIVE][joinRoom:request]", {
+          authorizedScope,
+          ts: Date.now(),
+        });
+
         const joinRoomRes: any = await api.liveJoinRoom(eventId, authorizedScope);
+
+        console.log("[LIVE][joinRoom:ok]", {
+          authorizedScope,
+          currentViewersCount: Number(joinRoomRes?.currentViewersCount ?? 0),
+          ts: Date.now(),
+        });
         if (seq !== transitionSeqRef.current) return;
 
         const viewers = Number(joinRoomRes?.currentViewersCount ?? 0);
@@ -1020,6 +1031,19 @@ export default function LiveRoomPage() {
 
     if (alreadyStable) return;
 
+      console.log("[LIVE][effect:transition-trigger]", {
+      targetRuntimeScope,
+      lastAppliedTargetScope: lastAppliedTargetScopeRef.current,
+      runtimeScopeRef: runtimeScopeRef.current,
+      joinedPresence: joinedPresenceRef.current,
+      entered,
+      roomReady,
+      roomBlockCode,
+      requestedScope,
+      uiMode,
+      ts: Date.now(),
+    });
+
     void transitionToRuntimeScope(targetRuntimeScope);
   }, [
     creatorId,
@@ -1096,6 +1120,18 @@ export default function LiveRoomPage() {
             (isHost || isAdmin || latestIsReservedUser)
           ? "private"
           : "public";
+
+      console.log("[LIVE][poll:loadAccess]", {
+        desiredAccessScope,
+        latestStatus,
+        latestBaseScope,
+        latestPrivateStatus,
+        latestReservedBy,
+        isHost,
+        isAdmin,
+        meId,
+        ts: Date.now(),
+      });
 
       await loadAccess(desiredAccessScope);
     }, 6000);

@@ -1,4 +1,5 @@
 import RealtimeMeetingEmbed from "./RealtimeMeetingEmbed";
+import { useEffect } from "react";
 
 type Props = {
   eventId: string;
@@ -28,6 +29,24 @@ export default function ViewerLiveStage({
   onRetry,
   navToLive,
 }: Props) {
+  
+  useEffect(() => {
+    console.log("[LIVE][ViewerLiveStage:mount]", { ts: Date.now() });
+    return () => {
+      console.log("[LIVE][ViewerLiveStage:unmount]", { ts: Date.now() });
+    };
+  }, []);
+
+  console.log("[LIVE][ViewerLiveStage:render]", {
+    hasAuthToken: !!authToken,
+    loadingLiveToken,
+    liveTokenErr,
+    isHost,
+    shouldPausePublic,
+    roomBlockCode,
+    uiMode,
+    ts: Date.now(),
+  });
   return (
     <div
       style={{
