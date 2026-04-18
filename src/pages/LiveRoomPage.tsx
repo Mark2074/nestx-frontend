@@ -246,7 +246,7 @@ export default function LiveRoomPage() {
   const [reportErrMsg, setReportErrMsg] = useState<string | null>(null);
   const [isDocumentVisible, setIsDocumentVisible] = useState(() => {
     if (typeof document === "undefined") return true;
-    return document.visibilityState === "visible" && document.hasFocus();
+    return document.visibilityState === "visible";
   });
 
 
@@ -855,13 +855,9 @@ export default function LiveRoomPage() {
   }
 
   useEffect(() => {
-    const computeVisible = () => {
-      if (typeof document === "undefined") return true;
-      return document.visibilityState === "visible" && document.hasFocus();
-    };
-
     const applyVisibility = () => {
-      const visible = computeVisible();
+      const visible =
+        typeof document === "undefined" ? true : document.visibilityState === "visible";
 
       if (!visible) {
         viewerWasHiddenRef.current = true;
@@ -871,15 +867,13 @@ export default function LiveRoomPage() {
     };
 
     document.addEventListener("visibilitychange", applyVisibility);
-    window.addEventListener("focus", applyVisibility);
-    window.addEventListener("blur", applyVisibility);
+    window.addEventListener("pageshow", applyVisibility);
 
     applyVisibility();
 
     return () => {
       document.removeEventListener("visibilitychange", applyVisibility);
-      window.removeEventListener("focus", applyVisibility);
-      window.removeEventListener("blur", applyVisibility);
+      window.removeEventListener("pageshow", applyVisibility);
     };
   }, []);
 
