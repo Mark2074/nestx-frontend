@@ -579,7 +579,8 @@ export default function LiveRoomPage() {
       setErr("");
       setRoomBlockCode("");
 
-      joinedPresenceRef.current = false;
+      const hadJoinedPresence = joinedPresenceRef.current;
+
       setEntered(false);
       setRoomReady(false);
       setCanWriteChat(false);
@@ -597,10 +598,12 @@ export default function LiveRoomPage() {
       });
 
       try {
-        if (currentScope && currentScope !== nextScope && joinedPresenceRef.current) {
+        if (currentScope && currentScope !== nextScope && hadJoinedPresence) {
           await leaveRuntimeScope(currentScope);
           if (seq !== transitionSeqRef.current) return;
         }
+
+        joinedPresenceRef.current = false;
 
         if (!nextScope) {
           clearRuntimeState(true);
@@ -912,7 +915,7 @@ export default function LiveRoomPage() {
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId]);
+  }, [eventId, requestedScope]);
 
   useEffect(() => {
     if (!eventId || !eventDetail || !meId || !creatorId) return;

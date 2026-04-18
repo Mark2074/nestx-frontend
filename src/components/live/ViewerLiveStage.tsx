@@ -17,7 +17,6 @@ type Props = {
 };
 
 export default function ViewerLiveStage({
-  eventId,
   authToken,
   loadingLiveToken,
   liveTokenErr,
@@ -25,8 +24,6 @@ export default function ViewerLiveStage({
   shouldPausePublic,
   roomBlockCode,
   uiMode,
-  eventBaseScope,
-  runtimeScope,
   onBack,
   onRetry,
   navToLive,
@@ -91,7 +88,6 @@ export default function ViewerLiveStage({
             }}
           >
             <RealtimeMeetingEmbed
-              key={`${eventId}:viewer:${runtimeScope || eventBaseScope}`}
               authToken={authToken}
               isHost={false}
               showSetupScreen={false}
