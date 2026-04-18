@@ -543,6 +543,17 @@ export default function LiveRoomPage() {
 
   const transitionToRuntimeScope = useCallback(
     async (nextScope: LiveScope | null, eventSnapshot?: EventDetail | null) => {
+      console.log("[LIVE][transition:start]", {
+        nextScope,
+        currentScope: runtimeScopeRef.current,
+        joinedPresence: joinedPresenceRef.current,
+        entered,
+        roomReady,
+        targetRuntimeScope,
+        requestedScope,
+        eventStatus: getEventStatus(eventSnapshot ?? eventDetail),
+        ts: Date.now(),
+      });
       const effectiveEvent = eventSnapshot ?? eventDetail;
       if (!eventId || !effectiveEvent) return;
       if (transitionInFlightRef.current) return;
@@ -615,7 +626,18 @@ export default function LiveRoomPage() {
           return;
         }
 
+        console.log("[LIVE][eventJoin:request]", {
+          nextScope,
+          ts: Date.now(),
+        });
+
         const joinAccess: any = await api.eventJoin(eventId, nextScope);
+        console.log("[LIVE][eventJoin:ok]", {
+          nextScope,
+          authorizedScope: (joinAccess?.access || joinAccess)?.authorizedScope,
+          authorizedRoomId: String((joinAccess?.access || joinAccess)?.authorizedRoomId || ""),
+          ts: Date.now(),
+        });
         if (seq !== transitionSeqRef.current) return;
 
         const accessObj = (joinAccess?.access || joinAccess) as any;
