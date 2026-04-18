@@ -244,6 +244,10 @@ export default function LiveRoomPage() {
   const [reportSending, setReportSending] = useState(false);
   const [reportOkMsg, setReportOkMsg] = useState<string | null>(null);
   const [reportErrMsg, setReportErrMsg] = useState<string | null>(null);
+  const [isDocumentVisible, setIsDocumentVisible] = useState(() => {
+    if (typeof document === "undefined") return true;
+    return document.visibilityState === "visible" && document.hasFocus();
+  });
 
 
   const REPORT_REASONS: { value: string; label: string }[] = [
@@ -261,6 +265,7 @@ export default function LiveRoomPage() {
   const transitionSeqRef = useRef(0);
   const transitionInFlightRef = useRef(false);
   const lastAppliedTargetScopeRef = useRef<LiveScope | null>(null);
+  const viewerWasHiddenRef = useRef(false);
 
   const liveTokenEventIdRef = useRef("");
   const liveTokenScopeRef = useRef<LiveScope | null>(null);
@@ -497,6 +502,7 @@ export default function LiveRoomPage() {
       runtimeScopeRef.current = null;
       joinedPresenceRef.current = false;
       lastAppliedTargetScopeRef.current = null;
+      viewerWasHiddenRef.current = false;
 
       setRuntimeScope(null);
       setRuntimeRoomId("");
@@ -543,17 +549,6 @@ export default function LiveRoomPage() {
 
   const transitionToRuntimeScope = useCallback(
     async (nextScope: LiveScope | null, eventSnapshot?: EventDetail | null) => {
-      console.log("[LIVE][transition:start]", {
-        nextScope,
-        currentScope: runtimeScopeRef.current,
-        joinedPresence: joinedPresenceRef.current,
-        entered,
-        roomReady,
-        targetRuntimeScope,
-        requestedScope,
-        eventStatus: getEventStatus(eventSnapshot ?? eventDetail),
-        ts: Date.now(),
-      });
       const effectiveEvent = eventSnapshot ?? eventDetail;
       if (!eventId || !effectiveEvent) return;
       if (transitionInFlightRef.current) return;
@@ -625,19 +620,7 @@ export default function LiveRoomPage() {
           applyPreLiveHostState(nextScope);
           return;
         }
-
-        console.log("[LIVE][eventJoin:request]", {
-          nextScope,
-          ts: Date.now(),
-        });
-
         const joinAccess: any = await api.eventJoin(eventId, nextScope);
-        console.log("[LIVE][eventJoin:ok]", {
-          nextScope,
-          authorizedScope: (joinAccess?.access || joinAccess)?.authorizedScope,
-          authorizedRoomId: String((joinAccess?.access || joinAccess)?.authorizedRoomId || ""),
-          ts: Date.now(),
-        });
         if (seq !== transitionSeqRef.current) return;
 
         const accessObj = (joinAccess?.access || joinAccess) as any;
@@ -645,18 +628,8 @@ export default function LiveRoomPage() {
           accessObj?.authorizedScope === "private" ? "private" : "public";
         const authorizedRoomId = String(accessObj?.authorizedRoomId || "").trim();
 
-        console.log("[LIVE][joinRoom:request]", {
-          authorizedScope,
-          ts: Date.now(),
-        });
-
         const joinRoomRes: any = await api.liveJoinRoom(eventId, authorizedScope);
 
-        console.log("[LIVE][joinRoom:ok]", {
-          authorizedScope,
-          currentViewersCount: Number(joinRoomRes?.currentViewersCount ?? 0),
-          ts: Date.now(),
-        });
         if (seq !== transitionSeqRef.current) return;
 
         const viewers = Number(joinRoomRes?.currentViewersCount ?? 0);
@@ -882,14 +855,33 @@ export default function LiveRoomPage() {
   }
 
   useEffect(() => {
-    if (!eventId) return;
-    try {
-      const raw = sessionStorage.getItem(`nx_live_meta_${eventId}`);
-      if (raw) setMeta(JSON.parse(raw));
-    } catch {
-      // ignore
-    }
-  }, [eventId]);
+    const computeVisible = () => {
+      if (typeof document === "undefined") return true;
+      return document.visibilityState === "visible" && document.hasFocus();
+    };
+
+    const applyVisibility = () => {
+      const visible = computeVisible();
+
+      if (!visible) {
+        viewerWasHiddenRef.current = true;
+      }
+
+      setIsDocumentVisible(visible);
+    };
+
+    document.addEventListener("visibilitychange", applyVisibility);
+    window.addEventListener("focus", applyVisibility);
+    window.addEventListener("blur", applyVisibility);
+
+    applyVisibility();
+
+    return () => {
+      document.removeEventListener("visibilitychange", applyVisibility);
+      window.removeEventListener("focus", applyVisibility);
+      window.removeEventListener("blur", applyVisibility);
+    };
+  }, []);
 
   useEffect(() => {
     if (!eventId) return;
@@ -1020,6 +1012,7 @@ export default function LiveRoomPage() {
     if (!eventDetail) return;
     if (transitionInFlightRef.current) return;
     if (roomBlockCode === "ROOM_FULL") return;
+    if (!isHost && !isDocumentVisible) return;
 
     const alreadyStable =
       targetRuntimeScope !== null &&
@@ -1031,30 +1024,19 @@ export default function LiveRoomPage() {
 
     if (alreadyStable) return;
 
-      console.log("[LIVE][effect:transition-trigger]", {
-      targetRuntimeScope,
-      lastAppliedTargetScope: lastAppliedTargetScopeRef.current,
-      runtimeScopeRef: runtimeScopeRef.current,
-      joinedPresence: joinedPresenceRef.current,
-      entered,
-      roomReady,
-      roomBlockCode,
-      requestedScope,
-      uiMode,
-      ts: Date.now(),
-    });
-
     void transitionToRuntimeScope(targetRuntimeScope);
   }, [
     creatorId,
+    entered,
     eventDetail,
     eventId,
+    isDocumentVisible,
+    isHost,
     meId,
     roomBlockCode,
+    roomReady,
     targetRuntimeScope,
     transitionToRuntimeScope,
-    entered,
-    roomReady,
   ]);
 
   useEffect(() => {
@@ -1087,10 +1069,38 @@ export default function LiveRoomPage() {
   ]);
 
   useEffect(() => {
+    if (isHost) return;
+    if (!isDocumentVisible) return;
+    if (!viewerWasHiddenRef.current) return;
+
+    viewerWasHiddenRef.current = false;
+
+    if (!eventId) return;
+    if (!meId) return;
+    if (!creatorId) return;
+    if (!eventDetail) return;
+    if (transitionInFlightRef.current) return;
+    if (roomBlockCode === "ROOM_FULL") return;
+
+    void transitionToRuntimeScope(targetRuntimeScope);
+  }, [
+    creatorId,
+    eventDetail,
+    eventId,
+    isDocumentVisible,
+    isHost,
+    meId,
+    roomBlockCode,
+    targetRuntimeScope,
+    transitionToRuntimeScope,
+  ]);
+
+  useEffect(() => {
     if (!eventId) return;
     if (!isLive) return;
 
     const t = window.setInterval(async () => {
+      if (!isHost && !isDocumentVisible) return;
       const latest = await loadEvent();
       if (!latest) return;
 
@@ -1121,23 +1131,21 @@ export default function LiveRoomPage() {
           ? "private"
           : "public";
 
-      console.log("[LIVE][poll:loadAccess]", {
-        desiredAccessScope,
-        latestStatus,
-        latestBaseScope,
-        latestPrivateStatus,
-        latestReservedBy,
-        isHost,
-        isAdmin,
-        meId,
-        ts: Date.now(),
-      });
-
       await loadAccess(desiredAccessScope);
     }, 6000);
 
     return () => window.clearInterval(t);
-  }, [clearRuntimeState, eventId, isAdmin, isHost, leaveRuntimeScope, loadAccess, loadEvent, meId]);
+  }, [
+    clearRuntimeState,
+    eventId,
+    isAdmin,
+    isDocumentVisible,
+    isHost,
+    leaveRuntimeScope,
+    loadAccess,
+    loadEvent,
+    meId,
+  ]);
 
   useEffect(() => {
     if (!eventId) return;
@@ -1146,6 +1154,7 @@ export default function LiveRoomPage() {
     if (!roomReady) return;
 
     const t = window.setInterval(async () => {
+      if (!isHost && !isDocumentVisible) return;
       const currentScope = runtimeScopeRef.current;
       if (!currentScope) return;
 
@@ -1213,6 +1222,7 @@ export default function LiveRoomPage() {
   }, [
     clearRuntimeState,
     eventId,
+    isDocumentVisible,
     isHost,
     isLive,
     loadEvent,
