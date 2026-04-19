@@ -238,7 +238,7 @@ export default function LiveRoomPage() {
 
   const [meta, setMeta] = useState<any>(null);
   const [viewersNow, setViewersNow] = useState(0);
-  const [providerParticipantsNow, setProviderParticipantsNow] = useState<number | null>(null);
+  const [, setProviderParticipantsNow] = useState<number | null>(null);
   const [providerDurationMs, setProviderDurationMs] = useState(0);
 
   const [loadingBootstrap, setLoadingBootstrap] = useState(false);
@@ -1496,7 +1496,7 @@ export default function LiveRoomPage() {
                 : `${Number(meta?.price ?? eventDetail?.ticketPriceTokens ?? 0)} tokens`}
             </span>
               <span style={pillStyle}>
-                👁 {providerParticipantsNow ?? viewersNow} watching
+                👁 {viewersNow} watching
               </span>
               <span style={pillStyle}>⏱ {formatDuration(providerDurationMs)}</span>
             <span style={pillStyle}>

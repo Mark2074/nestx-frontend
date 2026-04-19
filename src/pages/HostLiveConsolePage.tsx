@@ -647,7 +647,7 @@ export default function HostLiveConsolePage() {
 
   const [joinedPreview, setJoinedPreview] = useState(false);
   const [step, setStep] = useState<HostConsoleStep>("DEVICE_SETUP");
-  const [providerParticipantsNow, setProviderParticipantsNow] = useState<number | null>(null);
+  const [, setProviderParticipantsNow] = useState<number | null>(null);
   const [providerDurationMs, setProviderDurationMs] = useState(0);
   const stepStorageKey = `nx_host_console_step_${eventId}`;
   const hostLiveLockStorageKey = "nx_host_live_lock";
@@ -1139,7 +1139,7 @@ export default function HostLiveConsolePage() {
                 : "PREVIEW_NOT_JOINED"}
             </span>
             <span style={pillStyle}>
-              👁 {providerParticipantsNow ?? 0} watching
+              👁 0 watching
             </span>
             <span style={pillStyle}>
               ⏱ {formatDuration(providerDurationMs)}
