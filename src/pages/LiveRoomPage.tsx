@@ -1455,25 +1455,6 @@ export default function LiveRoomPage() {
   }, [eventDetail, eventId, isCancelled, isFinished, isHost]);
 
   useEffect(() => {
-    if (!isHost) return;
-    if (!isLive) return;
-
-    window.dispatchEvent(
-      new CustomEvent("nx:live:host-active", {
-        detail: { active: true, eventId },
-      })
-    );
-
-    return () => {
-      window.dispatchEvent(
-        new CustomEvent("nx:live:host-active", {
-          detail: { active: false, eventId },
-        })
-      );
-    };
-  }, [eventId, isHost, isLive]);
-
-  useEffect(() => {
     if (!eventId) return;
     if (!isFinished && !isCancelled) return;
 
