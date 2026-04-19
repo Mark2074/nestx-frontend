@@ -114,6 +114,7 @@ function HostCoreConsole({
 
   const initializedAuthTokenRef = useRef("");
   const joinedRef = useRef(false);
+  const joiningRef = useRef(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
@@ -174,6 +175,9 @@ function HostCoreConsole({
 
     initializedAuthTokenRef.current = authToken;
     joinedRef.current = false;
+    joiningRef.current = false;
+
+    setRoomState("disconnected");
 
     void initMeeting({
       authToken,
@@ -210,19 +214,32 @@ function HostCoreConsole({
 
   useEffect(() => {
     if (!meeting) return;
-    if (joinedRef.current) return;
 
     let cancelled = false;
 
     const run = async () => {
+      const currentRoomState = String(meeting?.self?.roomState || "").trim().toLowerCase();
+
+      if (joinedRef.current) return;
+      if (joiningRef.current) return;
+      if (currentRoomState === "joined" || currentRoomState === "joining" || currentRoomState === "connecting") {
+        return;
+      }
+
+      joiningRef.current = true;
+
       try {
         await meeting.join();
+
         if (cancelled) return;
+
         joinedRef.current = true;
         await loadMeetingState();
       } catch (e: any) {
         if (cancelled) return;
         onError(String(e?.message || "Failed to join preview"));
+      } finally {
+        joiningRef.current = false;
       }
     };
 
@@ -257,6 +274,9 @@ function HostCoreConsole({
     if (!meeting) return;
 
     const handleRoomJoined = () => {
+      joinedRef.current = true;
+      joiningRef.current = false;
+
       setRoomState(String(meeting.self.roomState || "joined"));
       setAudioEnabled(!!meeting.self.audioEnabled);
       setVideoEnabled(!!meeting.self.videoEnabled);
@@ -266,6 +286,9 @@ function HostCoreConsole({
     };
 
     const handleRoomLeft = () => {
+      joinedRef.current = false;
+      joiningRef.current = false;
+
       setRoomState(String(meeting.self.roomState || "left"));
       onLeft();
     };
@@ -289,6 +312,21 @@ function HostCoreConsole({
       }
     };
   }, [loadBrowserDevices, loadMeetingState, meeting, onJoined, onLeft]);
+
+  useEffect(() => {
+    if (!meeting) return;
+
+    return () => {
+      joinedRef.current = false;
+      joiningRef.current = false;
+
+      try {
+        void meeting.leave();
+      } catch {
+        // ignore
+      }
+    };
+  }, [meeting]);
 
   useEffect(() => {
     if (!meeting || !onMeetingStatsChange) return;
