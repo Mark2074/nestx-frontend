@@ -60,6 +60,8 @@ export default function ProfileLeftPage() {
   const [liveMenuOpen, setLiveMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [chatUnreadCount, setChatUnreadCount] = useState<number>(0);
+  const [hostLiveLock, setHostLiveLock] = useState(false);
+  const [hostLiveLockMsg, setHostLiveLockMsg] = useState("");
 
   const isAdmin = identity.accountType === "admin";
 
@@ -144,6 +146,25 @@ export default function ProfileLeftPage() {
   }, []);
 
   useEffect(() => {
+    const onHostLiveActive = (ev: Event) => {
+      const e = ev as CustomEvent<{ active?: boolean; eventId?: string }>;
+      const active = Boolean(e?.detail?.active);
+
+      setHostLiveLock(active);
+
+      if (!active) {
+        setHostLiveLockMsg("");
+      }
+    };
+
+    window.addEventListener("nx:live:host-active", onHostLiveActive as EventListener);
+
+    return () => {
+      window.removeEventListener("nx:live:host-active", onHostLiveActive as EventListener);
+    };
+  }, []);
+
+  useEffect(() => {
     const runRefresh = () => {
       if (!hasSessionToken()) {
         setUnreadCount(0);
@@ -191,6 +212,12 @@ export default function ProfileLeftPage() {
     }
   }
 
+  function handleBlockedHostNav() {
+    setProfileMenuOpen(false);
+    setLiveMenuOpen(false);
+    setHostLiveLockMsg("Navigation is blocked while your live is running.");
+  }
+
   return (
     <div
       style={{
@@ -218,14 +245,21 @@ export default function ProfileLeftPage() {
 
         {/* User (Home) */}
         <button
-          onClick={() => nav("/app/profile")}
+          onClick={() => {
+            if (hostLiveLock) {
+              handleBlockedHostNav();
+              return;
+            }
+
+            nav("/app/profile");
+          }}
           style={{
             width: "100%",
             textAlign: "left",
             padding: "12px 12px",
             borderRadius: 14,
             fontWeight: 900,
-            cursor: "pointer",
+            cursor: hostLiveLock ? "not-allowed" : "pointer",
             border: "none",
             background: "rgba(255,255,255,0.06)",
             color: "rgba(255,255,255,0.92)",
@@ -233,6 +267,7 @@ export default function ProfileLeftPage() {
             alignItems: "center",
             gap: 10,
             marginTop: 12,
+            opacity: hostLiveLock ? 0.55 : 1,
           }}
         >
           <div
@@ -295,11 +330,20 @@ export default function ProfileLeftPage() {
               <button
                 key={it.label}
                 onClick={() => {
+                  if (hostLiveLock) {
+                    handleBlockedHostNav();
+                    return;
+                  }
+
                   setProfileMenuOpen(false);
                   setLiveMenuOpen(false);
                   nav(it.path);
                 }}
-                style={btnStyle}
+                style={{
+                  ...btnStyle,
+                  opacity: hostLiveLock ? 0.55 : btnStyle.opacity,
+                  cursor: hostLiveLock ? "not-allowed" : "pointer",
+                }}
               >
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                   <span>{it.label}</span>
@@ -351,10 +395,19 @@ export default function ProfileLeftPage() {
               <div key={it.label} style={{ position: "relative" }}>
                 <button
                   onClick={() => {
+                    if (hostLiveLock) {
+                      handleBlockedHostNav();
+                      return;
+                    }
+
                     setProfileMenuOpen(false);
                     setLiveMenuOpen((v) => !v);
                   }}
-                  style={btnStyle}
+                  style={{
+                    ...btnStyle,
+                    opacity: hostLiveLock ? 0.55 : btnStyle.opacity,
+                    cursor: hostLiveLock ? "not-allowed" : "pointer",
+                  }}
                 >
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                     <span>Live</span>
@@ -382,6 +435,11 @@ export default function ProfileLeftPage() {
                       <button
                         key={x.label}
                         onClick={() => {
+                          if (hostLiveLock) {
+                            handleBlockedHostNav();
+                            return;
+                          }
+
                           setLiveMenuOpen(false);
                           x.onClick();
                         }}
@@ -390,10 +448,11 @@ export default function ProfileLeftPage() {
                           textAlign: "left",
                           padding: "10px 12px",
                           fontWeight: 800,
-                          cursor: "pointer",
+                          cursor: hostLiveLock ? "not-allowed" : "pointer",
                           border: "none",
                           background: "transparent",
                           color: "rgba(255,255,255,0.92)",
+                          opacity: hostLiveLock ? 0.55 : 1,
                         }}
                       >
                         {x.label}
@@ -409,10 +468,19 @@ export default function ProfileLeftPage() {
             <div key={it.label} style={{ position: "relative" }}>
               <button
                 onClick={() => {
+                  if (hostLiveLock) {
+                    handleBlockedHostNav();
+                    return;
+                  }
+
                   setLiveMenuOpen(false);
                   setProfileMenuOpen((v) => !v);
                 }}
-                style={btnStyle}
+                style={{
+                  ...btnStyle,
+                  opacity: hostLiveLock ? 0.55 : btnStyle.opacity,
+                  cursor: hostLiveLock ? "not-allowed" : "pointer",
+                }}
               >
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                   <span>Profile</span>
@@ -455,6 +523,11 @@ export default function ProfileLeftPage() {
                     <button
                       key={x.label}
                       onClick={() => {
+                        if (hostLiveLock) {
+                          handleBlockedHostNav();
+                          return;
+                        }
+
                         setProfileMenuOpen(false);
                         x.onClick();
                       }}
@@ -463,10 +536,11 @@ export default function ProfileLeftPage() {
                         textAlign: "left",
                         padding: "10px 12px",
                         fontWeight: 800,
-                        cursor: "pointer",
+                        cursor: hostLiveLock ? "not-allowed" : "pointer",
                         border: "none",
                         background: "transparent",
                         color: "rgba(255,255,255,0.92)",
+                        opacity: hostLiveLock ? 0.55 : 1,
                       }}
                     >
                       {x.label}
@@ -478,6 +552,24 @@ export default function ProfileLeftPage() {
           );
         })}
       </div>
+
+      {hostLiveLockMsg ? (
+        <div
+          style={{
+            marginTop: 10,
+            marginInline: 12,
+            padding: "10px 12px",
+            borderRadius: 12,
+            border: "1px solid rgba(255,255,255,0.14)",
+            background: "rgba(255,255,255,0.05)",
+            color: "rgba(255,255,255,0.92)",
+            fontWeight: 800,
+            lineHeight: 1.35,
+          }}
+        >
+          {hostLiveLockMsg}
+        </div>
+      ) : null}
 
       {/* Footer */}
       <div

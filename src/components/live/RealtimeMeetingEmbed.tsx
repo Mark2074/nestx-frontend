@@ -510,7 +510,7 @@ export default function RealtimeMeetingEmbed({
 
   useEffect(() => {
     if (!authToken) return;
-    if (initializedAuthTokenRef.current === authToken) return;
+    if (initializedAuthTokenRef.current === authToken && meeting) return;
 
     initializedAuthTokenRef.current = authToken;
 

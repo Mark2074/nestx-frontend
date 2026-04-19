@@ -1184,6 +1184,23 @@ export default function LiveRoomPage() {
 
   useEffect(() => {
     if (!eventId) return;
+    if (!isHost) return;
+    if (!isLive) return;
+
+    const t = window.setInterval(async () => {
+      try {
+        const scope = runtimeScopeRef.current || "public";
+        await api.livePing(eventId, scope);
+      } catch {
+        // ignore
+      }
+    }, 5000);
+
+    return () => window.clearInterval(t);
+  }, [eventId, isHost, isLive]);
+
+  useEffect(() => {
+    if (!eventId) return;
     if (!isLive) return;
     if (!runtimeScope) return;
     if (!roomReady) return;
@@ -1438,6 +1455,25 @@ export default function LiveRoomPage() {
   }, [eventDetail, eventId, isCancelled, isFinished, isHost]);
 
   useEffect(() => {
+    if (!isHost) return;
+    if (!isLive) return;
+
+    window.dispatchEvent(
+      new CustomEvent("nx:live:host-active", {
+        detail: { active: true, eventId },
+      })
+    );
+
+    return () => {
+      window.dispatchEvent(
+        new CustomEvent("nx:live:host-active", {
+          detail: { active: false, eventId },
+        })
+      );
+    };
+  }, [eventId, isHost, isLive]);
+
+  useEffect(() => {
     if (!eventId) return;
     if (!isFinished && !isCancelled) return;
 
@@ -1576,17 +1612,6 @@ export default function LiveRoomPage() {
               style={secondaryBtnStyle}
             >
               Finish
-            </button>
-            <button
-              onClick={() => void hostAction("cancel")}
-              disabled={loadingHostAction}
-              style={{
-                ...secondaryBtnStyle,
-                borderColor: "rgba(255,100,120,0.35)",
-                color: "salmon",
-              }}
-            >
-              Cancel
             </button>
           </div>
         ) : null}
