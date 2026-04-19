@@ -65,6 +65,12 @@ type RuntimeStatePayload = {
   canWriteChatReason: string;
 };
 
+type MeetingStats = {
+  participantsNow: number;
+  startedAt: number | null;
+  durationMs: number;
+};
+
 function normalizeEventDetail(input: any): EventDetail {
   return {
     ...input,
@@ -198,6 +204,18 @@ function resolveTargetRuntimeScope(params: {
   return "public";
 }
 
+function formatDuration(ms: number): string {
+  const totalSec = Math.max(0, Math.floor(ms / 1000));
+  const hh = Math.floor(totalSec / 3600);
+  const mm = Math.floor((totalSec % 3600) / 60);
+  const ss = totalSec % 60;
+
+  const p2 = (n: number) => String(n).padStart(2, "0");
+
+  if (hh > 0) return `${p2(hh)}:${p2(mm)}:${p2(ss)}`;
+  return `${p2(mm)}:${p2(ss)}`;
+}
+
 export default function LiveRoomPage() {
   const nav = useNavigate();
   const { id } = useParams();
@@ -220,6 +238,8 @@ export default function LiveRoomPage() {
 
   const [meta, setMeta] = useState<any>(null);
   const [viewersNow, setViewersNow] = useState(0);
+  const [providerParticipantsNow, setProviderParticipantsNow] = useState<number | null>(null);
+  const [providerDurationMs, setProviderDurationMs] = useState(0);
 
   const [loadingBootstrap, setLoadingBootstrap] = useState(false);
   const [loadingTransition, setLoadingTransition] = useState(false);
@@ -546,6 +566,27 @@ export default function LiveRoomPage() {
     },
     [eventId]
   );
+
+  const handleMeetingStatsChange = useCallback((stats: MeetingStats) => {
+    setProviderParticipantsNow(
+      Number.isFinite(Number(stats?.participantsNow))
+        ? Number(stats.participantsNow)
+        : 0
+    );
+
+    setProviderDurationMs(
+      Number.isFinite(Number(stats?.durationMs))
+        ? Number(stats.durationMs)
+        : 0
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!entered || !roomReady || !runtimeScope) {
+      setProviderParticipantsNow(null);
+      setProviderDurationMs(0);
+    }
+  }, [entered, roomReady, runtimeScope]);
 
   const transitionToRuntimeScope = useCallback(
     async (nextScope: LiveScope | null, eventSnapshot?: EventDetail | null) => {
@@ -1437,7 +1478,10 @@ export default function LiveRoomPage() {
                 ? "FREE"
                 : `${Number(meta?.price ?? eventDetail?.ticketPriceTokens ?? 0)} tokens`}
             </span>
-            <span style={pillStyle}>👁 {viewersNow} watching</span>
+              <span style={pillStyle}>
+                👁 {providerParticipantsNow ?? viewersNow} watching
+              </span>
+              <span style={pillStyle}>⏱ {formatDuration(providerDurationMs)}</span>
             <span style={pillStyle}>
               {roomBlockCode === "ROOM_FULL"
                 ? "BLOCKED"
@@ -1514,6 +1558,7 @@ export default function LiveRoomPage() {
           uiMode={uiMode}
           eventBaseScope={eventBaseScope}
           runtimeScope={runtimeScope}
+          onMeetingStatsChange={handleMeetingStatsChange}
           onBack={goBackToDetail}
           onRetry={() => {
             setRoomBlockCode("");

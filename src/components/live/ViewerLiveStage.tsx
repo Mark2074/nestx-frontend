@@ -1,5 +1,11 @@
 import RealtimeMeetingEmbed from "./RealtimeMeetingEmbed";
 
+type MeetingStats = {
+  participantsNow: number;
+  startedAt: number | null;
+  durationMs: number;
+};
+
 type Props = {
   eventId: string;
   authToken?: string;
@@ -14,6 +20,7 @@ type Props = {
   onBack: () => void;
   onRetry: () => void;
   navToLive: () => void;
+  onMeetingStatsChange?: (stats: MeetingStats) => void;
 };
 
 export default function ViewerLiveStage({
@@ -27,6 +34,7 @@ export default function ViewerLiveStage({
   onBack,
   onRetry,
   navToLive,
+  onMeetingStatsChange,
 }: Props) {
   return (
     <div
@@ -92,6 +100,7 @@ export default function ViewerLiveStage({
               isHost={false}
               showSetupScreen={false}
               shouldStartBroadcast={false}
+              onMeetingStatsChange={onMeetingStatsChange}
             />
           </div>
         </div>

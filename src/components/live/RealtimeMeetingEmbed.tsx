@@ -16,6 +16,12 @@ import {
 } from "@cloudflare/realtimekit-react-ui";
 import type { States } from "@cloudflare/realtimekit-react-ui";
 
+type MeetingStats = {
+  participantsNow: number;
+  startedAt: number | null;
+  durationMs: number;
+};
+
 type Props = {
   authToken: string;
   isHost: boolean;
@@ -23,6 +29,7 @@ type Props = {
   shouldStartBroadcast?: boolean;
   onHostMeetingStateChange?: (state: "idle" | "setup" | "waiting" | "joined" | "ended") => void;
   onHostRealtimeStateSync?: (state: "setup" | "joined" | "broadcasting" | "ended") => void;
+  onMeetingStatsChange?: (stats: MeetingStats) => void;
 };
 
 type ViewerMeetingState = "idle" | "setup" | "waiting" | "joined" | "ended";
@@ -215,24 +222,70 @@ function FullCenterMessage({ text }: { text: string }) {
   );
 }
 
+function extractMeetingStats(meeting: any): MeetingStats {
+  const rawParticipants = meeting?.participants;
+  let participantsNow = 0;
+
+  if (Array.isArray(rawParticipants)) {
+    participantsNow = rawParticipants.length;
+  } else if (rawParticipants && typeof rawParticipants.size === "number") {
+    participantsNow = rawParticipants.size;
+  } else if (rawParticipants && typeof rawParticipants === "object") {
+    participantsNow = Object.keys(rawParticipants).length;
+  }
+
+  const rawStartedAt = meeting?.meta?.meetingStartedTimestamp;
+  const startedAt =
+    rawStartedAt != null && Number.isFinite(Number(rawStartedAt))
+      ? Number(rawStartedAt)
+      : null;
+
+  const durationMs =
+    startedAt != null ? Math.max(0, Date.now() - startedAt) : 0;
+
+  return {
+    participantsNow,
+    startedAt,
+    durationMs,
+  };
+}
+
 function HostMeeting({
   meeting,
   showSetupScreen,
   shouldStartBroadcast,
   onHostMeetingStateChange,
   onHostRealtimeStateSync,
+  onMeetingStatsChange,
 }: {
   meeting: any;
   showSetupScreen: boolean;
   shouldStartBroadcast: boolean;
   onHostMeetingStateChange?: (state: HostMeetingState) => void;
   onHostRealtimeStateSync?: (state: "setup" | "joined" | "broadcasting" | "ended") => void;
+  onMeetingStatsChange?: (stats: MeetingStats) => void;
 }) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const autoStartBroadcastDoneRef = useRef(false);
   const lastSyncedRealtimeStateRef = useRef<string>("");
 
   useSdkUiHardening(rootRef, true);
+
+  useEffect(() => {
+    if (!meeting || !onMeetingStatsChange) return;
+
+    const emitStats = () => {
+      onMeetingStatsChange(extractMeetingStats(meeting));
+    };
+
+    emitStats();
+
+    const t = window.setInterval(emitStats, 1000);
+
+    return () => {
+      window.clearInterval(t);
+    };
+  }, [meeting, onMeetingStatsChange]);
 
   useEffect(() => {
     if (!shouldStartBroadcast) {
@@ -316,11 +369,33 @@ function HostMeeting({
   );
 }
 
-function ViewerMeeting({ meeting }: { meeting: any }) {
+function ViewerMeeting({
+  meeting,
+  onMeetingStatsChange,
+}: {
+  meeting: any;
+  onMeetingStatsChange?: (stats: MeetingStats) => void;
+}) {
   const [meetingState, setMeetingState] = useState<ViewerMeetingState>("idle");
   const rootRef = useRef<HTMLDivElement | null>(null);
 
   useSdkUiHardening(rootRef, false);
+
+  useEffect(() => {
+    if (!meeting || !onMeetingStatsChange) return;
+
+    const emitStats = () => {
+      onMeetingStatsChange(extractMeetingStats(meeting));
+    };
+
+    emitStats();
+
+    const t = window.setInterval(emitStats, 1000);
+
+    return () => {
+      window.clearInterval(t);
+    };
+  }, [meeting, onMeetingStatsChange]);
 
   function handleStatesUpdate(event: { detail: States }) {
     const next = String(event?.detail?.meeting || "").trim().toLowerCase();
@@ -420,6 +495,7 @@ export default function RealtimeMeetingEmbed({
   shouldStartBroadcast = false,
   onHostMeetingStateChange,
   onHostRealtimeStateSync,
+  onMeetingStatsChange,
 }: Props) {
   const [meeting, initMeeting] = useRealtimeKitClient();
   const initializedAuthTokenRef = useRef("");
@@ -461,9 +537,13 @@ export default function RealtimeMeetingEmbed({
           shouldStartBroadcast={shouldStartBroadcast}
           onHostMeetingStateChange={onHostMeetingStateChange}
           onHostRealtimeStateSync={onHostRealtimeStateSync}
+          onMeetingStatsChange={onMeetingStatsChange}
         />
       ) : (
-        <ViewerMeeting meeting={meeting} />
+        <ViewerMeeting
+          meeting={meeting}
+          onMeetingStatsChange={onMeetingStatsChange}
+        />
       )}
     </RealtimeKitProvider>
   );

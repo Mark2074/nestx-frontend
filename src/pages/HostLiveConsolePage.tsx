@@ -59,15 +59,57 @@ function getEventBaseScope(ev: EventDetail | null): LiveScope {
   return ev?.accessScope === "private" ? "private" : "public";
 }
 
+type MeetingStats = {
+  participantsNow: number;
+  startedAt: number | null;
+  durationMs: number;
+};
+
 type HostCoreConsoleProps = {
   authToken: string;
   step: HostConsoleStep;
   onJoined: () => void;
   onLeft: () => void;
   onError: (msg: string) => void;
+  onMeetingStatsChange?: (stats: MeetingStats) => void;
 };
 
-function HostCoreConsole({ authToken, step, onJoined, onLeft, onError }: HostCoreConsoleProps) {
+function extractMeetingStats(meeting: any): MeetingStats {
+  const rawParticipants = meeting?.participants;
+  let participantsNow = 0;
+
+  if (Array.isArray(rawParticipants)) {
+    participantsNow = rawParticipants.length;
+  } else if (rawParticipants && typeof rawParticipants.size === "number") {
+    participantsNow = rawParticipants.size;
+  } else if (rawParticipants && typeof rawParticipants === "object") {
+    participantsNow = Object.keys(rawParticipants).length;
+  }
+
+  const rawStartedAt = meeting?.meta?.meetingStartedTimestamp;
+  const startedAt =
+    rawStartedAt != null && Number.isFinite(Number(rawStartedAt))
+      ? Number(rawStartedAt)
+      : null;
+
+  const durationMs =
+    startedAt != null ? Math.max(0, Date.now() - startedAt) : 0;
+
+  return {
+    participantsNow,
+    startedAt,
+    durationMs,
+  };
+}
+
+function HostCoreConsole({
+  authToken,
+  step,
+  onJoined,
+  onLeft,
+  onError,
+  onMeetingStatsChange,
+}: HostCoreConsoleProps) {
   const [meeting, initMeeting] = useRealtimeKitClient();
 
   const initializedAuthTokenRef = useRef("");
@@ -247,6 +289,22 @@ function HostCoreConsole({ authToken, step, onJoined, onLeft, onError }: HostCor
       }
     };
   }, [loadBrowserDevices, loadMeetingState, meeting, onJoined, onLeft]);
+
+  useEffect(() => {
+    if (!meeting || !onMeetingStatsChange) return;
+
+    const emitStats = () => {
+      onMeetingStatsChange(extractMeetingStats(meeting));
+    };
+
+    emitStats();
+
+    const t = window.setInterval(emitStats, 1000);
+
+    return () => {
+      window.clearInterval(t);
+    };
+  }, [meeting, onMeetingStatsChange]);
 
   async function toggleAudio() {
     if (!meeting) return;
@@ -519,6 +577,18 @@ function HostCoreConsole({ authToken, step, onJoined, onLeft, onError }: HostCor
   );
 }
 
+function formatDuration(ms: number): string {
+  const totalSec = Math.max(0, Math.floor(ms / 1000));
+  const hh = Math.floor(totalSec / 3600);
+  const mm = Math.floor((totalSec % 3600) / 60);
+  const ss = totalSec % 60;
+
+  const p2 = (n: number) => String(n).padStart(2, "0");
+
+  if (hh > 0) return `${p2(hh)}:${p2(mm)}:${p2(ss)}`;
+  return `${p2(mm)}:${p2(ss)}`;
+}
+
 export default function HostLiveConsolePage() {
   const nav = useNavigate();
   const { id } = useParams();
@@ -539,6 +609,8 @@ export default function HostLiveConsolePage() {
 
   const [joinedPreview, setJoinedPreview] = useState(false);
   const [step, setStep] = useState<HostConsoleStep>("DEVICE_SETUP");
+  const [providerParticipantsNow, setProviderParticipantsNow] = useState<number | null>(null);
+  const [providerDurationMs, setProviderDurationMs] = useState(0);
   const stepStorageKey = `nx_host_console_step_${eventId}`;
 
   const liveTokenEventIdRef = useRef("");
@@ -614,6 +686,27 @@ export default function HostLiveConsolePage() {
     if (joinedPreview) return "READY";
     return "CONNECTING";
   }, [err, isLive, joinedPreview, liveToken?.authToken, liveTokenErr, loadingBootstrap, loadingFinish, loadingGoLive, loadingLiveToken]);
+
+  const handleMeetingStatsChange = useCallback((stats: MeetingStats) => {
+    setProviderParticipantsNow(
+      Number.isFinite(Number(stats?.participantsNow))
+        ? Number(stats.participantsNow)
+        : 0
+    );
+
+    setProviderDurationMs(
+      Number.isFinite(Number(stats?.durationMs))
+        ? Number(stats.durationMs)
+        : 0
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!liveToken?.authToken) {
+      setProviderParticipantsNow(null);
+      setProviderDurationMs(0);
+    }
+  }, [liveToken?.authToken]);
 
   const loadEvent = useCallback(async () => {
     if (!eventId) return null;
@@ -957,6 +1050,12 @@ export default function HostLiveConsolePage() {
                 ? "PREVIEW_JOINED"
                 : "PREVIEW_NOT_JOINED"}
             </span>
+            <span style={pillStyle}>
+              👁 {providerParticipantsNow ?? 0} watching
+            </span>
+            <span style={pillStyle}>
+              ⏱ {formatDuration(providerDurationMs)}
+            </span>
           </div>
         </div>
 
@@ -1019,6 +1118,7 @@ export default function HostLiveConsolePage() {
               onError={(msg) => {
                 setErr(msg);
               }}
+              onMeetingStatsChange={handleMeetingStatsChange}
             />
           ) : (
             <div style={{ minHeight: 560, display: "grid", placeItems: "center", opacity: 0.9 }}>
