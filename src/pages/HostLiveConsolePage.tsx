@@ -1171,17 +1171,6 @@ export default function HostLiveConsolePage() {
                     {loadingGoLive ? "Starting..." : "Go live"}
                   </button>
 
-                  <button
-                    onClick={() => void handleCancelEvent()}
-                    disabled={loadingGoLive || loadingFinish}
-                    style={{
-                      ...secondaryBtnStyle,
-                      borderColor: "rgba(255,100,120,0.35)",
-                      color: "salmon",
-                    }}
-                  >
-                    {loadingFinish ? "Cancelling..." : "Cancel event"}
-                  </button>
                 </>
               ) : (
                 <>
