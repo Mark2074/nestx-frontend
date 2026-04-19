@@ -48,6 +48,18 @@ function readSidebarIdentity(): SidebarIdentity {
   }
 }
 
+function readHostLiveLock(): boolean {
+  try {
+    const raw = sessionStorage.getItem("nx_host_live_lock");
+    if (!raw) return false;
+
+    const parsed = JSON.parse(raw);
+    return Boolean(parsed?.active);
+  } catch {
+    return false;
+  }
+}
+
 export default function ProfileLeftPage() {
   const nav = useNavigate();
   const loc = useLocation();
@@ -60,7 +72,7 @@ export default function ProfileLeftPage() {
   const [liveMenuOpen, setLiveMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [chatUnreadCount, setChatUnreadCount] = useState<number>(0);
-  const [hostLiveLock, setHostLiveLock] = useState(false);
+  const [hostLiveLock, setHostLiveLock] = useState<boolean>(() => readHostLiveLock());
   const [hostLiveLockMsg, setHostLiveLockMsg] = useState("");
 
   const isAdmin = identity.accountType === "admin";
@@ -157,10 +169,23 @@ export default function ProfileLeftPage() {
       }
     };
 
+    const syncFromStorage = () => {
+      const active = readHostLiveLock();
+      setHostLiveLock(active);
+
+      if (!active) {
+        setHostLiveLockMsg("");
+      }
+    };
+
     window.addEventListener("nx:live:host-active", onHostLiveActive as EventListener);
+    window.addEventListener("focus", syncFromStorage);
+    window.addEventListener("pageshow", syncFromStorage);
 
     return () => {
       window.removeEventListener("nx:live:host-active", onHostLiveActive as EventListener);
+      window.removeEventListener("focus", syncFromStorage);
+      window.removeEventListener("pageshow", syncFromStorage);
     };
   }, []);
 

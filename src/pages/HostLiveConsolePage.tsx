@@ -612,6 +612,7 @@ export default function HostLiveConsolePage() {
   const [providerParticipantsNow, setProviderParticipantsNow] = useState<number | null>(null);
   const [providerDurationMs, setProviderDurationMs] = useState(0);
   const stepStorageKey = `nx_host_console_step_${eventId}`;
+  const hostLiveLockStorageKey = "nx_host_live_lock";
 
   const liveTokenEventIdRef = useRef("");
   const liveTokenScopeRef = useRef<LiveScope | null>(null);
@@ -700,6 +701,38 @@ export default function HostLiveConsolePage() {
         : 0
     );
   }, []);
+
+  const setHostLiveLock = useCallback(
+    (active: boolean) => {
+      try {
+        if (active) {
+          sessionStorage.setItem(
+            hostLiveLockStorageKey,
+            JSON.stringify({
+              active: true,
+              eventId,
+              ts: Date.now(),
+            })
+          );
+        } else {
+          sessionStorage.removeItem(hostLiveLockStorageKey);
+        }
+      } catch {
+        // ignore
+      }
+
+      try {
+        window.dispatchEvent(
+          new CustomEvent("nx:live:host-active", {
+            detail: { active, eventId },
+          })
+        );
+      } catch {
+        // ignore
+      }
+    },
+    [eventId, hostLiveLockStorageKey]
+  );
 
   useEffect(() => {
     if (!liveToken?.authToken) {
@@ -914,6 +947,18 @@ export default function HostLiveConsolePage() {
 
   useEffect(() => {
     if (!eventId) return;
+    if (!isHost) return;
+
+    const shouldLock = step === "LIVE_RUNNING" && !isFinished && !isCancelled;
+    setHostLiveLock(shouldLock);
+
+    return () => {
+      setHostLiveLock(false);
+    };
+  }, [eventId, isCancelled, isFinished, isHost, setHostLiveLock, step]);
+
+  useEffect(() => {
+    if (!eventId) return;
 
     return () => {
       try {
@@ -975,11 +1020,12 @@ export default function HostLiveConsolePage() {
     try {
       await syncHostRealtimeState("ended");
       await api.eventCancel(eventId);
-    try {
+      setHostLiveLock(false);
+      try {
         sessionStorage.removeItem(stepStorageKey);
-        } catch {
+      } catch {
         // ignore
-        }
+      }
       nav("/app/live", { replace: true });
     } catch (e: any) {
       setErr(String(e?.message || "Failed to cancel event"));
@@ -989,11 +1035,15 @@ export default function HostLiveConsolePage() {
   }
 
   function goBack() {
-    try {
-    sessionStorage.removeItem(stepStorageKey);
-    } catch {
-    // ignore
+    if (step !== "LIVE_RUNNING") {
+      setHostLiveLock(false);
+      try {
+        sessionStorage.removeItem(stepStorageKey);
+      } catch {
+        // ignore
+      }
     }
+
     nav(`/app/live/${eventId}`);
   }
 
@@ -1192,14 +1242,13 @@ export default function HostLiveConsolePage() {
                       try {
                         await syncHostRealtimeState("ended");
                         await api.eventFinish(eventId);
+                        setHostLiveLock(false);
                         try {
                           sessionStorage.removeItem(stepStorageKey);
                         } catch {}
                         nav("/app/live", { replace: true });
                       } catch (e: any) {
                         setErr(String(e?.message || "Failed to finish event"));
-                      } finally {
-                        setLoadingFinish(false);
                       }
                     }}
                     disabled={loadingFinish}
