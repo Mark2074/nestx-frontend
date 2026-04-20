@@ -296,6 +296,7 @@ export default function LiveRoomPage() {
   const [reportSending, setReportSending] = useState(false);
   const [reportOkMsg, setReportOkMsg] = useState<string | null>(null);
   const [reportErrMsg, setReportErrMsg] = useState<string | null>(null);
+  const [, setGraceTick] = useState(0);
   const [isDocumentVisible, setIsDocumentVisible] = useState(() => {
     if (typeof document === "undefined") return true;
     return document.visibilityState === "visible";
@@ -1503,6 +1504,16 @@ export default function LiveRoomPage() {
   }, [eventDetail, eventId, isCancelled, isFinished, isHost]);
 
   useEffect(() => {
+    if (!hostGraceActive || !hostGraceExpiresAt) return;
+
+    const t = window.setInterval(() => {
+      setGraceTick((v) => v + 1);
+    }, 1000);
+
+    return () => window.clearInterval(t);
+  }, [hostGraceActive, hostGraceExpiresAt]);
+
+  useEffect(() => {
     if (!eventId) return;
     if (!isFinished && !isCancelled) return;
 
@@ -1650,6 +1661,9 @@ export default function LiveRoomPage() {
           runtimeScope={runtimeScope}
           onMeetingStatsChange={handleMeetingStatsChange}
           onBack={goBackToDetail}
+          hostGraceActive={hostGraceActive}
+          hostGraceExpiresAt={hostGraceExpiresAt}
+          hostGraceCountdownLabel={formatCountdownTo(hostGraceExpiresAt)}
           onRetry={() => {
             setRoomBlockCode("");
             setErr("");

@@ -73,6 +73,10 @@ type HostCoreConsoleProps = {
   onLeft: () => void;
   onError: (msg: string) => void;
   onMeetingStatsChange?: (stats: MeetingStats) => void;
+  recoveryActive?: boolean;
+  recoveryCountdownLabel?: string;
+  recoveryBusy?: boolean;
+  onResumeClick?: () => void;
 };
 
 function extractMeetingStats(meeting: any): MeetingStats {
@@ -110,6 +114,10 @@ function HostCoreConsole({
   onLeft,
   onError,
   onMeetingStatsChange,
+  recoveryActive = false,
+  recoveryCountdownLabel = "00:00",
+  recoveryBusy = false,
+  onResumeClick,
 }: HostCoreConsoleProps) {
   const [meeting, initMeeting] = useRealtimeKitClient();
 
@@ -431,6 +439,83 @@ function HostCoreConsole({
             }}
           />
 
+          {step === "LIVE_RECOVERY" && recoveryActive ? (
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                zIndex: 30,
+                display: "grid",
+                placeItems: "center",
+                padding: 20,
+                background: "rgba(0,0,0,0.72)",
+                backdropFilter: "blur(4px)",
+              }}
+            >
+              <div
+                style={{
+                  width: "min(520px, 100%)",
+                  borderRadius: 18,
+                  border: "1px solid rgba(255,255,255,0.16)",
+                  background: "rgba(12,12,12,0.94)",
+                  padding: 20,
+                  textAlign: "center",
+                  boxShadow: "0 20px 80px rgba(0,0,0,0.45)",
+                }}
+              >
+                <div style={{ fontSize: 22, fontWeight: 1000, lineHeight: 1.1 }}>
+                  Resume live
+                </div>
+
+                <div
+                  style={{
+                    marginTop: 10,
+                    fontSize: 14,
+                    lineHeight: 1.45,
+                    opacity: 0.92,
+                    fontWeight: 800,
+                  }}
+                >
+                  Your live is still active, but your host connection was interrupted.
+                  Resume before the reconnect window expires.
+                </div>
+
+                <div
+                  style={{
+                    marginTop: 14,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "10px 16px",
+                    borderRadius: 999,
+                    border: "1px solid rgba(255,255,255,0.18)",
+                    background: "rgba(255,255,255,0.06)",
+                    fontWeight: 1000,
+                    fontSize: 18,
+                    minWidth: 110,
+                  }}
+                >
+                  {recoveryCountdownLabel}
+                </div>
+
+                <div style={{ marginTop: 16 }}>
+                  <button
+                    type="button"
+                    onClick={() => onResumeClick?.()}
+                    disabled={recoveryBusy}
+                    style={{
+                      ...primaryBtnStyle,
+                      minWidth: 180,
+                      fontSize: 14,
+                    }}
+                  >
+                    {recoveryBusy ? "Resuming..." : "Resume now"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
           {step === "PRE_GO_LIVE" || step === "LIVE_RUNNING" ? (
             <>
               <div
@@ -628,6 +713,16 @@ function formatDuration(ms: number): string {
   return `${p2(mm)}:${p2(ss)}`;
 }
 
+function formatCountdownTo(targetIso: string | null): string {
+  if (!targetIso) return "00:00";
+
+  const targetMs = new Date(targetIso).getTime();
+  if (!Number.isFinite(targetMs)) return "00:00";
+
+  const diff = Math.max(0, targetMs - Date.now());
+  return formatDuration(diff);
+}
+
 export default function HostLiveConsolePage() {
   const nav = useNavigate();
   const { id } = useParams();
@@ -650,6 +745,12 @@ export default function HostLiveConsolePage() {
   const [step, setStep] = useState<HostConsoleStep>("DEVICE_SETUP");
   const [, setProviderParticipantsNow] = useState<number | null>(null);
   const [providerDurationMs, setProviderDurationMs] = useState(0);
+
+  const [, setGraceTick] = useState(0);
+  const [hostDisconnectState, setHostDisconnectState] = useState("offline");
+  const [hostGraceActive, setHostGraceActive] = useState(false);
+  const [hostGraceExpiresAt, setHostGraceExpiresAt] = useState<string | null>(null);
+
   const stepStorageKey = `nx_host_console_step_${eventId}`;
   const hostLiveLockStorageKey = "nx_host_live_lock";
 
@@ -806,6 +907,27 @@ export default function HostLiveConsolePage() {
     }
   }, [eventId]);
 
+  const loadStatus = useCallback(
+    async (scope: LiveScope) => {
+      if (!eventId) return;
+
+      try {
+        const res: any = await api.liveStatus(eventId, scope);
+
+        setHostDisconnectState(
+          String(res?.hostDisconnectState || "offline").trim().toLowerCase()
+        );
+        setHostGraceActive(Boolean(res?.hostGraceActive));
+        setHostGraceExpiresAt(
+          res?.hostGraceExpiresAt ? String(res.hostGraceExpiresAt) : null
+        );
+      } catch {
+        // ignore
+      }
+    },
+    [eventId]
+  );
+
   const syncHostRealtimeState = useCallback(
     async (state: "setup" | "joined" | "broadcasting" | "ended") => {
       if (!eventId) return;
@@ -841,7 +963,7 @@ export default function HostLiveConsolePage() {
     }
   }, [eventId, stepStorageKey]);
 
-    useEffect(() => {
+  useEffect(() => {
     if (!eventId) return;
 
     try {
@@ -875,8 +997,10 @@ export default function HostLiveConsolePage() {
         setEventDetail(ev);
 
         if (String(ev?.status || "").trim().toLowerCase() === "live") {
-          runtimeScopeRef.current = getEventBaseScope(ev);
+          const baseScope = getEventBaseScope(ev);
+          runtimeScopeRef.current = baseScope;
           setStep("LIVE_RECOVERY");
+          await loadStatus(baseScope);
           return;
         }
       } catch (e: any) {
@@ -1063,6 +1187,32 @@ export default function HostLiveConsolePage() {
     };
   }, [eventId]);
 
+  useEffect(() => {
+    if (!hostGraceActive || !hostGraceExpiresAt) return;
+
+    const t = window.setInterval(() => {
+      setGraceTick((v) => v + 1);
+    }, 1000);
+
+    return () => window.clearInterval(t);
+  }, [hostGraceActive, hostGraceExpiresAt]);
+
+  useEffect(() => {
+    if (!eventId) return;
+    if (!isHost) return;
+    if (step !== "LIVE_RECOVERY") return;
+
+    const t = window.setInterval(() => {
+      const scope: LiveScope =
+        runtimeScopeRef.current ||
+        eventBaseScope;
+
+      void loadStatus(scope);
+    }, 1000);
+
+    return () => window.clearInterval(t);
+  }, [eventBaseScope, eventId, isHost, loadStatus, step]);
+
   async function handleGoLive() {
     if (!eventId) return;
     if (!isHost) return;
@@ -1201,6 +1351,9 @@ export default function HostLiveConsolePage() {
             <span style={pillStyle}>{(eventDetail?.contentScope || "—").toString()}</span>
             <span style={pillStyle}>{eventBaseScope.toUpperCase()}</span>
             <span style={pillStyle}>{consoleState}</span>
+            <span style={pillStyle}>
+              host {hostDisconnectState}
+            </span>
             <span style={pillStyle}>{step}</span>
             <span style={pillStyle}>
               {step === "LIVE_RUNNING"
@@ -1215,6 +1368,11 @@ export default function HostLiveConsolePage() {
             <span style={pillStyle}>
               ⏱ {formatDuration(providerDurationMs)}
             </span>
+            {hostGraceActive ? (
+              <span style={pillStyle}>
+                reconnect {formatCountdownTo(hostGraceExpiresAt)}
+              </span>
+            ) : null}
           </div>
         </div>
 
@@ -1270,6 +1428,12 @@ export default function HostLiveConsolePage() {
             <HostCoreConsole
               authToken={liveToken.authToken}
               step={step}
+              recoveryActive={step === "LIVE_RECOVERY" && hostGraceActive}
+              recoveryCountdownLabel={formatCountdownTo(hostGraceExpiresAt)}
+              recoveryBusy={loadingGoLive}
+              onResumeClick={() => {
+                void handleResumeLive();
+              }}
               onJoined={() => {
                 setJoinedPreview(true);
                 void syncHostRealtimeState("joined");
@@ -1351,24 +1515,6 @@ export default function HostLiveConsolePage() {
               ) : step === "LIVE_RECOVERY" ? (
                 <>
                   <button
-                    onClick={() => {
-                      void loadEvent();
-                    }}
-                    disabled={loadingGoLive || loadingFinish}
-                    style={secondaryBtnStyle}
-                  >
-                    Refresh status
-                  </button>
-
-                  <button
-                    onClick={() => void handleResumeLive()}
-                    disabled={loadingGoLive || loadingFinish || !liveToken?.authToken || !joinedPreview}
-                    style={primaryBtnStyle}
-                  >
-                    {loadingGoLive ? "Resuming..." : "Resume live"}
-                  </button>
-
-                  <button
                     onClick={async () => {
                       if (!eventId || loadingFinish) return;
                       setLoadingFinish(true);
@@ -1383,6 +1529,8 @@ export default function HostLiveConsolePage() {
                         nav("/app/live", { replace: true });
                       } catch (e: any) {
                         setErr(String(e?.message || "Failed to finish event"));
+                      } finally {
+                        setLoadingFinish(false);
                       }
                     }}
                     disabled={loadingFinish}

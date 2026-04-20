@@ -17,6 +17,9 @@ type Props = {
   uiMode: string;
   eventBaseScope: "public" | "private";
   runtimeScope: "public" | "private" | null;
+  hostGraceActive: boolean;
+  hostGraceExpiresAt: string | null;
+  hostGraceCountdownLabel: string;
   onBack: () => void;
   onRetry: () => void;
   navToLive: () => void;
@@ -31,6 +34,8 @@ export default function ViewerLiveStage({
   shouldPausePublic,
   roomBlockCode,
   uiMode,
+  hostGraceActive,
+  hostGraceCountdownLabel,
   onBack,
   onRetry,
   navToLive,
@@ -70,42 +75,6 @@ export default function ViewerLiveStage({
             Host realtime stays attached to the pre-live console to avoid a second join and duplicate video.
           </div>
         </div>
-      ) : uiMode === "HOST_RECONNECTING" ? (
-        <div
-          style={{
-            maxWidth: 560,
-            textAlign: "center",
-            opacity: 0.95,
-          }}
-        >
-          <div style={{ fontWeight: 1000, fontSize: 18, color: "salmon" }}>
-            Host disconnected.
-          </div>
-          <div style={{ marginTop: 8, opacity: 0.9, fontWeight: 800, lineHeight: 1.45 }}>
-            Reconnecting to the live stream…
-          </div>
-        </div>
-      ) : uiMode === "PRELIVE_HOST_WAITING" ? (
-        <div
-          style={{
-            maxWidth: 560,
-            textAlign: "center",
-            opacity: 0.95,
-          }}
-        >
-          <div style={{ fontWeight: 1000, fontSize: 18 }}>
-            Waiting to go live.
-          </div>
-          <div style={{ marginTop: 8, opacity: 0.9, fontWeight: 800, lineHeight: 1.45 }}>
-            The host has not started the live yet.
-          </div>
-        </div>
-      ) : loadingLiveToken ? (
-        <div style={{ opacity: 0.9 }}>Initializing live stream…</div>
-      ) : liveTokenErr ? (
-        <div style={{ opacity: 0.95, color: "salmon", fontWeight: 900 }}>
-          {liveTokenErr}
-        </div>
       ) : authToken ? (
         <div
           style={{
@@ -135,11 +104,106 @@ export default function ViewerLiveStage({
             />
           </div>
         </div>
-      ) : uiMode === "PUBLIC_ACTIVE" || uiMode === "PRIVATE_ACTIVE" || uiMode === "RETURNING_PUBLIC" ? (
-        <div style={{ opacity: 0.9 }}>Reconnecting live stream…</div>
+      ) : uiMode === "PRELIVE_HOST_WAITING" ? (
+        <div
+          style={{
+            maxWidth: 560,
+            textAlign: "center",
+            opacity: 0.95,
+          }}
+        >
+          <div style={{ fontWeight: 1000, fontSize: 18 }}>
+            Waiting to go live.
+          </div>
+          <div style={{ marginTop: 8, opacity: 0.9, fontWeight: 800, lineHeight: 1.45 }}>
+            The host has not started the live yet.
+          </div>
+        </div>
+      ) : loadingLiveToken ? (
+        <div style={{ opacity: 0.9 }}>Initializing live stream…</div>
+      ) : liveTokenErr ? (
+        <div style={{ opacity: 0.95, color: "salmon", fontWeight: 900 }}>
+          {liveTokenErr}
+        </div>
+      ) : uiMode === "PUBLIC_ACTIVE" || uiMode === "PRIVATE_ACTIVE" || uiMode === "RETURNING_PUBLIC" || uiMode === "HOST_RECONNECTING" ? (
+        <div style={{ opacity: 0.9 }}>Waiting for live stream…</div>
       ) : (
         <div style={{ opacity: 0.9 }}>Waiting for live stream…</div>
       )}
+
+      {uiMode === "HOST_RECONNECTING" && hostGraceActive ? (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 18,
+            display: "grid",
+            placeItems: "center",
+            padding: 16,
+            background: "rgba(0,0,0,0.58)",
+            backdropFilter: "blur(4px)",
+            pointerEvents: "all",
+          }}
+        >
+          <div
+            style={{
+              width: "min(520px, 100%)",
+              borderRadius: 18,
+              border: "1px solid rgba(255,255,255,0.16)",
+              background: "rgba(12,12,12,0.94)",
+              padding: 20,
+              textAlign: "center",
+              boxShadow: "0 20px 80px rgba(0,0,0,0.45)",
+            }}
+          >
+            <div style={{ fontWeight: 1000, fontSize: 22, color: "salmon", lineHeight: 1.1 }}>
+              Host disconnected
+            </div>
+
+            <div
+              style={{
+                marginTop: 10,
+                opacity: 0.92,
+                fontWeight: 800,
+                lineHeight: 1.45,
+                fontSize: 14,
+              }}
+            >
+              Waiting for the host to resume the live stream.
+            </div>
+
+            <div
+              style={{
+                marginTop: 14,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "10px 16px",
+                borderRadius: 999,
+                border: "1px solid rgba(255,255,255,0.18)",
+                background: "rgba(255,255,255,0.06)",
+                fontWeight: 1000,
+                fontSize: 18,
+                minWidth: 110,
+              }}
+            >
+              {hostGraceCountdownLabel}
+            </div>
+
+            <div
+              style={{
+                marginTop: 12,
+                opacity: 0.84,
+                fontWeight: 700,
+                fontSize: 13,
+                lineHeight: 1.4,
+              }}
+            >
+              The session will end automatically if the host does not reconnect before the timer reaches zero.
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {shouldPausePublic ? (
         <div
