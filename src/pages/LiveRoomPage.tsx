@@ -1368,8 +1368,6 @@ export default function LiveRoomPage() {
 
     const shouldBootActiveRoom =
       isLive &&
-      !!entered &&
-      !!roomReady &&
       !!runtimeScope;
 
     const desiredRole: "viewer" = "viewer";
