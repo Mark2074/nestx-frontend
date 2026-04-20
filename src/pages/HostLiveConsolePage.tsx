@@ -857,6 +857,7 @@ export default function HostLiveConsolePage() {
         setEventDetail(ev);
 
         if (String(ev?.status || "").trim().toLowerCase() === "live") {
+          runtimeScopeRef.current = getEventBaseScope(ev);
           setStep("LIVE_RUNNING");
           return;
         }
@@ -1017,6 +1018,48 @@ export default function HostLiveConsolePage() {
 
     return () => window.clearInterval(t);
   }, [eventBaseScope, eventId, isCancelled, isFinished, isHost, step]);
+
+  useEffect(() => {
+    if (!eventId) return;
+    if (!isHost) return;
+    if (!eventDetail) return;
+    if (isFinished || isCancelled) return;
+    if (step !== "LIVE_RUNNING") return;
+    if (!joinedPreview) return;
+
+    let cancelled = false;
+
+    const run = async () => {
+      try {
+        const scope: LiveScope =
+          runtimeScopeRef.current ||
+          eventBaseScope;
+
+        await api.liveStartBroadcast(eventId, scope);
+        await syncHostRealtimeState("broadcasting");
+        await api.liveHostPing(eventId, scope);
+      } catch {
+        // ignore
+      }
+    };
+
+    void run();
+
+    return () => {
+      cancelled = true;
+      void cancelled;
+    };
+  }, [
+    eventBaseScope,
+    eventDetail,
+    eventId,
+    isCancelled,
+    isFinished,
+    isHost,
+    joinedPreview,
+    step,
+    syncHostRealtimeState,
+  ]);
 
   useEffect(() => {
     if (!eventId) return;
