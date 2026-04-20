@@ -35,10 +35,11 @@ type HostConsoleState =
   | "READY"
   | "GOING_LIVE"
   | "LIVE"
+  | "LIVE_RECOVERY"
   | "FINISHING"
   | "ERROR";
 
-type HostConsoleStep = "DEVICE_SETUP" | "PRE_GO_LIVE" | "LIVE_RUNNING";
+type HostConsoleStep = "DEVICE_SETUP" | "PRE_GO_LIVE" | "LIVE_RECOVERY" | "LIVE_RUNNING";
 
 function normalizeEventDetail(input: any): EventDetail {
   return {
@@ -719,13 +720,25 @@ export default function HostLiveConsolePage() {
     if (err || liveTokenErr) return "ERROR";
     if (loadingFinish) return "FINISHING";
     if (loadingGoLive) return "GOING_LIVE";
+    if (step === "LIVE_RECOVERY") return "LIVE_RECOVERY";
     if (isLive) return "LIVE";
     if (loadingBootstrap) return "BOOTING";
     if (loadingLiveToken) return "INITIALIZING";
     if (!liveToken?.authToken) return "INITIALIZING";
     if (joinedPreview) return "READY";
     return "CONNECTING";
-  }, [err, isLive, joinedPreview, liveToken?.authToken, liveTokenErr, loadingBootstrap, loadingFinish, loadingGoLive, loadingLiveToken]);
+  }, [
+    err,
+    isLive,
+    joinedPreview,
+    liveToken?.authToken,
+    liveTokenErr,
+    loadingBootstrap,
+    loadingFinish,
+    loadingGoLive,
+    loadingLiveToken,
+    step,
+  ]);
 
   const handleMeetingStatsChange = useCallback((stats: MeetingStats) => {
     setProviderParticipantsNow(
@@ -815,7 +828,12 @@ export default function HostLiveConsolePage() {
 
     try {
       const saved = sessionStorage.getItem(stepStorageKey);
-      if (saved === "DEVICE_SETUP" || saved === "PRE_GO_LIVE" || saved === "LIVE_RUNNING") {
+      if (
+        saved === "DEVICE_SETUP" ||
+        saved === "PRE_GO_LIVE" ||
+        saved === "LIVE_RECOVERY" ||
+        saved === "LIVE_RUNNING"
+      ) {
         setStep(saved);
       }
     } catch {
@@ -858,7 +876,7 @@ export default function HostLiveConsolePage() {
 
         if (String(ev?.status || "").trim().toLowerCase() === "live") {
           runtimeScopeRef.current = getEventBaseScope(ev);
-          setStep("LIVE_RUNNING");
+          setStep("LIVE_RECOVERY");
           return;
         }
       } catch (e: any) {
@@ -1002,7 +1020,7 @@ export default function HostLiveConsolePage() {
     if (!eventId) return;
     if (!isHost) return;
     if (isFinished || isCancelled) return;
-    if (step !== "PRE_GO_LIVE" && step !== "LIVE_RUNNING") return;
+    if (step !== "PRE_GO_LIVE" && step !== "LIVE_RECOVERY" && step !== "LIVE_RUNNING") return;
 
     const t = window.setInterval(async () => {
       try {
@@ -1065,6 +1083,33 @@ export default function HostLiveConsolePage() {
       setStep("LIVE_RUNNING");
     } catch (e: any) {
       setErr(String(e?.message || "Failed to go live"));
+    } finally {
+      setLoadingGoLive(false);
+    }
+  }
+
+  async function handleResumeLive() {
+    if (!eventId) return;
+    if (!isHost) return;
+    if (loadingGoLive) return;
+    if (isFinished || isCancelled) return;
+
+    setLoadingGoLive(true);
+    setErr("");
+
+    try {
+      const scope: LiveScope =
+        runtimeScopeRef.current ||
+        eventBaseScope;
+
+      await api.liveStartBroadcast(eventId, scope);
+      await syncHostRealtimeState("broadcasting");
+      await api.liveHostPing(eventId, scope);
+      await loadEvent();
+
+      setStep("LIVE_RUNNING");
+    } catch (e: any) {
+      setErr(String(e?.message || "Failed to resume live"));
     } finally {
       setLoadingGoLive(false);
     }
@@ -1210,7 +1255,11 @@ export default function HostLiveConsolePage() {
           }}
         >
           <div style={{ fontWeight: 900, marginBottom: 10 }}>
-            {step === "LIVE_RUNNING" ? "Host live console" : "Pre-live host console"}
+            {step === "LIVE_RUNNING"
+              ? "Host live console"
+              : step === "LIVE_RECOVERY"
+              ? "Live recovery console"
+              : "Pre-live host console"}
           </div>
 
           {loadingLiveToken ? (
@@ -1255,6 +1304,8 @@ export default function HostLiveConsolePage() {
                 ? "Complete device setup first, then continue to the final pre-live check."
                 : step === "PRE_GO_LIVE"
                 ? "Final preview before live. Go live only when you are fully ready."
+                : step === "LIVE_RECOVERY"
+                ? "The event is still marked as live, but the host connection was interrupted. Resume the live when your preview is stable."
                 : "You are live. Audio, camera and settings remain available here while the live stays aligned with NestX scope, goal and chat logic."}
             </div>
 
@@ -1295,6 +1346,49 @@ export default function HostLiveConsolePage() {
                     }}
                   >
                     {loadingFinish ? "Cancelling..." : "Cancel event"}
+                  </button>
+                </>
+              ) : step === "LIVE_RECOVERY" ? (
+                <>
+                  <button
+                    onClick={() => {
+                      void loadEvent();
+                    }}
+                    disabled={loadingGoLive || loadingFinish}
+                    style={secondaryBtnStyle}
+                  >
+                    Refresh status
+                  </button>
+
+                  <button
+                    onClick={() => void handleResumeLive()}
+                    disabled={loadingGoLive || loadingFinish || !liveToken?.authToken || !joinedPreview}
+                    style={primaryBtnStyle}
+                  >
+                    {loadingGoLive ? "Resuming..." : "Resume live"}
+                  </button>
+
+                  <button
+                    onClick={async () => {
+                      if (!eventId || loadingFinish) return;
+                      setLoadingFinish(true);
+                      setErr("");
+                      try {
+                        await syncHostRealtimeState("ended");
+                        await api.eventFinish(eventId);
+                        setHostLiveLock(false);
+                        try {
+                          sessionStorage.removeItem(stepStorageKey);
+                        } catch {}
+                        nav("/app/live", { replace: true });
+                      } catch (e: any) {
+                        setErr(String(e?.message || "Failed to finish event"));
+                      }
+                    }}
+                    disabled={loadingFinish}
+                    style={secondaryBtnStyle}
+                  >
+                    {loadingFinish ? "Finishing..." : "Finish"}
                   </button>
                 </>
               ) : (
