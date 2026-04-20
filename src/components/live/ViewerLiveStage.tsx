@@ -126,6 +126,7 @@ export default function ViewerLiveStage({
             }}
           >
             <RealtimeMeetingEmbed
+              key={`${uiMode}:${authToken || "no-token"}`}
               authToken={authToken}
               isHost={false}
               showSetupScreen={false}
