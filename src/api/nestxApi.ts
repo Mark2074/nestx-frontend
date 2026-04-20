@@ -974,6 +974,12 @@ export const api = {
   livePing: (eventId: string, scope: LiveScope = "public") =>
     request<any>(`/live/${eventId}/ping?scope=${scope}`, { method: "POST" }),
 
+  liveHostPing: (eventId: string, scope: LiveScope = "public") =>
+    request<any>(`/live/${eventId}/host-ping`, {
+      method: "POST",
+      body: JSON.stringify({ scope }),
+    }),
+
   liveStatus: (eventId: string, scope: LiveScope = "public") =>
     request<any>(`/live/${eventId}/status?scope=${scope}`, { method: "GET" }),
 

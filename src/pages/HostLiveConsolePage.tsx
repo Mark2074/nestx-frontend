@@ -655,6 +655,7 @@ export default function HostLiveConsolePage() {
   const liveTokenEventIdRef = useRef("");
   const liveTokenScopeRef = useRef<LiveScope | null>(null);
   const liveTokenRoleRef = useRef<"host" | "viewer" | null>(null);
+  const runtimeScopeRef = useRef<LiveScope | null>(null);
 
   const creatorId = useMemo(() => getCreatorId(eventDetail), [eventDetail]);
   const isHost = useMemo(() => !!meId && !!creatorId && meId === creatorId, [meId, creatorId]);
@@ -878,8 +879,9 @@ export default function HostLiveConsolePage() {
     if (!eventId || !eventDetail || !isHost) return;
     if (isLive || isFinished || isCancelled) return;
 
+    runtimeScopeRef.current = eventBaseScope;
     void syncHostRealtimeState(joinedPreview ? "joined" : "setup");
-  }, [eventDetail, eventId, isCancelled, isFinished, isHost, isLive, joinedPreview, syncHostRealtimeState]);
+  }, [eventBaseScope, eventDetail, eventId, isCancelled, isFinished, isHost, isLive, joinedPreview, syncHostRealtimeState]);
 
   useEffect(() => {
     if (!eventId) return;
@@ -997,6 +999,27 @@ export default function HostLiveConsolePage() {
 
   useEffect(() => {
     if (!eventId) return;
+    if (!isHost) return;
+    if (isFinished || isCancelled) return;
+    if (step !== "PRE_GO_LIVE" && step !== "LIVE_RUNNING") return;
+
+    const t = window.setInterval(async () => {
+      try {
+        const scope: LiveScope =
+          runtimeScopeRef.current ||
+          eventBaseScope;
+
+        await api.liveHostPing(eventId, scope);
+      } catch {
+        // ignore
+      }
+    }, 5000);
+
+    return () => window.clearInterval(t);
+  }, [eventBaseScope, eventId, isCancelled, isFinished, isHost, step]);
+
+  useEffect(() => {
+    if (!eventId) return;
 
     return () => {
       try {
@@ -1034,8 +1057,10 @@ export default function HostLiveConsolePage() {
       await api.liveStartBroadcast(eventId, eventBaseScope);
       await api.eventGoLive(eventId);
       await syncHostRealtimeState("broadcasting");
+      await api.liveHostPing(eventId, eventBaseScope);
       await loadEvent();
 
+      runtimeScopeRef.current = eventBaseScope;
       setStep("LIVE_RUNNING");
     } catch (e: any) {
       setErr(String(e?.message || "Failed to go live"));

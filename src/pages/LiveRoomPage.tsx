@@ -14,6 +14,7 @@ type UiMode =
   | "BOOT"
   | "ACCESS_DENIED"
   | "PRELIVE_HOST_WAITING"
+  | "HOST_RECONNECTING"
   | "PUBLIC_ACTIVE"
   | "PRIVATE_RESERVED"
   | "PRIVATE_ACTIVE"
@@ -109,13 +110,31 @@ function resolveUiMode(params: {
   isAdmin: boolean;
   runtimeScope: LiveScope | null;
   access: AccessResponse | null;
+  hostGraceActive: boolean;
+  hostDisconnectState: string;
 }): UiMode {
-  const { event, isHost, isAdmin, runtimeScope, access, meId } = params;
+const {
+  event,
+  isHost,
+  isAdmin,
+  runtimeScope,
+  access,
+  meId,
+  hostGraceActive,
+  hostDisconnectState,
+} = params;
 
   if (!event) return "BOOT";
 
   const status = getEventStatus(event);
   if (status === "finished" || status === "cancelled") return "ENDED";
+
+  if (
+    status === "live" &&
+    (hostGraceActive || hostDisconnectState === "grace")
+  ) {
+    return "HOST_RECONNECTING";
+  }
 
   const baseScope = getEventBaseScope(event);
   const contentScope = getContentScope(event);
@@ -216,6 +235,16 @@ function formatDuration(ms: number): string {
   return `${p2(mm)}:${p2(ss)}`;
 }
 
+function formatCountdownTo(targetIso: string | null): string {
+  if (!targetIso) return "00:00";
+
+  const targetMs = new Date(targetIso).getTime();
+  if (!Number.isFinite(targetMs)) return "00:00";
+
+  const diff = Math.max(0, targetMs - Date.now());
+  return formatDuration(diff);
+}
+
 export default function LiveRoomPage() {
   const nav = useNavigate();
   const { id } = useParams();
@@ -240,6 +269,9 @@ export default function LiveRoomPage() {
   const [viewersNow, setViewersNow] = useState(0);
   const [, setProviderParticipantsNow] = useState<number | null>(null);
   const [providerDurationMs, setProviderDurationMs] = useState(0);
+  const [hostDisconnectState, setHostDisconnectState] = useState("offline");
+  const [hostGraceActive, setHostGraceActive] = useState(false);
+  const [hostGraceExpiresAt, setHostGraceExpiresAt] = useState<string | null>(null);
 
   const [loadingBootstrap, setLoadingBootstrap] = useState(false);
   const [loadingTransition, setLoadingTransition] = useState(false);
@@ -328,6 +360,8 @@ export default function LiveRoomPage() {
     isAdmin,
     runtimeScope,
     access,
+    hostGraceActive,
+    hostDisconnectState,
   });
 
   const targetRuntimeScope = resolveTargetRuntimeScope({
@@ -472,8 +506,15 @@ export default function LiveRoomPage() {
       if (!eventId) return;
       try {
         const res: any = await api.liveStatus(eventId, scope);
+
         const viewers = Number(res?.viewersNow ?? 0);
         setViewersNow(Number.isFinite(viewers) ? viewers : 0);
+
+        setHostDisconnectState(String(res?.hostDisconnectState || "offline").trim().toLowerCase());
+        setHostGraceActive(Boolean(res?.hostGraceActive));
+        setHostGraceExpiresAt(
+          res?.hostGraceExpiresAt ? String(res.hostGraceExpiresAt) : null
+        );
       } catch {
         // ignore
       }
@@ -674,6 +715,14 @@ export default function LiveRoomPage() {
         if (seq !== transitionSeqRef.current) return;
 
         const viewers = Number(joinRoomRes?.currentViewersCount ?? 0);
+
+        setHostDisconnectState(
+          String(joinRoomRes?.hostDisconnectState || "offline").trim().toLowerCase()
+        );
+        setHostGraceActive(Boolean(joinRoomRes?.hostGraceActive));
+        setHostGraceExpiresAt(
+          joinRoomRes?.hostGraceExpiresAt ? String(joinRoomRes.hostGraceExpiresAt) : null
+        );
 
         runtimeScopeRef.current = authorizedScope;
         joinedPresenceRef.current = true;
@@ -1190,14 +1239,15 @@ export default function LiveRoomPage() {
     const t = window.setInterval(async () => {
       try {
         const scope = runtimeScopeRef.current || "public";
-        await api.livePing(eventId, scope);
+        await api.liveHostPing(eventId, scope);
+        await loadStatus(scope);
       } catch {
         // ignore
       }
     }, 5000);
 
     return () => window.clearInterval(t);
-  }, [eventId, isHost, isLive]);
+  }, [eventId, isHost, isLive, loadStatus]);
 
   useEffect(() => {
     if (!eventId) return;
@@ -1505,6 +1555,11 @@ export default function LiveRoomPage() {
                 : (runtimeScope || eventBaseScope).toUpperCase()}
             </span>
             <span style={pillStyle}>{uiMode}</span>
+            {hostGraceActive ? (
+              <span style={pillStyle}>
+                reconnect {formatCountdownTo(hostGraceExpiresAt)}
+              </span>
+            ) : null}
           </div>
         </div>
 
@@ -1563,6 +1618,26 @@ export default function LiveRoomPage() {
         }}
       >
         <div style={{ fontWeight: 900, marginBottom: 6 }}>Live</div>
+
+        {uiMode === "HOST_RECONNECTING" ? (
+          <div
+            style={{
+              marginBottom: 12,
+              padding: 12,
+              border: "1px solid rgba(255,255,255,0.14)",
+              borderRadius: 14,
+              background: "rgba(255,255,255,0.04)",
+            }}
+          >
+            <div style={{ fontWeight: 900, color: "salmon" }}>
+              Host disconnected — reconnecting
+            </div>
+            <div style={{ opacity: 0.88, marginTop: 6 }}>
+              Waiting for host reconnection. Session will close automatically in{" "}
+              <b>{formatCountdownTo(hostGraceExpiresAt)}</b>.
+            </div>
+          </div>
+        ) : null}
 
         <ViewerLiveStage
           eventId={eventId}
