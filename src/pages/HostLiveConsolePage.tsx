@@ -1021,48 +1021,6 @@ export default function HostLiveConsolePage() {
 
   useEffect(() => {
     if (!eventId) return;
-    if (!isHost) return;
-    if (!eventDetail) return;
-    if (isFinished || isCancelled) return;
-    if (step !== "LIVE_RUNNING") return;
-    if (!joinedPreview) return;
-
-    let cancelled = false;
-
-    const run = async () => {
-      try {
-        const scope: LiveScope =
-          runtimeScopeRef.current ||
-          eventBaseScope;
-
-        await api.liveStartBroadcast(eventId, scope);
-        await syncHostRealtimeState("broadcasting");
-        await api.liveHostPing(eventId, scope);
-      } catch {
-        // ignore
-      }
-    };
-
-    void run();
-
-    return () => {
-      cancelled = true;
-      void cancelled;
-    };
-  }, [
-    eventBaseScope,
-    eventDetail,
-    eventId,
-    isCancelled,
-    isFinished,
-    isHost,
-    joinedPreview,
-    step,
-    syncHostRealtimeState,
-  ]);
-
-  useEffect(() => {
-    if (!eventId) return;
 
     return () => {
       try {
