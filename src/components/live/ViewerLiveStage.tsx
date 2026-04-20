@@ -70,6 +70,36 @@ export default function ViewerLiveStage({
             Host realtime stays attached to the pre-live console to avoid a second join and duplicate video.
           </div>
         </div>
+      ) : uiMode === "HOST_RECONNECTING" ? (
+        <div
+          style={{
+            maxWidth: 560,
+            textAlign: "center",
+            opacity: 0.95,
+          }}
+        >
+          <div style={{ fontWeight: 1000, fontSize: 18, color: "salmon" }}>
+            Host disconnected.
+          </div>
+          <div style={{ marginTop: 8, opacity: 0.9, fontWeight: 800, lineHeight: 1.45 }}>
+            Reconnecting to the live stream…
+          </div>
+        </div>
+      ) : uiMode === "PRELIVE_HOST_WAITING" ? (
+        <div
+          style={{
+            maxWidth: 560,
+            textAlign: "center",
+            opacity: 0.95,
+          }}
+        >
+          <div style={{ fontWeight: 1000, fontSize: 18 }}>
+            Waiting to go live.
+          </div>
+          <div style={{ marginTop: 8, opacity: 0.9, fontWeight: 800, lineHeight: 1.45 }}>
+            The host has not started the live yet.
+          </div>
+        </div>
       ) : loadingLiveToken ? (
         <div style={{ opacity: 0.9 }}>Initializing live stream…</div>
       ) : liveTokenErr ? (
@@ -104,6 +134,8 @@ export default function ViewerLiveStage({
             />
           </div>
         </div>
+      ) : uiMode === "PUBLIC_ACTIVE" || uiMode === "PRIVATE_ACTIVE" || uiMode === "RETURNING_PUBLIC" ? (
+        <div style={{ opacity: 0.9 }}>Reconnecting live stream…</div>
       ) : (
         <div style={{ opacity: 0.9 }}>Waiting for live stream…</div>
       )}
