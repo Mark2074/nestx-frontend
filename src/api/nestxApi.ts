@@ -915,6 +915,18 @@ export const api = {
   eventJoin: (eventId: string, scope: LiveScope = "public") =>
     request<any>(`/events/${eventId}/join?scope=${scope}`, { method: "POST" }),
 
+  eventBuyTicket: (eventId: string, scope: "public" | "private" = "public") => {
+    const idem = `ticket_${eventId}_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    return request<any>(`/events/${eventId}/ticket`, {
+      method: "POST",
+      headers: {
+        "Idempotency-Key": idem,
+        "x-idempotency-key": idem,
+      },
+      body: JSON.stringify({ scope }),
+    });
+  },
+
   liveGetToken: (eventId: string, scope: LiveScope = "public") =>
     request<LiveTokenResponse>(`/live/token`, {
       method: "POST",
