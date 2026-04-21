@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { RealtimeKitProvider, useRealtimeKitClient } from "@cloudflare/realtimekit-react";
-import { api, type LiveTokenResponse } from "../api/nestxApi";
+import { api } from "../api/nestxApi";
 
 type LiveScope = "public" | "private";
 
@@ -30,8 +29,6 @@ type EventDetail = {
 
 type HostConsoleState =
   | "BOOTING"
-  | "INITIALIZING"
-  | "CONNECTING"
   | "READY"
   | "GOING_LIVE"
   | "LIVE"
@@ -58,647 +55,6 @@ function getEventStatus(ev: EventDetail | null): string {
 
 function getEventBaseScope(ev: EventDetail | null): LiveScope {
   return ev?.accessScope === "private" ? "private" : "public";
-}
-
-type MeetingStats = {
-  participantsNow: number;
-  startedAt: number | null;
-  durationMs: number;
-};
-
-type HostCoreConsoleProps = {
-  authToken: string;
-  step: HostConsoleStep;
-  onJoined: () => void;
-  onLeft: () => void;
-  onError: (msg: string) => void;
-  onMeetingStatsChange?: (stats: MeetingStats) => void;
-  recoveryActive?: boolean;
-  recoveryCountdownLabel?: string;
-  recoveryBusy?: boolean;
-  onResumeClick?: () => void;
-};
-
-function extractMeetingStats(meeting: any): MeetingStats {
-  const rawParticipants = meeting?.participants;
-  let participantsNow = 0;
-
-  if (Array.isArray(rawParticipants)) {
-    participantsNow = rawParticipants.length;
-  } else if (rawParticipants && typeof rawParticipants.size === "number") {
-    participantsNow = rawParticipants.size;
-  } else if (rawParticipants && typeof rawParticipants === "object") {
-    participantsNow = Object.keys(rawParticipants).length;
-  }
-
-  const rawStartedAt = meeting?.meta?.meetingStartedTimestamp;
-  const startedAt =
-    rawStartedAt != null && Number.isFinite(Number(rawStartedAt))
-      ? Number(rawStartedAt)
-      : null;
-
-  const durationMs =
-    startedAt != null ? Math.max(0, Date.now() - startedAt) : 0;
-
-  return {
-    participantsNow,
-    startedAt,
-    durationMs,
-  };
-}
-
-function HostCoreConsole({
-  authToken,
-  step,
-  onJoined,
-  onLeft,
-  onError,
-  onMeetingStatsChange,
-  recoveryActive = false,
-  recoveryCountdownLabel = "00:00",
-  recoveryBusy = false,
-  onResumeClick,
-}: HostCoreConsoleProps) {
-  const [meeting, initMeeting] = useRealtimeKitClient();
-
-  const initializedAuthTokenRef = useRef("");
-  const joinedRef = useRef(false);
-  const joiningRef = useRef(false);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-
-  const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
-  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
-  const [speakerDevices, setSpeakerDevices] = useState<MediaDeviceInfo[]>([]);
-
-  const [audioEnabled, setAudioEnabled] = useState(true);
-  const [videoEnabled, setVideoEnabled] = useState(true);
-  const [roomState, setRoomState] = useState("disconnected");
-
-  const [currentAudioId, setCurrentAudioId] = useState("");
-  const [currentVideoId, setCurrentVideoId] = useState("");
-  const [currentSpeakerId, setCurrentSpeakerId] = useState("");
-
-  const [settingsOpen, setSettingsOpen] = useState(false);
-
-  const loadBrowserDevices = useCallback(async () => {
-    try {
-      if (!navigator.mediaDevices?.enumerateDevices) return;
-
-      const devices = await navigator.mediaDevices.enumerateDevices();
-
-      const audios = devices.filter((d) => d.kind === "audioinput");
-      const videos = devices.filter((d) => d.kind === "videoinput");
-      const speakers = devices.filter((d) => d.kind === "audiooutput");
-
-      setAudioDevices(audios);
-      setVideoDevices(videos);
-      setSpeakerDevices(speakers);
-
-      if (!currentAudioId && audios[0]?.deviceId) setCurrentAudioId(audios[0].deviceId);
-      if (!currentVideoId && videos[0]?.deviceId) setCurrentVideoId(videos[0].deviceId);
-      if (!currentSpeakerId && speakers[0]?.deviceId) setCurrentSpeakerId(speakers[0].deviceId);
-    } catch (e: any) {
-      onError(String(e?.message || "Failed to enumerate devices"));
-    }
-  }, [currentAudioId, currentSpeakerId, currentVideoId, onError]);
-
-  const loadMeetingState = useCallback(async () => {
-    if (!meeting) return;
-
-    try {
-      const current = meeting.self.getCurrentDevices?.() || {};
-      setCurrentAudioId(String(current?.audio?.deviceId || currentAudioId || ""));
-      setCurrentVideoId(String(current?.video?.deviceId || currentVideoId || ""));
-      setCurrentSpeakerId(String(current?.speaker?.deviceId || currentSpeakerId || ""));
-      setAudioEnabled(!!meeting.self.audioEnabled);
-      setVideoEnabled(!!meeting.self.videoEnabled);
-      setRoomState(String(meeting.self.roomState || "disconnected"));
-    } catch {
-      // ignore
-    }
-  }, [currentAudioId, currentSpeakerId, currentVideoId, meeting]);
-
-  useEffect(() => {
-    if (!authToken) return;
-    if (initializedAuthTokenRef.current === authToken) return;
-
-    initializedAuthTokenRef.current = authToken;
-    joinedRef.current = false;
-    joiningRef.current = false;
-
-    setRoomState("disconnected");
-
-    void initMeeting({
-      authToken,
-      defaults: {
-        audio: true,
-        video: true,
-      },
-    });
-  }, [authToken, initMeeting]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const run = async () => {
-      try {
-        if (navigator.mediaDevices?.getUserMedia) {
-          await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-        }
-      } catch {
-        // ignore
-      }
-
-      if (!cancelled) {
-        await loadBrowserDevices();
-      }
-    };
-
-    void run();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [loadBrowserDevices]);
-
-  useEffect(() => {
-    if (!meeting) return;
-
-    let cancelled = false;
-
-    const run = async () => {
-      const currentRoomState = String(meeting?.self?.roomState || "").trim().toLowerCase();
-
-      if (joinedRef.current) return;
-      if (joiningRef.current) return;
-      if (currentRoomState === "joined" || currentRoomState === "joining" || currentRoomState === "connecting") {
-        return;
-      }
-
-      joiningRef.current = true;
-
-      try {
-        await meeting.join();
-
-        if (cancelled) return;
-
-        joinedRef.current = true;
-        await loadMeetingState();
-      } catch (e: any) {
-        if (cancelled) return;
-        onError(String(e?.message || "Failed to join preview"));
-      } finally {
-        joiningRef.current = false;
-      }
-    };
-
-    void run();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [loadMeetingState, meeting, onError]);
-
-  useEffect(() => {
-    if (!meeting || !videoRef.current) return;
-
-    const el = videoRef.current;
-
-    try {
-      meeting.self.registerVideoElement(el, true);
-    } catch {
-      // ignore
-    }
-
-    return () => {
-      try {
-        meeting.self.deregisterVideoElement(el);
-      } catch {
-        // ignore
-      }
-    };
-  }, [meeting]);
-
-  useEffect(() => {
-    if (!meeting) return;
-
-    const handleRoomJoined = () => {
-      joinedRef.current = true;
-      joiningRef.current = false;
-
-      setRoomState(String(meeting.self.roomState || "joined"));
-      setAudioEnabled(!!meeting.self.audioEnabled);
-      setVideoEnabled(!!meeting.self.videoEnabled);
-      onJoined();
-      void loadBrowserDevices();
-      void loadMeetingState();
-    };
-
-    const handleRoomLeft = () => {
-      joinedRef.current = false;
-      joiningRef.current = false;
-
-      setRoomState(String(meeting.self.roomState || "left"));
-      onLeft();
-    };
-
-    const handleDeviceListUpdate = () => {
-      void loadBrowserDevices();
-      void loadMeetingState();
-    };
-
-    meeting.self.on("roomJoined", handleRoomJoined);
-    meeting.self.on("roomLeft", handleRoomLeft);
-    meeting.self.on("deviceListUpdate", handleDeviceListUpdate);
-
-    return () => {
-      try {
-        meeting.self.off("roomJoined", handleRoomJoined);
-        meeting.self.off("roomLeft", handleRoomLeft);
-        meeting.self.off("deviceListUpdate", handleDeviceListUpdate);
-      } catch {
-        // ignore
-      }
-    };
-  }, [loadBrowserDevices, loadMeetingState, meeting, onJoined, onLeft]);
-
-  useEffect(() => {
-    if (!meeting) return;
-
-    return () => {
-      joinedRef.current = false;
-      joiningRef.current = false;
-
-      try {
-        void meeting.leave();
-      } catch {
-        // ignore
-      }
-    };
-  }, [meeting]);
-
-  useEffect(() => {
-    if (!meeting || !onMeetingStatsChange) return;
-
-    const emitStats = () => {
-      onMeetingStatsChange(extractMeetingStats(meeting));
-    };
-
-    emitStats();
-
-    const t = window.setInterval(emitStats, 1000);
-
-    return () => {
-      window.clearInterval(t);
-    };
-  }, [meeting, onMeetingStatsChange]);
-
-  async function toggleAudio() {
-    if (!meeting) return;
-
-    try {
-      if (meeting.self.audioEnabled) {
-        await meeting.self.disableAudio();
-        setAudioEnabled(false);
-      } else {
-        await meeting.self.enableAudio();
-        setAudioEnabled(true);
-      }
-    } catch (e: any) {
-      onError(String(e?.message || "Failed to toggle microphone"));
-    }
-  }
-
-  async function toggleVideo() {
-    if (!meeting) return;
-
-    try {
-      if (meeting.self.videoEnabled) {
-        await meeting.self.disableVideo();
-        setVideoEnabled(false);
-      } else {
-        await meeting.self.enableVideo();
-        setVideoEnabled(true);
-      }
-    } catch (e: any) {
-      onError(String(e?.message || "Failed to toggle camera"));
-    }
-  }
-
-  async function changeDevice(deviceId: string, list: MediaDeviceInfo[]) {
-    if (!meeting) return;
-    const device = list.find((d) => d.deviceId === deviceId);
-    if (!device) return;
-
-    try {
-      await meeting.self.setDevice(device);
-
-      if (device.kind === "audioinput") setCurrentAudioId(device.deviceId);
-      if (device.kind === "videoinput") setCurrentVideoId(device.deviceId);
-      if (device.kind === "audiooutput") setCurrentSpeakerId(device.deviceId);
-
-      await loadMeetingState();
-    } catch (e: any) {
-      onError(String(e?.message || "Failed to change device"));
-    }
-  }
-
-  const isDeviceSetup = step === "DEVICE_SETUP";
-
-  return (
-    <RealtimeKitProvider value={meeting as any}>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: isDeviceSetup ? "minmax(320px, 1fr) minmax(280px, 340px)" : "1fr",
-          gap: 14,
-          alignItems: "stretch",
-        }}
-      >
-        <div
-          style={{
-            border: "1px solid rgba(255,255,255,0.10)",
-            borderRadius: 14,
-            background: "rgba(0,0,0,0.30)",
-            minHeight: 520,
-            overflow: "hidden",
-            position: "relative",
-          }}
-        >
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              background: "#111",
-              display: "block",
-            }}
-          />
-
-          {step === "LIVE_RECOVERY" && recoveryActive ? (
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                zIndex: 30,
-                display: "grid",
-                placeItems: "center",
-                padding: 20,
-                background: "rgba(0,0,0,0.72)",
-                backdropFilter: "blur(4px)",
-              }}
-            >
-              <div
-                style={{
-                  width: "min(520px, 100%)",
-                  borderRadius: 18,
-                  border: "1px solid rgba(255,255,255,0.16)",
-                  background: "rgba(12,12,12,0.94)",
-                  padding: 20,
-                  textAlign: "center",
-                  boxShadow: "0 20px 80px rgba(0,0,0,0.45)",
-                }}
-              >
-                <div style={{ fontSize: 22, fontWeight: 1000, lineHeight: 1.1 }}>
-                  Resume live
-                </div>
-
-                <div
-                  style={{
-                    marginTop: 10,
-                    fontSize: 14,
-                    lineHeight: 1.45,
-                    opacity: 0.92,
-                    fontWeight: 800,
-                  }}
-                >
-                  Your live is still active, but your host connection was interrupted.
-                  Resume before the reconnect window expires.
-                </div>
-
-                <div
-                  style={{
-                    marginTop: 14,
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: "10px 16px",
-                    borderRadius: 999,
-                    border: "1px solid rgba(255,255,255,0.18)",
-                    background: "rgba(255,255,255,0.06)",
-                    fontWeight: 1000,
-                    fontSize: 18,
-                    minWidth: 110,
-                  }}
-                >
-                  {recoveryCountdownLabel}
-                </div>
-
-                <div style={{ marginTop: 16 }}>
-                  <button
-                    type="button"
-                    onClick={() => onResumeClick?.()}
-                    disabled={recoveryBusy}
-                    style={{
-                      ...primaryBtnStyle,
-                      minWidth: 180,
-                      fontSize: 14,
-                    }}
-                  >
-                    {recoveryBusy ? "Resuming..." : "Resume now"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : null}
-
-          {step === "PRE_GO_LIVE" || step === "LIVE_RUNNING" ? (
-            <>
-              <div
-                style={{
-                  position: "absolute",
-                  left: 12,
-                  right: 12,
-                  bottom: 12,
-                  display: "flex",
-                  justifyContent: "center",
-                  gap: 10,
-                  flexWrap: "wrap",
-                  pointerEvents: "none",
-                }}
-              >
-                <button onClick={() => void toggleAudio()} style={overlayBtnStyle}>
-                  {audioEnabled ? "Mute mic" : "Unmute mic"}
-                </button>
-
-                <button onClick={() => void toggleVideo()} style={overlayBtnStyle}>
-                  {videoEnabled ? "Turn camera off" : "Turn camera on"}
-                </button>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setSettingsOpen((v) => !v)}
-                style={gearBtnStyle}
-                aria-label="Open preview settings"
-              >
-                ⚙
-              </button>
-
-              {settingsOpen ? (
-                <div style={settingsPanelStyle}>
-                  <div style={{ fontWeight: 900, marginBottom: 8 }}>Preview settings</div>
-
-                  <label style={labelStyle}>
-                    <span>Microphone</span>
-                    <select
-                      value={currentAudioId}
-                      onChange={(e) => void changeDevice(e.target.value, audioDevices)}
-                      style={selectStyle}
-                    >
-                      <option value="">Select microphone</option>
-                      {audioDevices.map((device) => (
-                        <option key={device.deviceId} value={device.deviceId}>
-                          {device.label || "Microphone"}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label style={labelStyle}>
-                    <span>Camera</span>
-                    <select
-                      value={currentVideoId}
-                      onChange={(e) => void changeDevice(e.target.value, videoDevices)}
-                      style={selectStyle}
-                    >
-                      <option value="">Select camera</option>
-                      {videoDevices.map((device) => (
-                        <option key={device.deviceId} value={device.deviceId}>
-                          {device.label || "Camera"}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label style={labelStyle}>
-                    <span>Speakers</span>
-                    <select
-                      value={currentSpeakerId}
-                      onChange={(e) => void changeDevice(e.target.value, speakerDevices)}
-                      style={selectStyle}
-                    >
-                      <option value="">Select speakers</option>
-                      {speakerDevices.map((device) => (
-                        <option key={device.deviceId} value={device.deviceId}>
-                          {device.label || "Speakers"}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
-                    <button onClick={() => void toggleAudio()} style={secondaryBtnStyle}>
-                      {audioEnabled ? "Mute mic" : "Unmute mic"}
-                    </button>
-                    <button onClick={() => void toggleVideo()} style={secondaryBtnStyle}>
-                      {videoEnabled ? "Turn camera off" : "Turn camera on"}
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-            </>
-          ) : null}
-        </div>
-
-        {isDeviceSetup ? (
-          <div
-            style={{
-              border: "1px solid rgba(255,255,255,0.12)",
-              borderRadius: 14,
-              background: "rgba(255,255,255,0.05)",
-              padding: 14,
-              display: "grid",
-              gap: 12,
-              alignContent: "start",
-            }}
-          >
-            <div style={{ fontWeight: 900, fontSize: 16 }}>Device setup</div>
-
-            <div style={{ opacity: 0.85, fontSize: 13 }}>
-              Room state: <b>{roomState}</b>
-            </div>
-
-            <label style={labelStyle}>
-              <span>Microphone</span>
-              <select
-                value={currentAudioId}
-                onChange={(e) => void changeDevice(e.target.value, audioDevices)}
-                style={selectStyle}
-              >
-                <option value="">Select microphone</option>
-                {audioDevices.map((device) => (
-                  <option key={device.deviceId} value={device.deviceId}>
-                    {device.label || "Microphone"}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label style={labelStyle}>
-              <span>Camera</span>
-              <select
-                value={currentVideoId}
-                onChange={(e) => void changeDevice(e.target.value, videoDevices)}
-                style={selectStyle}
-              >
-                <option value="">Select camera</option>
-                {videoDevices.map((device) => (
-                  <option key={device.deviceId} value={device.deviceId}>
-                    {device.label || "Camera"}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label style={labelStyle}>
-              <span>Speakers</span>
-              <select
-                value={currentSpeakerId}
-                onChange={(e) => void changeDevice(e.target.value, speakerDevices)}
-                style={selectStyle}
-              >
-                <option value="">Select speakers</option>
-                {speakerDevices.map((device) => (
-                  <option key={device.deviceId} value={device.deviceId}>
-                    {device.label || "Speakers"}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <div
-              style={{
-                padding: 12,
-                borderRadius: 12,
-                background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.10)",
-                fontSize: 13,
-                opacity: 0.9,
-                lineHeight: 1.45,
-              }}
-            >
-              Select camera, microphone and speakers, and make sure your preview is working before continuing.
-            </div>
-          </div>
-        ) : null}
-      </div>
-    </RealtimeKitProvider>
-  );
 }
 
 function formatDuration(ms: number): string {
@@ -737,14 +93,10 @@ export default function HostLiveConsolePage() {
   const [loadingFinish, setLoadingFinish] = useState(false);
 
   const [err, setErr] = useState("");
-  const [liveToken, setLiveToken] = useState<LiveTokenResponse | null>(null);
-  const [loadingLiveToken, setLoadingLiveToken] = useState(false);
-  const [liveTokenErr, setLiveTokenErr] = useState("");
+  const [previewErr] = useState("");
 
-  const [joinedPreview, setJoinedPreview] = useState(false);
   const [step, setStep] = useState<HostConsoleStep>("DEVICE_SETUP");
-  const [, setProviderParticipantsNow] = useState<number | null>(null);
-  const [providerDurationMs, setProviderDurationMs] = useState(0);
+  const [providerDurationMs] = useState(0);
 
   const [, setGraceTick] = useState(0);
   const [hostDisconnectState, setHostDisconnectState] = useState("offline");
@@ -754,9 +106,6 @@ export default function HostLiveConsolePage() {
   const stepStorageKey = `nx_host_console_step_${eventId}`;
   const hostLiveLockStorageKey = "nx_host_live_lock";
 
-  const liveTokenEventIdRef = useRef("");
-  const liveTokenScopeRef = useRef<LiveScope | null>(null);
-  const liveTokenRoleRef = useRef<"host" | "viewer" | null>(null);
   const runtimeScopeRef = useRef<LiveScope | null>(null);
 
   const creatorId = useMemo(() => getCreatorId(eventDetail), [eventDetail]);
@@ -784,7 +133,7 @@ export default function HostLiveConsolePage() {
         const authorizedScope =
           overrides?.authorizedScope !== undefined
             ? overrides.authorizedScope
-            : (isLive ? eventBaseScope : eventBaseScope);
+            : eventBaseScope;
 
         const authorizedRoomId =
           overrides?.authorizedRoomId !== undefined
@@ -814,46 +163,26 @@ export default function HostLiveConsolePage() {
         // ignore
       }
     },
-    [eventBaseScope, eventDetail, eventId, isLive]
+    [eventBaseScope, eventDetail, eventId]
   );
 
   const consoleState: HostConsoleState = useMemo(() => {
-    if (err || liveTokenErr) return "ERROR";
+    if (err || previewErr) return "ERROR";
     if (loadingFinish) return "FINISHING";
     if (loadingGoLive) return "GOING_LIVE";
     if (step === "LIVE_RECOVERY") return "LIVE_RECOVERY";
     if (isLive) return "LIVE";
     if (loadingBootstrap) return "BOOTING";
-    if (loadingLiveToken) return "INITIALIZING";
-    if (!liveToken?.authToken) return "INITIALIZING";
-    if (joinedPreview) return "READY";
-    return "CONNECTING";
+    return "READY";
   }, [
     err,
     isLive,
-    joinedPreview,
-    liveToken?.authToken,
-    liveTokenErr,
+    previewErr,
     loadingBootstrap,
     loadingFinish,
     loadingGoLive,
-    loadingLiveToken,
     step,
   ]);
-
-  const handleMeetingStatsChange = useCallback((stats: MeetingStats) => {
-    setProviderParticipantsNow(
-      Number.isFinite(Number(stats?.participantsNow))
-        ? Number(stats.participantsNow)
-        : 0
-    );
-
-    setProviderDurationMs(
-      Number.isFinite(Number(stats?.durationMs))
-        ? Number(stats.durationMs)
-        : 0
-    );
-  }, []);
 
   const setHostLiveLock = useCallback(
     (active: boolean) => {
@@ -886,13 +215,6 @@ export default function HostLiveConsolePage() {
     },
     [eventId, hostLiveLockStorageKey]
   );
-
-  useEffect(() => {
-    if (!liveToken?.authToken) {
-      setProviderParticipantsNow(null);
-      setProviderDurationMs(0);
-    }
-  }, [liveToken?.authToken]);
 
   const loadEvent = useCallback(async () => {
     if (!eventId) return null;
@@ -928,23 +250,6 @@ export default function HostLiveConsolePage() {
     [eventId]
   );
 
-  const syncHostRealtimeState = useCallback(
-    async (state: "setup" | "joined" | "broadcasting" | "ended") => {
-      if (!eventId) return;
-      if (!isHost) return;
-
-      try {
-        await api.liveHostRealtimeState(eventId, {
-          scope: eventBaseScope,
-          state,
-        });
-      } catch {
-        // ignore
-      }
-    },
-    [eventBaseScope, eventId, isHost]
-  );
-
   useEffect(() => {
     if (!eventId) return;
 
@@ -967,11 +272,11 @@ export default function HostLiveConsolePage() {
     if (!eventId) return;
 
     try {
-        sessionStorage.setItem(stepStorageKey, step);
+      sessionStorage.setItem(stepStorageKey, step);
     } catch {
-        // ignore
+      // ignore
     }
-    }, [eventId, step, stepStorageKey]);
+  }, [eventId, step, stepStorageKey]);
 
   useEffect(() => {
     if (!eventId) return;
@@ -1016,15 +321,7 @@ export default function HostLiveConsolePage() {
     return () => {
       alive = false;
     };
-  }, [eventId, nav]);
-
-  useEffect(() => {
-    if (!eventId || !eventDetail || !isHost) return;
-    if (isLive || isFinished || isCancelled) return;
-
-    runtimeScopeRef.current = eventBaseScope;
-    void syncHostRealtimeState(joinedPreview ? "joined" : "setup");
-  }, [eventBaseScope, eventDetail, eventId, isCancelled, isFinished, isHost, isLive, joinedPreview, syncHostRealtimeState]);
+  }, [eventId, loadStatus]);
 
   useEffect(() => {
     if (!eventId) return;
@@ -1053,59 +350,6 @@ export default function HostLiveConsolePage() {
     isFinished,
     isHost,
   ]);
-
-  useEffect(() => {
-    if (!eventId || !eventDetail || !isHost) return;
-    if (isFinished || isCancelled) return;
-
-    const tokenScope = getEventBaseScope(eventDetail);
-    const desiredRole: "host" = "host";
-
-    const canReuseCurrentToken =
-      !!liveToken?.authToken &&
-      liveTokenEventIdRef.current === eventId &&
-      liveTokenScopeRef.current === tokenScope &&
-      liveTokenRoleRef.current === desiredRole &&
-      String(liveToken?.role || "").trim().toLowerCase() === desiredRole;
-
-    if (canReuseCurrentToken) {
-      setLoadingLiveToken(false);
-      setLiveTokenErr("");
-      return;
-    }
-
-    let cancelled = false;
-
-    const run = async () => {
-      setLoadingLiveToken(true);
-      setLiveTokenErr("");
-
-      try {
-        const tokenRes = await api.liveGetToken(eventId, tokenScope);
-        if (cancelled) return;
-
-        setLiveToken(tokenRes);
-        liveTokenEventIdRef.current = eventId;
-        liveTokenScopeRef.current = tokenScope;
-        liveTokenRoleRef.current = desiredRole;
-      } catch (e: any) {
-        if (cancelled) return;
-        setLiveToken(null);
-        liveTokenEventIdRef.current = "";
-        liveTokenScopeRef.current = null;
-        liveTokenRoleRef.current = null;
-        setLiveTokenErr(String(e?.message || "Failed to initialize live preview"));
-      } finally {
-        if (!cancelled) setLoadingLiveToken(false);
-      }
-    };
-
-    void run();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [eventDetail, eventId, isCancelled, isFinished, isHost, liveToken]);
 
   useEffect(() => {
     if (!eventId) return;
@@ -1223,9 +467,7 @@ export default function HostLiveConsolePage() {
     setErr("");
 
     try {
-      await api.liveStartBroadcast(eventId, eventBaseScope);
       await api.eventGoLive(eventId);
-      await syncHostRealtimeState("broadcasting");
       await api.liveHostPing(eventId, eventBaseScope);
       await loadEvent();
 
@@ -1252,8 +494,6 @@ export default function HostLiveConsolePage() {
         runtimeScopeRef.current ||
         eventBaseScope;
 
-      await api.liveStartBroadcast(eventId, scope);
-      await syncHostRealtimeState("broadcasting");
       await api.liveHostPing(eventId, scope);
       await loadEvent();
 
@@ -1277,7 +517,6 @@ export default function HostLiveConsolePage() {
     setErr("");
 
     try {
-      await syncHostRealtimeState("ended");
       await api.eventCancel(eventId);
       setHostLiveLock(false);
       try {
@@ -1288,6 +527,27 @@ export default function HostLiveConsolePage() {
       nav("/app/live", { replace: true });
     } catch (e: any) {
       setErr(String(e?.message || "Failed to cancel event"));
+    } finally {
+      setLoadingFinish(false);
+    }
+  }
+
+  async function handleFinishEvent() {
+    if (!eventId) return;
+    if (loadingFinish) return;
+
+    setLoadingFinish(true);
+    setErr("");
+
+    try {
+      await api.eventFinish(eventId);
+      setHostLiveLock(false);
+      try {
+        sessionStorage.removeItem(stepStorageKey);
+      } catch {}
+      nav("/app/live", { replace: true });
+    } catch (e: any) {
+      setErr(String(e?.message || "Failed to finish event"));
     } finally {
       setLoadingFinish(false);
     }
@@ -1351,23 +611,13 @@ export default function HostLiveConsolePage() {
             <span style={pillStyle}>{(eventDetail?.contentScope || "—").toString()}</span>
             <span style={pillStyle}>{eventBaseScope.toUpperCase()}</span>
             <span style={pillStyle}>{consoleState}</span>
-            <span style={pillStyle}>
-              host {hostDisconnectState}
-            </span>
+            <span style={pillStyle}>host {hostDisconnectState}</span>
             <span style={pillStyle}>{step}</span>
             <span style={pillStyle}>
-              {step === "LIVE_RUNNING"
-                ? "LIVE_CONNECTED"
-                : joinedPreview
-                ? "PREVIEW_JOINED"
-                : "PREVIEW_NOT_JOINED"}
+              {step === "LIVE_RUNNING" ? "LIVE_CONNECTED" : "PREVIEW_DISABLED"}
             </span>
-            <span style={pillStyle}>
-              👁 0 watching
-            </span>
-            <span style={pillStyle}>
-              ⏱ {formatDuration(providerDurationMs)}
-            </span>
+            <span style={pillStyle}>👁 0 watching</span>
+            <span style={pillStyle}>⏱ {formatDuration(providerDurationMs)}</span>
             {hostGraceActive ? (
               <span style={pillStyle}>
                 reconnect {formatCountdownTo(hostGraceExpiresAt)}
@@ -1395,10 +645,6 @@ export default function HostLiveConsolePage() {
         <div style={{ marginTop: 10, color: "salmon", fontWeight: 900 }}>{err}</div>
       ) : null}
 
-      {liveTokenErr ? (
-        <div style={{ marginTop: 10, color: "salmon", fontWeight: 900 }}>{liveTokenErr}</div>
-      ) : null}
-
       <div
         style={{
           marginTop: 14,
@@ -1420,38 +666,107 @@ export default function HostLiveConsolePage() {
               : "Pre-live host console"}
           </div>
 
-          {loadingLiveToken ? (
-            <div style={{ minHeight: 560, display: "grid", placeItems: "center", opacity: 0.9 }}>
-              Initializing host preview…
+          <div
+            style={{
+              minHeight: 560,
+              display: "grid",
+              placeItems: "center",
+              opacity: 0.9,
+              borderRadius: 14,
+              background: "rgba(0,0,0,0.28)",
+              textAlign: "center",
+              padding: 20,
+              position: "relative",
+            }}
+          >
+            <div>
+              <div style={{ fontWeight: 1000, fontSize: 18 }}>
+                Host media preview disabled
+              </div>
+              <div style={{ marginTop: 8, opacity: 0.88, fontWeight: 800, lineHeight: 1.45 }}>
+                The old realtime host console has been disabled during live system migration.
+              </div>
             </div>
-          ) : liveToken?.authToken ? (
-            <HostCoreConsole
-              authToken={liveToken.authToken}
-              step={step}
-              recoveryActive={step === "LIVE_RECOVERY" && hostGraceActive}
-              recoveryCountdownLabel={formatCountdownTo(hostGraceExpiresAt)}
-              recoveryBusy={loadingGoLive}
-              onResumeClick={() => {
-                void handleResumeLive();
-              }}
-              onJoined={() => {
-                setJoinedPreview(true);
-                void syncHostRealtimeState("joined");
-              }}
-              onLeft={() => {
-                setJoinedPreview(false);
-                void syncHostRealtimeState("setup");
-              }}
-              onError={(msg) => {
-                setErr(msg);
-              }}
-              onMeetingStatsChange={handleMeetingStatsChange}
-            />
-          ) : (
-            <div style={{ minHeight: 560, display: "grid", placeItems: "center", opacity: 0.9 }}>
-              Waiting for host preview…
-            </div>
-          )}
+
+            {step === "LIVE_RECOVERY" && hostGraceActive ? (
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  zIndex: 30,
+                  display: "grid",
+                  placeItems: "center",
+                  padding: 20,
+                  background: "rgba(0,0,0,0.72)",
+                  backdropFilter: "blur(4px)",
+                }}
+              >
+                <div
+                  style={{
+                    width: "min(520px, 100%)",
+                    borderRadius: 18,
+                    border: "1px solid rgba(255,255,255,0.16)",
+                    background: "rgba(12,12,12,0.94)",
+                    padding: 20,
+                    textAlign: "center",
+                    boxShadow: "0 20px 80px rgba(0,0,0,0.45)",
+                  }}
+                >
+                  <div style={{ fontSize: 22, fontWeight: 1000, lineHeight: 1.1 }}>
+                    Resume live
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: 10,
+                      fontSize: 14,
+                      lineHeight: 1.45,
+                      opacity: 0.92,
+                      fontWeight: 800,
+                    }}
+                  >
+                    Your live is still active, but your host connection was interrupted.
+                    Resume before the reconnect window expires.
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: 14,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: "10px 16px",
+                      borderRadius: 999,
+                      border: "1px solid rgba(255,255,255,0.18)",
+                      background: "rgba(255,255,255,0.06)",
+                      fontWeight: 1000,
+                      fontSize: 18,
+                      minWidth: 110,
+                    }}
+                  >
+                    {formatCountdownTo(hostGraceExpiresAt)}
+                  </div>
+
+                  <div style={{ marginTop: 16 }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void handleResumeLive();
+                      }}
+                      disabled={loadingGoLive}
+                      style={{
+                        ...primaryBtnStyle,
+                        minWidth: 180,
+                        fontSize: 14,
+                      }}
+                    >
+                      {loadingGoLive ? "Resuming..." : "Resume now"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </div>
 
           <div
             style={{
@@ -1465,19 +780,18 @@ export default function HostLiveConsolePage() {
           >
             <div style={{ opacity: 0.86, lineHeight: 1.45 }}>
               {step === "DEVICE_SETUP"
-                ? "Complete device setup first, then continue to the final pre-live check."
+                ? "Media preview is temporarily disabled. Continue to the final pre-live check when ready."
                 : step === "PRE_GO_LIVE"
-                ? "Final preview before live. Go live only when you are fully ready."
+                ? "Final pre-live state. Go live only when you are fully ready."
                 : step === "LIVE_RECOVERY"
-                ? "The event is still marked as live, but the host connection was interrupted. Resume the live when your preview is stable."
-                : "You are live. Audio, camera and settings remain available here while the live stays aligned with NestX scope, goal and chat logic."}
+                ? "The event is still marked as live, but the host connection was interrupted. Resume the live before the timer reaches zero."
+                : "You are live. The old provider-based host console has been disabled while NestX transitions to the new live media system."}
             </div>
 
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {step === "DEVICE_SETUP" ? (
                 <button
                   onClick={() => setStep("PRE_GO_LIVE")}
-                  disabled={!liveToken?.authToken || !joinedPreview}
                   style={primaryBtnStyle}
                 >
                   Continue
@@ -1494,7 +808,7 @@ export default function HostLiveConsolePage() {
 
                   <button
                     onClick={() => void handleGoLive()}
-                    disabled={loadingGoLive || loadingFinish || !liveToken?.authToken || !joinedPreview}
+                    disabled={loadingGoLive || loadingFinish}
                     style={primaryBtnStyle}
                   >
                     {loadingGoLive ? "Starting..." : "Go live"}
@@ -1515,23 +829,8 @@ export default function HostLiveConsolePage() {
               ) : step === "LIVE_RECOVERY" ? (
                 <>
                   <button
-                    onClick={async () => {
-                      if (!eventId || loadingFinish) return;
-                      setLoadingFinish(true);
-                      setErr("");
-                      try {
-                        await syncHostRealtimeState("ended");
-                        await api.eventFinish(eventId);
-                        setHostLiveLock(false);
-                        try {
-                          sessionStorage.removeItem(stepStorageKey);
-                        } catch {}
-                        nav("/app/live", { replace: true });
-                      } catch (e: any) {
-                        setErr(String(e?.message || "Failed to finish event"));
-                      } finally {
-                        setLoadingFinish(false);
-                      }
+                    onClick={() => {
+                      void handleFinishEvent();
                     }}
                     disabled={loadingFinish}
                     style={secondaryBtnStyle}
@@ -1552,21 +851,8 @@ export default function HostLiveConsolePage() {
                   </button>
 
                   <button
-                    onClick={async () => {
-                      if (!eventId || loadingFinish) return;
-                      setLoadingFinish(true);
-                      setErr("");
-                      try {
-                        await syncHostRealtimeState("ended");
-                        await api.eventFinish(eventId);
-                        setHostLiveLock(false);
-                        try {
-                          sessionStorage.removeItem(stepStorageKey);
-                        } catch {}
-                        nav("/app/live", { replace: true });
-                      } catch (e: any) {
-                        setErr(String(e?.message || "Failed to finish event"));
-                      }
+                    onClick={() => {
+                      void handleFinishEvent();
                     }}
                     disabled={loadingFinish}
                     style={secondaryBtnStyle}
@@ -1592,23 +878,6 @@ const pillStyle = {
   background: "rgba(255,255,255,0.06)",
 } as const;
 
-const labelStyle = {
-  display: "grid",
-  gap: 6,
-  fontSize: 13,
-  fontWeight: 800,
-} as const;
-
-const selectStyle = {
-  width: "100%",
-  padding: "10px 12px",
-  borderRadius: 12,
-  border: "1px solid rgba(255,255,255,0.14)",
-  background: "rgba(255,255,255,0.05)",
-  color: "white",
-  outline: "none",
-} as const;
-
 const primaryBtnStyle = {
   padding: "8px 12px",
   borderRadius: 12,
@@ -1628,54 +897,3 @@ const secondaryBtnStyle = {
   color: "white",
   border: "1px solid rgba(255,255,255,0.14)",
 } as const;
-
-const overlayBtnStyle = {
-  pointerEvents: "auto",
-  padding: "8px 12px",
-  borderRadius: 12,
-  fontWeight: 900,
-  fontSize: 13,
-  cursor: "pointer",
-  background: "rgba(0,0,0,0.42)",
-  color: "white",
-  border: "1px solid rgba(255,255,255,0.18)",
-  backdropFilter: "blur(4px)",
-} as const;
-
-const gearBtnStyle = {
-  position: "absolute" as const,
-  right: 12,
-  bottom: 12,
-  width: 42,
-  height: 42,
-  borderRadius: 999,
-  border: "1px solid rgba(255,255,255,0.18)",
-  background: "rgba(0,0,0,0.42)",
-  color: "white",
-  cursor: "pointer",
-  backdropFilter: "blur(4px)",
-  fontSize: 18,
-  fontWeight: 900,
-  zIndex: 6,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: 0,
-  lineHeight: 1,
-};
-
-const settingsPanelStyle = {
-  position: "absolute" as const,
-  right: 12,
-  bottom: 62,
-  width: 300,
-  maxWidth: "calc(100% - 24px)",
-  borderRadius: 14,
-  border: "1px solid rgba(255,255,255,0.14)",
-  background: "rgba(18,18,18,0.96)",
-  color: "white",
-  padding: 12,
-  display: "grid",
-  gap: 10,
-  zIndex: 7,
-};

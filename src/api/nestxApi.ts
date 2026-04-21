@@ -1,6 +1,7 @@
 export type ApiWrapped<T> = { status: "success" | "error"; data?: T; message?: string };
 
 type LiveScope = "public" | "private";
+
 type HostRealtimeState = "idle" | "setup" | "joined" | "broadcasting" | "ended";
 
 export type LiveTokenResponse = {
@@ -18,6 +19,14 @@ export type LiveTokenResponse = {
   isHost?: boolean;
   isAdmin?: boolean;
   viewerCountMode?: string;
+};
+
+export type LiveMediaStatusResponse = {
+  eventId: string;
+  scope: LiveScope;
+  hostMediaStatus: "idle" | "live";
+  playbackUrl?: string | null;
+  streamKey?: string | null;
 };
 
 export type LiveMessageItem = {
@@ -906,18 +915,6 @@ export const api = {
   eventJoin: (eventId: string, scope: LiveScope = "public") =>
     request<any>(`/events/${eventId}/join?scope=${scope}`, { method: "POST" }),
 
-  eventBuyTicket: (eventId: string, scope: "public" | "private" = "public") => {
-    const idem = `ticket_${eventId}_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-    return request<any>(`/events/${eventId}/ticket`, {
-      method: "POST",
-      headers: {
-        "Idempotency-Key": idem,
-        "x-idempotency-key": idem,
-      },
-      body: JSON.stringify({ scope }),
-    });
-  },
-
   liveGetToken: (eventId: string, scope: LiveScope = "public") =>
     request<LiveTokenResponse>(`/live/token`, {
       method: "POST",
@@ -982,6 +979,29 @@ export const api = {
 
   liveStatus: (eventId: string, scope: LiveScope = "public") =>
     request<any>(`/live/${eventId}/status?scope=${scope}`, { method: "GET" }),
+
+  liveStartMedia: (
+    eventId: string,
+    payload?: {
+      scope?: LiveScope;
+      playbackUrl?: string | null;
+      streamKey?: string | null;
+    }
+  ) =>
+    request<LiveMediaStatusResponse>(`/live/${eventId}/start-media`, {
+      method: "POST",
+      body: JSON.stringify({
+        scope: payload?.scope === "private" ? "private" : "public",
+        playbackUrl: payload?.playbackUrl || null,
+        streamKey: payload?.streamKey || null,
+      }),
+    }),
+
+  liveStopMedia: (eventId: string, scope: LiveScope = "public") =>
+    request<LiveMediaStatusResponse>(`/live/${eventId}/stop-media`, {
+      method: "POST",
+      body: JSON.stringify({ scope }),
+    }),
 
   eventGoLive: (eventId: string) =>
     request<any>(`/events/${eventId}/go-live`, { method: "POST" }),

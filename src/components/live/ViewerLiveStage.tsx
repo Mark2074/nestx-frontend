@@ -1,16 +1,7 @@
-import RealtimeMeetingEmbed from "./RealtimeMeetingEmbed";
-
-type MeetingStats = {
-  participantsNow: number;
-  startedAt: number | null;
-  durationMs: number;
-};
-
 type Props = {
   eventId: string;
-  authToken?: string;
-  loadingLiveToken: boolean;
-  liveTokenErr?: string;
+  stageReady?: boolean;
+  stageErr?: string;
   isHost: boolean;
   shouldPausePublic: boolean;
   roomBlockCode: "" | "ROOM_FULL";
@@ -23,13 +14,11 @@ type Props = {
   onBack: () => void;
   onRetry: () => void;
   navToLive: () => void;
-  onMeetingStatsChange?: (stats: MeetingStats) => void;
 };
 
 export default function ViewerLiveStage({
-  authToken,
-  loadingLiveToken,
-  liveTokenErr,
+  stageReady,
+  stageErr,
   isHost,
   shouldPausePublic,
   roomBlockCode,
@@ -39,7 +28,6 @@ export default function ViewerLiveStage({
   onBack,
   onRetry,
   navToLive,
-  onMeetingStatsChange,
 }: Props) {
   return (
     <div
@@ -75,35 +63,6 @@ export default function ViewerLiveStage({
             Host realtime stays attached to the pre-live console to avoid a second join and duplicate video.
           </div>
         </div>
-      ) : authToken ? (
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            display: "flex",
-            alignItems: "stretch",
-            justifyContent: "center",
-            padding: 0,
-            overflow: "hidden",
-            boxSizing: "border-box",
-          }}
-        >
-          <div
-            style={{
-              width: "100%",
-              height: "100%",
-            }}
-          >
-            <RealtimeMeetingEmbed
-              key={`${uiMode}:${authToken || "no-token"}`}
-              authToken={authToken}
-              isHost={false}
-              showSetupScreen={false}
-              shouldStartBroadcast={false}
-              onMeetingStatsChange={onMeetingStatsChange}
-            />
-          </div>
-        </div>
       ) : uiMode === "PRELIVE_HOST_WAITING" ? (
         <div
           style={{
@@ -119,14 +78,27 @@ export default function ViewerLiveStage({
             The host has not started the live yet.
           </div>
         </div>
-      ) : loadingLiveToken ? (
-        <div style={{ opacity: 0.9 }}>Initializing live stream…</div>
-      ) : liveTokenErr ? (
+      ) : stageErr ? (
         <div style={{ opacity: 0.95, color: "salmon", fontWeight: 900 }}>
-          {liveTokenErr}
+          {stageErr}
+        </div>
+      ) : stageReady ? (
+        <div
+          style={{
+            maxWidth: 560,
+            textAlign: "center",
+            opacity: 0.95,
+          }}
+        >
+          <div style={{ fontWeight: 1000, fontSize: 18 }}>
+            Live media not connected yet.
+          </div>
+          <div style={{ marginTop: 8, opacity: 0.9, fontWeight: 800, lineHeight: 1.45 }}>
+            Room access is active, but the new viewer media system is not connected yet.
+          </div>
         </div>
       ) : uiMode === "PUBLIC_ACTIVE" || uiMode === "PRIVATE_ACTIVE" || uiMode === "RETURNING_PUBLIC" || uiMode === "HOST_RECONNECTING" ? (
-        <div style={{ opacity: 0.9 }}>Waiting for live stream…</div>
+        <div style={{ opacity: 0.9 }}>Live media temporarily unavailable</div>
       ) : (
         <div style={{ opacity: 0.9 }}>Waiting for live stream…</div>
       )}

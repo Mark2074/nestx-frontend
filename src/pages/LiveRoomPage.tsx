@@ -5,7 +5,6 @@ import {
   mapApiErrorMessage,
   getApiRetryAfterMs,
   formatRetryAfterLabel,
-  type LiveTokenResponse,
 } from "../api/nestxApi";
 import ViewerLiveStage from "../components/live/ViewerLiveStage";
 
@@ -66,12 +65,6 @@ type RuntimeStatePayload = {
   canWriteChatReason: string;
 };
 
-type MeetingStats = {
-  participantsNow: number;
-  startedAt: number | null;
-  durationMs: number;
-};
-
 function normalizeEventDetail(input: any): EventDetail {
   return {
     ...input,
@@ -113,16 +106,16 @@ function resolveUiMode(params: {
   hostGraceActive: boolean;
   hostDisconnectState: string;
 }): UiMode {
-const {
-  event,
-  isHost,
-  isAdmin,
-  runtimeScope,
-  access,
-  meId,
-  hostGraceActive,
-  hostDisconnectState,
-} = params;
+  const {
+    event,
+    isHost,
+    isAdmin,
+    runtimeScope,
+    access,
+    meId,
+    hostGraceActive,
+    hostDisconnectState,
+  } = params;
 
   if (!event) return "BOOT";
 
@@ -197,8 +190,6 @@ function resolveTargetRuntimeScope(params: {
 
   if (status === "finished" || status === "cancelled") return null;
 
-  // PRE-LIVE = waiting UI only for everyone, host included.
-  // No runtime target until the event is really live.
   if (status !== "live") {
     return null;
   }
@@ -267,8 +258,7 @@ export default function LiveRoomPage() {
 
   const [meta, setMeta] = useState<any>(null);
   const [viewersNow, setViewersNow] = useState(0);
-  const [, setProviderParticipantsNow] = useState<number | null>(null);
-  const [providerDurationMs, setProviderDurationMs] = useState(0);
+  const [providerDurationMs] = useState(0);
   const [hostDisconnectState, setHostDisconnectState] = useState("offline");
   const [hostGraceActive, setHostGraceActive] = useState(false);
   const [hostGraceExpiresAt, setHostGraceExpiresAt] = useState<string | null>(null);
@@ -279,10 +269,6 @@ export default function LiveRoomPage() {
 
   const [err, setErr] = useState("");
   const [roomBlockCode, setRoomBlockCode] = useState<"" | "ROOM_FULL">("");
-
-  const [liveToken, setLiveToken] = useState<LiveTokenResponse | null>(null);
-  const [loadingLiveToken, setLoadingLiveToken] = useState(false);
-  const [liveTokenErr, setLiveTokenErr] = useState("");
 
   const [tipOpen, setTipOpen] = useState(false);
   const [tipAmount, setTipAmount] = useState<number>(10);
@@ -302,7 +288,6 @@ export default function LiveRoomPage() {
     return document.visibilityState === "visible";
   });
 
-
   const REPORT_REASONS: { value: string; label: string }[] = [
     { value: "minor_involved", label: "Minor in stream" },
     { value: "impersonation_or_fake", label: "Pre-recorded video" },
@@ -319,10 +304,6 @@ export default function LiveRoomPage() {
   const transitionInFlightRef = useRef(false);
   const lastAppliedTargetScopeRef = useRef<LiveScope | null>(null);
   const viewerWasHiddenRef = useRef(false);
-
-  const liveTokenEventIdRef = useRef("");
-  const liveTokenScopeRef = useRef<LiveScope | null>(null);
-  const liveTokenRoleRef = useRef<"host" | "viewer" | null>(null);
 
   const creatorId = useMemo(() => getCreatorId(eventDetail), [eventDetail]);
   const isHost = useMemo(() => !!meId && !!creatorId && meId === creatorId, [meId, creatorId]);
@@ -421,7 +402,7 @@ export default function LiveRoomPage() {
         // ignore
       }
     },
-    [entered, eventId, runtimeRoomId, shouldPausePublic, roomBlockCode]
+    [entered, eventId, runtimeRoomId, shouldPausePublic, canWriteChat, canWriteChatReason, roomBlockCode]
   );
 
   const applyMetaFromEvent = useCallback((ev: EventDetail | null) => {
@@ -481,27 +462,6 @@ export default function LiveRoomPage() {
     [eventId]
   );
 
-  const syncHostRealtimeState = useCallback(
-    async (state: "setup" | "joined" | "broadcasting" | "ended") => {
-      if (!eventId) return;
-      if (!isHost) return;
-
-      const scopeForSync: LiveScope =
-        runtimeScopeRef.current ||
-        getEventBaseScope(eventDetail);
-
-      try {
-        await api.liveHostRealtimeState(eventId, {
-          scope: scopeForSync,
-          state,
-        });
-      } catch {
-        // ignore
-      }
-    },
-    [eventDetail, eventId, isHost]
-  );  
-
   const loadStatus = useCallback(
     async (scope: LiveScope) => {
       if (!eventId) return;
@@ -525,9 +485,6 @@ export default function LiveRoomPage() {
 
   const applyPreLiveHostState = useCallback(
     (scope: LiveScope) => {
-      // PRE-LIVE HOST = waiting UI only
-      // no runtime join, no joined presence, no room ready
-
       runtimeScopeRef.current = null;
       joinedPresenceRef.current = false;
 
@@ -538,13 +495,6 @@ export default function LiveRoomPage() {
       setCanWriteChat(true);
       setCanWriteChatReason("HOST");
       setRoomBlockCode("");
-      setLiveToken(null);
-      setLiveTokenErr("");
-      setLoadingLiveToken(false);
-
-      liveTokenEventIdRef.current = "";
-      liveTokenScopeRef.current = null;
-      liveTokenRoleRef.current = null;
 
       emitRuntimeState({
         entered: false,
@@ -573,13 +523,6 @@ export default function LiveRoomPage() {
       setCanWriteChat(false);
       setCanWriteChatReason("");
       setRoomBlockCode(nextRoomBlockCode);
-      setLiveToken(null);
-      setLiveTokenErr("");
-      setLoadingLiveToken(false);
-
-      liveTokenEventIdRef.current = "";
-      liveTokenScopeRef.current = null;
-      liveTokenRoleRef.current = null;
 
       if (emitNull) {
         emitRuntimeState({
@@ -609,27 +552,6 @@ export default function LiveRoomPage() {
     [eventId]
   );
 
-  const handleMeetingStatsChange = useCallback((stats: MeetingStats) => {
-    setProviderParticipantsNow(
-      Number.isFinite(Number(stats?.participantsNow))
-        ? Number(stats.participantsNow)
-        : 0
-    );
-
-    setProviderDurationMs(
-      Number.isFinite(Number(stats?.durationMs))
-        ? Number(stats.durationMs)
-        : 0
-    );
-  }, []);
-
-  useEffect(() => {
-    if (!entered || !roomReady || !runtimeScope) {
-      setProviderParticipantsNow(null);
-      setProviderDurationMs(0);
-    }
-  }, [entered, roomReady, runtimeScope]);
-
   const transitionToRuntimeScope = useCallback(
     async (nextScope: LiveScope | null, eventSnapshot?: EventDetail | null) => {
       const effectiveEvent = eventSnapshot ?? eventDetail;
@@ -639,7 +561,6 @@ export default function LiveRoomPage() {
       const currentScope = runtimeScopeRef.current;
       const currentStatus = getEventStatus(effectiveEvent);
 
-      // already joined and aligned: do nothing
       if (
         currentScope === nextScope &&
         nextScope &&
@@ -651,10 +572,9 @@ export default function LiveRoomPage() {
         return;
       }
 
-      // pre-live host waiting state must NOT block first real join after go-live
       if (currentScope === nextScope) {
         if (nextScope && currentStatus === "live" && !joinedPresenceRef.current) {
-          // continue: first real runtime join after go-live
+          // continue
         } else if (!nextScope) {
           return;
         } else if (currentStatus !== "live") {
@@ -703,6 +623,7 @@ export default function LiveRoomPage() {
           applyPreLiveHostState(nextScope);
           return;
         }
+
         const joinAccess: any = await api.eventJoin(eventId, nextScope);
         if (seq !== transitionSeqRef.current) return;
 
@@ -794,12 +715,16 @@ export default function LiveRoomPage() {
     [
       applyPreLiveHostState,
       clearRuntimeState,
+      emitRuntimeState,
+      entered,
       eventDetail,
       eventId,
       isHost,
       leaveRuntimeScope,
       loadStatus,
       nav,
+      roomReady,
+      runtimeRoomId,
       supportsInternalPrivate,
     ]
   );
@@ -816,16 +741,12 @@ export default function LiveRoomPage() {
         const latest = await loadEvent();
         const nextScope = getEventBaseScope(latest);
         await loadAccess(nextScope);
-
-        // first real host runtime join uses the fresh event snapshot
         await transitionToRuntimeScope(nextScope, latest);
-
         nav(`/app/live/${eventId}/room?scope=${nextScope}`, { replace: true });
         return;
       }
 
       if (action === "finish") {
-        await syncHostRealtimeState("ended");
         await api.eventFinish(eventId);
         if (runtimeScopeRef.current && joinedPresenceRef.current) {
           await leaveRuntimeScope(runtimeScopeRef.current);
@@ -836,7 +757,6 @@ export default function LiveRoomPage() {
       }
 
       if (action === "cancel") {
-        await syncHostRealtimeState("ended");
         await api.eventCancel(eventId);
         if (runtimeScopeRef.current && joinedPresenceRef.current) {
           await leaveRuntimeScope(runtimeScopeRef.current);
@@ -1024,8 +944,7 @@ export default function LiveRoomPage() {
     return () => {
       alive = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId, requestedScope]);
+  }, [applyMetaFromEvent, eventId, requestedScope]);
 
   useEffect(() => {
     if (!eventId || !eventDetail || !meId || !creatorId) return;
@@ -1059,8 +978,8 @@ export default function LiveRoomPage() {
     creatorId,
     eventDetail,
     eventId,
-    isHost,
     isAdmin,
+    isHost,
     isPrivateRunning,
     isReservedUser,
     meId,
@@ -1230,6 +1149,7 @@ export default function LiveRoomPage() {
     loadAccess,
     loadEvent,
     meId,
+    isLive,
   ]);
 
   useEffect(() => {
@@ -1295,7 +1215,7 @@ export default function LiveRoomPage() {
             emitRuntimeState({
               entered: true,
               joinedPresence: true,
-              authorizedScope: authorizedScope,
+              authorizedScope,
               authorizedRoomId: String(accessObj?.authorizedRoomId || ""),
               canWriteChat: Boolean(joinAccess?.permissions?.canChat),
               canWriteChatReason: String(joinAccess?.permissions?.canChatReason || ""),
@@ -1324,6 +1244,7 @@ export default function LiveRoomPage() {
     return () => window.clearInterval(t);
   }, [
     clearRuntimeState,
+    emitRuntimeState,
     eventId,
     isDocumentVisible,
     isHost,
@@ -1334,112 +1255,6 @@ export default function LiveRoomPage() {
     roomReady,
     runtimeScope,
     supportsInternalPrivate,
-  ]);
-
-  useEffect(() => {
-    if (!eventId) return;
-
-    const clearTokenIdentity = () => {
-      liveTokenEventIdRef.current = "";
-      liveTokenScopeRef.current = null;
-      liveTokenRoleRef.current = null;
-    };
-
-    const resetTokenState = () => {
-      setLiveToken(null);
-      setLiveTokenErr("");
-      setLoadingLiveToken(false);
-      clearTokenIdentity();
-    };
-
-    if (isFinished || isCancelled) {
-      resetTokenState();
-      return;
-    }
-
-    if (isHost) {
-      resetTokenState();
-      return;
-    }
-
-    if (shouldPausePublic) {
-      resetTokenState();
-      return;
-    }
-
-    const shouldBootActiveRoom =
-      isLive &&
-      !!runtimeScope;
-
-    const desiredRole: "viewer" = "viewer";
-
-    const tokenScope: LiveScope | null =
-      shouldBootActiveRoom
-        ? (runtimeScope as LiveScope)
-        : null;
-
-    if (!tokenScope) {
-      resetTokenState();
-      return;
-    }
-
-    const canReuseCurrentToken =
-      !!liveToken?.authToken &&
-      liveTokenEventIdRef.current === eventId &&
-      liveTokenScopeRef.current === tokenScope &&
-      liveTokenRoleRef.current === desiredRole &&
-      String(liveToken?.role || "").trim().toLowerCase() === desiredRole;
-
-    if (canReuseCurrentToken) {
-      setLoadingLiveToken(false);
-      setLiveTokenErr("");
-      return;
-    }
-
-    let cancelled = false;
-
-    const run = async () => {
-      setLoadingLiveToken(true);
-      setLiveTokenErr("");
-
-      try {
-        const tokenRes = await api.liveGetToken(eventId, tokenScope);
-        if (cancelled) return;
-
-        setLiveToken(tokenRes);
-        liveTokenEventIdRef.current = eventId;
-        liveTokenScopeRef.current = tokenScope;
-        liveTokenRoleRef.current = desiredRole;
-
-      } catch (e: any) {
-        if (cancelled) return;
-
-        resetTokenState();
-        setLiveTokenErr(String(e?.message || "Failed to initialize live stream"));
-      } finally {
-        if (!cancelled) {
-          setLoadingLiveToken(false);
-        }
-      }
-    };
-
-    void run();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    eventId,
-    eventDetail,
-    entered,
-    isCancelled,
-    isFinished,
-    isHost,
-    isLive,
-    liveToken,
-    roomReady,
-    runtimeScope,
-    shouldPausePublic,
   ]);
 
   useEffect(() => {
@@ -1469,13 +1284,6 @@ export default function LiveRoomPage() {
         void api.liveLeaveRoom(eventId, current).catch(() => {});
       }
 
-      if (isHost && (isFinished || isCancelled) && isRealPageUnload) {
-        void api.liveHostRealtimeState(eventId, {
-          scope: current || getEventBaseScope(eventDetail),
-          state: "ended",
-        }).catch(() => {});
-      }
-
       if (isRealPageUnload) {
         runtimeScopeRef.current = null;
         joinedPresenceRef.current = false;
@@ -1501,7 +1309,7 @@ export default function LiveRoomPage() {
         }
       }
     };
-  }, [eventDetail, eventId, isCancelled, isFinished, isHost]);
+  }, [eventId]);
 
   useEffect(() => {
     if (!hostGraceActive || !hostGraceExpiresAt) return;
@@ -1554,10 +1362,8 @@ export default function LiveRoomPage() {
                 ? "FREE"
                 : `${Number(meta?.price ?? eventDetail?.ticketPriceTokens ?? 0)} tokens`}
             </span>
-              <span style={pillStyle}>
-                👁 {viewersNow} watching
-              </span>
-              <span style={pillStyle}>⏱ {formatDuration(providerDurationMs)}</span>
+            <span style={pillStyle}>👁 {viewersNow} watching</span>
+            <span style={pillStyle}>⏱ {formatDuration(providerDurationMs)}</span>
             <span style={pillStyle}>
               {roomBlockCode === "ROOM_FULL"
                 ? "BLOCKED"
@@ -1589,10 +1395,6 @@ export default function LiveRoomPage() {
 
       {err && uiMode !== "ENDED" ? (
         <div style={{ marginTop: 10, color: "salmon", fontWeight: 900 }}>{err}</div>
-      ) : null}
-
-      {liveTokenErr && uiMode !== "ENDED" ? (
-        <div style={{ marginTop: 10, color: "salmon", fontWeight: 900 }}>{liveTokenErr}</div>
       ) : null}
 
       {!isHost && !canStay && access && access.reason !== "EVENT_NOT_LIVE" ? (
@@ -1650,16 +1452,14 @@ export default function LiveRoomPage() {
 
         <ViewerLiveStage
           eventId={eventId}
-          authToken={liveToken?.authToken}
-          loadingLiveToken={loadingLiveToken}
-          liveTokenErr={liveTokenErr}
+          stageReady={roomReady && entered && !!runtimeScope}
+          stageErr=""
           isHost={isHost}
           shouldPausePublic={shouldPausePublic}
           roomBlockCode={roomBlockCode}
           uiMode={uiMode}
           eventBaseScope={eventBaseScope}
           runtimeScope={runtimeScope}
-          onMeetingStatsChange={handleMeetingStatsChange}
           onBack={goBackToDetail}
           hostGraceActive={hostGraceActive}
           hostGraceExpiresAt={hostGraceExpiresAt}
@@ -1822,6 +1622,7 @@ export default function LiveRoomPage() {
                 Cancel
               </button>
             </div>
+
             {tipOkMsg ? (
               <div style={{ marginTop: 10, color: "rgba(120,255,200,0.95)", fontWeight: 900 }}>
                 {tipOkMsg}
