@@ -95,7 +95,7 @@ export default function HostLiveConsolePage() {
   const [err, setErr] = useState("");
   const [previewErr] = useState("");
 
-  const [step, setStep] = useState<HostConsoleStep>("DEVICE_SETUP");
+  const [step, setStep] = useState<HostConsoleStep>("PRE_GO_LIVE");
   const [providerDurationMs] = useState(0);
 
   const [, setGraceTick] = useState(0);
@@ -255,16 +255,19 @@ export default function HostLiveConsolePage() {
 
     try {
       const saved = sessionStorage.getItem(stepStorageKey);
+
       if (
-        saved === "DEVICE_SETUP" ||
         saved === "PRE_GO_LIVE" ||
         saved === "LIVE_RECOVERY" ||
         saved === "LIVE_RUNNING"
       ) {
         setStep(saved);
+        return;
       }
+
+      setStep("PRE_GO_LIVE");
     } catch {
-      // ignore
+      setStep("PRE_GO_LIVE");
     }
   }, [eventId, stepStorageKey]);
 
@@ -308,6 +311,7 @@ export default function HostLiveConsolePage() {
           await loadStatus(baseScope);
           return;
         }
+        setStep("PRE_GO_LIVE");
       } catch (e: any) {
         if (!alive) return;
         setErr(String(e?.message || "Failed to initialize host console"));
@@ -614,7 +618,11 @@ export default function HostLiveConsolePage() {
             <span style={pillStyle}>host {hostDisconnectState}</span>
             <span style={pillStyle}>{step}</span>
             <span style={pillStyle}>
-              {step === "LIVE_RUNNING" ? "LIVE_CONNECTED" : "PREVIEW_DISABLED"}
+              {step === "LIVE_RUNNING"
+                ? "LIVE_CONNECTED"
+                : step === "LIVE_RECOVERY"
+                ? "RECOVERY_PENDING"
+                : "READY_FOR_GO_LIVE"}
             </span>
             <span style={pillStyle}>👁 0 watching</span>
             <span style={pillStyle}>⏱ {formatDuration(providerDurationMs)}</span>
@@ -681,10 +689,10 @@ export default function HostLiveConsolePage() {
           >
             <div>
               <div style={{ fontWeight: 1000, fontSize: 18 }}>
-                Host media preview disabled
+                Host media setup moved to the new live system
               </div>
               <div style={{ marginTop: 8, opacity: 0.88, fontWeight: 800, lineHeight: 1.45 }}>
-                The old realtime host console has been disabled during live system migration.
+                The old realtime preview has been disabled. You can continue with the NestX live flow and start the event from here.
               </div>
             </div>
 
@@ -779,33 +787,16 @@ export default function HostLiveConsolePage() {
             }}
           >
             <div style={{ opacity: 0.86, lineHeight: 1.45 }}>
-              {step === "DEVICE_SETUP"
-                ? "Media preview is temporarily disabled. Continue to the final pre-live check when ready."
-                : step === "PRE_GO_LIVE"
-                ? "Final pre-live state. Go live only when you are fully ready."
+              {step === "PRE_GO_LIVE"
+                ? "The old preview step has been removed. Start the event directly from this host console."
                 : step === "LIVE_RECOVERY"
                 ? "The event is still marked as live, but the host connection was interrupted. Resume the live before the timer reaches zero."
                 : "You are live. The old provider-based host console has been disabled while NestX transitions to the new live media system."}
             </div>
 
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {step === "DEVICE_SETUP" ? (
-                <button
-                  onClick={() => setStep("PRE_GO_LIVE")}
-                  style={primaryBtnStyle}
-                >
-                  Continue
-                </button>
-              ) : step === "PRE_GO_LIVE" ? (
+              {step === "PRE_GO_LIVE" ? (
                 <>
-                  <button
-                    onClick={() => setStep("DEVICE_SETUP")}
-                    disabled={loadingGoLive || loadingFinish}
-                    style={secondaryBtnStyle}
-                  >
-                    Back to setup
-                  </button>
-
                   <button
                     onClick={() => void handleGoLive()}
                     disabled={loadingGoLive || loadingFinish}
