@@ -37,6 +37,8 @@ export default function ViewerLiveStage({
   navToLive,
 }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const testPlaybackUrl =
+    "https://live.nestx.live/app/69e87ea4b2b66f0a552683a2/master.m3u8";
 
   useEffect(() => {
     const video = videoRef.current;
@@ -44,7 +46,7 @@ export default function ViewerLiveStage({
     if (isHost) return;
     if (!stageReady) return;
     if (shouldPausePublic) return;
-    if (!playbackUrl) return;
+    if (!testPlaybackUrl) return;
 
     let hls: Hls | null = null;
     let cancelled = false;
@@ -52,7 +54,7 @@ export default function ViewerLiveStage({
     const attach = async () => {
       try {
         if (video.canPlayType("application/vnd.apple.mpegurl")) {
-          video.src = playbackUrl;
+          video.src = testPlaybackUrl;
           video.load();
           await video.play().catch(() => {});
           return;
@@ -65,7 +67,7 @@ export default function ViewerLiveStage({
             backBufferLength: 90,
           });
 
-          hls.loadSource(playbackUrl);
+          hls.loadSource(testPlaybackUrl);
           hls.attachMedia(video);
 
           hls.on(Hls.Events.MANIFEST_PARSED, async () => {
@@ -76,7 +78,7 @@ export default function ViewerLiveStage({
           return;
         }
 
-        video.src = playbackUrl;
+        video.src = testPlaybackUrl;
         video.load();
       } catch {
         // ignore
@@ -100,12 +102,12 @@ export default function ViewerLiveStage({
         // ignore
       }
     };
-  }, [isHost, playbackUrl, shouldPausePublic, stageReady]);
+  }, [isHost, shouldPausePublic, stageReady]);
 
   const showVideo =
     !isHost &&
     !!stageReady &&
-    !!playbackUrl &&
+    !!testPlaybackUrl &&
     hostMediaStatus === "live" &&
     !shouldPausePublic &&
     uiMode !== "PRELIVE_HOST_WAITING" &&
