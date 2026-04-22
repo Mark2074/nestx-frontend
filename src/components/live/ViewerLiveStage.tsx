@@ -61,17 +61,36 @@ export default function ViewerLiveStage({
         }
 
         if (Hls.isSupported()) {
-          hls = new Hls({
-            enableWorker: true,
-            lowLatencyMode: true,
-            backBufferLength: 10,
-            maxBufferLength: 2,
-            maxMaxBufferLength: 4,
-            liveSyncDurationCount: 1,
-            liveMaxLatencyDurationCount: 2,
-            liveDurationInfinity: true,
-            startPosition: -1,
-          });
+          const isChrome =
+            typeof navigator !== "undefined" &&
+            /Chrome/.test(navigator.userAgent) &&
+            !/Edg|OPR/.test(navigator.userAgent);
+
+          hls = new Hls(
+            isChrome
+              ? {
+                  enableWorker: true,
+                  lowLatencyMode: false,
+                  backBufferLength: 30,
+                  maxBufferLength: 10,
+                  maxMaxBufferLength: 20,
+                  liveSyncDurationCount: 3,
+                  liveMaxLatencyDurationCount: 6,
+                  liveDurationInfinity: true,
+                  startPosition: -1,
+                }
+              : {
+                  enableWorker: true,
+                  lowLatencyMode: true,
+                  backBufferLength: 10,
+                  maxBufferLength: 2,
+                  maxMaxBufferLength: 4,
+                  liveSyncDurationCount: 1,
+                  liveMaxLatencyDurationCount: 2,
+                  liveDurationInfinity: true,
+                  startPosition: -1,
+                }
+          );
 
           hls.loadSource(testPlaybackUrl);
           hls.attachMedia(video);
@@ -85,16 +104,22 @@ export default function ViewerLiveStage({
             if (cancelled) return;
 
             const details = data.details;
-            if (!details) return;
+            if (!details || !Number.isFinite(video.currentTime)) return;
 
             const edge = details.edge;
             if (typeof edge !== "number" || !Number.isFinite(edge)) return;
-            if (!Number.isFinite(video.currentTime)) return;
 
             const drift = edge - video.currentTime;
 
+            if (isChrome) {
+              if (drift > 4) {
+                video.currentTime = Math.max(0, edge - 1.5);
+              }
+              return;
+            }
+
             if (drift > 1.5) {
-              video.currentTime = edge - 0.3;
+              video.currentTime = Math.max(0, edge - 0.3);
             }
           });
 
