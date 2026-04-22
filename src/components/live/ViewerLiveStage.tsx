@@ -64,7 +64,10 @@ export default function ViewerLiveStage({
           hls = new Hls({
             enableWorker: true,
             lowLatencyMode: true,
-            backBufferLength: 90,
+            backBufferLength: 30,
+            maxBufferLength: 6,
+            liveSyncDurationCount: 2,
+            liveMaxLatencyDurationCount: 4,
           });
 
           hls.loadSource(testPlaybackUrl);
