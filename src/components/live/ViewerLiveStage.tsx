@@ -1,3 +1,6 @@
+import { useEffect, useRef } from "react";
+import Hls from "hls.js";
+
 type Props = {
   eventId: string;
   stageReady?: boolean;
@@ -8,6 +11,8 @@ type Props = {
   uiMode: string;
   eventBaseScope: "public" | "private";
   runtimeScope: "public" | "private" | null;
+  playbackUrl?: string | null;
+  hostMediaStatus?: "idle" | "live";
   hostGraceActive: boolean;
   hostGraceExpiresAt: string | null;
   hostGraceCountdownLabel: string;
@@ -23,12 +28,89 @@ export default function ViewerLiveStage({
   shouldPausePublic,
   roomBlockCode,
   uiMode,
+  playbackUrl,
+  hostMediaStatus = "idle",
   hostGraceActive,
   hostGraceCountdownLabel,
   onBack,
   onRetry,
   navToLive,
 }: Props) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (isHost) return;
+    if (!stageReady) return;
+    if (shouldPausePublic) return;
+    if (!playbackUrl) return;
+
+    let hls: Hls | null = null;
+    let cancelled = false;
+
+    const attach = async () => {
+      try {
+        if (video.canPlayType("application/vnd.apple.mpegurl")) {
+          video.src = playbackUrl;
+          video.load();
+          await video.play().catch(() => {});
+          return;
+        }
+
+        if (Hls.isSupported()) {
+          hls = new Hls({
+            enableWorker: true,
+            lowLatencyMode: true,
+            backBufferLength: 90,
+          });
+
+          hls.loadSource(playbackUrl);
+          hls.attachMedia(video);
+
+          hls.on(Hls.Events.MANIFEST_PARSED, async () => {
+            if (cancelled) return;
+            await video.play().catch(() => {});
+          });
+
+          return;
+        }
+
+        video.src = playbackUrl;
+        video.load();
+      } catch {
+        // ignore
+      }
+    };
+
+    void attach();
+
+    return () => {
+      cancelled = true;
+
+      if (hls) {
+        hls.destroy();
+      }
+
+      try {
+        video.pause();
+        video.removeAttribute("src");
+        video.load();
+      } catch {
+        // ignore
+      }
+    };
+  }, [isHost, playbackUrl, shouldPausePublic, stageReady]);
+
+  const showVideo =
+    !isHost &&
+    !!stageReady &&
+    !!playbackUrl &&
+    hostMediaStatus === "live" &&
+    !shouldPausePublic &&
+    uiMode !== "PRELIVE_HOST_WAITING" &&
+    uiMode !== "ENDED";
+
   return (
     <div
       style={{
@@ -48,7 +130,21 @@ export default function ViewerLiveStage({
         pointerEvents: shouldPausePublic ? "none" : "auto",
       }}
     >
-      {isHost ? (
+      {showVideo ? (
+        <video
+          ref={videoRef}
+          controls
+          autoPlay
+          playsInline
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+            borderRadius: 10,
+            background: "black",
+          }}
+        />
+      ) : isHost ? (
         <div
           style={{
             maxWidth: 560,
@@ -60,7 +156,7 @@ export default function ViewerLiveStage({
             Live is running.
           </div>
           <div style={{ marginTop: 8, opacity: 0.9, fontWeight: 800, lineHeight: 1.45 }}>
-            Host realtime stays attached to the pre-live console to avoid a second join and duplicate video.
+            Host streaming is managed from OBS/OME. This page does not render host return video.
           </div>
         </div>
       ) : uiMode === "PRELIVE_HOST_WAITING" ? (
@@ -82,7 +178,7 @@ export default function ViewerLiveStage({
         <div style={{ opacity: 0.95, color: "salmon", fontWeight: 900 }}>
           {stageErr}
         </div>
-      ) : stageReady ? (
+      ) : stageReady && !playbackUrl ? (
         <div
           style={{
             maxWidth: 560,
@@ -91,10 +187,25 @@ export default function ViewerLiveStage({
           }}
         >
           <div style={{ fontWeight: 1000, fontSize: 18 }}>
-            Live media not connected yet.
+            Waiting for live stream…
           </div>
           <div style={{ marginTop: 8, opacity: 0.9, fontWeight: 800, lineHeight: 1.45 }}>
-            Room access is active, but the new viewer media system is not connected yet.
+            Room access is active, but no playback url is available yet.
+          </div>
+        </div>
+      ) : stageReady && playbackUrl && hostMediaStatus !== "live" ? (
+        <div
+          style={{
+            maxWidth: 560,
+            textAlign: "center",
+            opacity: 0.95,
+          }}
+        >
+          <div style={{ fontWeight: 1000, fontSize: 18 }}>
+            Stream starting…
+          </div>
+          <div style={{ marginTop: 8, opacity: 0.9, fontWeight: 800, lineHeight: 1.45 }}>
+            Playback url is ready, but media is not live yet.
           </div>
         </div>
       ) : uiMode === "PUBLIC_ACTIVE" || uiMode === "PRIVATE_ACTIVE" || uiMode === "RETURNING_PUBLIC" || uiMode === "HOST_RECONNECTING" ? (

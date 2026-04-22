@@ -287,6 +287,8 @@ export default function LiveRoomPage() {
     if (typeof document === "undefined") return true;
     return document.visibilityState === "visible";
   });
+  const [viewerPlaybackUrl, setViewerPlaybackUrl] = useState<string | null>(null);
+  const [hostMediaStatus, setHostMediaStatus] = useState<"idle" | "live">("idle");
 
   const REPORT_REASONS: { value: string; label: string }[] = [
     { value: "minor_involved", label: "Minor in stream" },
@@ -476,6 +478,18 @@ export default function LiveRoomPage() {
         setHostGraceExpiresAt(
           res?.hostGraceExpiresAt ? String(res.hostGraceExpiresAt) : null
         );
+        try {
+          const mediaRes: any = await api.liveMediaStatus(eventId, scope);
+          setViewerPlaybackUrl(String(mediaRes?.playbackUrl || "").trim() || null);
+          setHostMediaStatus(
+            String(mediaRes?.hostMediaStatus || (mediaRes?.isLive ? "live" : "idle")) === "live"
+              ? "live"
+              : "idle"
+          );
+        } catch {
+          setViewerPlaybackUrl(null);
+          setHostMediaStatus("idle");
+        }
       } catch {
         // ignore
       }
@@ -492,6 +506,8 @@ export default function LiveRoomPage() {
       setRuntimeRoomId("");
       setEntered(false);
       setRoomReady(false);
+      setViewerPlaybackUrl(null);
+      setHostMediaStatus("idle");
       setCanWriteChat(true);
       setCanWriteChatReason("HOST");
       setRoomBlockCode("");
@@ -520,6 +536,8 @@ export default function LiveRoomPage() {
       setRuntimeRoomId("");
       setEntered(false);
       setRoomReady(false);
+      setViewerPlaybackUrl(null);
+      setHostMediaStatus("idle");
       setCanWriteChat(false);
       setCanWriteChatReason("");
       setRoomBlockCode(nextRoomBlockCode);
@@ -636,6 +654,10 @@ export default function LiveRoomPage() {
 
         if (seq !== transitionSeqRef.current) return;
 
+        const viewerSessionRes: any = await api.liveViewerSession(eventId, authorizedScope);
+
+        if (seq !== transitionSeqRef.current) return;
+
         const viewers = Number(joinRoomRes?.currentViewersCount ?? 0);
 
         setHostDisconnectState(
@@ -671,6 +693,16 @@ export default function LiveRoomPage() {
         if (Number.isFinite(viewers)) {
           setViewersNow(viewers);
         }
+
+        setViewerPlaybackUrl(String(viewerSessionRes?.playbackUrl || "").trim() || null);
+        setHostMediaStatus(
+          String(
+            viewerSessionRes?.hostMediaStatus ||
+              (viewerSessionRes?.isLive ? "live" : "idle")
+          ) === "live"
+            ? "live"
+            : "idle"
+        );
 
         emitRuntimeState({
           entered: true,
@@ -1460,6 +1492,8 @@ export default function LiveRoomPage() {
           uiMode={uiMode}
           eventBaseScope={eventBaseScope}
           runtimeScope={runtimeScope}
+          playbackUrl={viewerPlaybackUrl}
+          hostMediaStatus={hostMediaStatus}
           onBack={goBackToDetail}
           hostGraceActive={hostGraceActive}
           hostGraceExpiresAt={hostGraceExpiresAt}

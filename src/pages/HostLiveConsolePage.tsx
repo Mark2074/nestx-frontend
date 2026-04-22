@@ -103,6 +103,15 @@ export default function HostLiveConsolePage() {
   const [hostGraceActive, setHostGraceActive] = useState(false);
   const [hostGraceExpiresAt, setHostGraceExpiresAt] = useState<string | null>(null);
 
+  const [hostSession, setHostSession] = useState<{
+    rtmpUrl: string;
+    streamKey: string;
+    playbackUrl: string | null;
+    hostMediaStatus: "idle" | "live";
+  } | null>(null);
+
+  const [mediaLive, setMediaLive] = useState(false);
+
   const stepStorageKey = `nx_host_console_step_${eventId}`;
   const hostLiveLockStorageKey = "nx_host_live_lock";
 
@@ -250,6 +259,70 @@ export default function HostLiveConsolePage() {
     [eventId]
   );
 
+  const loadHostSession = useCallback(
+    async (scope: LiveScope) => {
+      if (!eventId) return null;
+      try {
+        const res: any = await api.liveHostSession(eventId, scope);
+        setHostSession({
+          rtmpUrl: String(res?.rtmpUrl || "").trim(),
+          streamKey: String(res?.streamKey || "").trim(),
+          playbackUrl: String(res?.playbackUrl || "").trim() || null,
+          hostMediaStatus:
+            String(res?.hostMediaStatus || "idle") === "live" ? "live" : "idle",
+        });
+        return res;
+      } catch (e: any) {
+        setErr(String(e?.message || "Failed to load host session"));
+        return null;
+      }
+    },
+    [eventId]
+  );
+
+  const loadMediaStatus = useCallback(
+    async (scope: LiveScope) => {
+      if (!eventId) return null;
+      try {
+        const res: any = await api.liveMediaStatus(eventId, scope);
+
+        setHostSession((prev) => ({
+          rtmpUrl: prev?.rtmpUrl || "",
+          streamKey: String(res?.streamKey || prev?.streamKey || "").trim(),
+          playbackUrl: String(res?.playbackUrl || prev?.playbackUrl || "").trim() || null,
+          hostMediaStatus:
+            String(res?.hostMediaStatus || (res?.isLive ? "live" : "idle")) === "live"
+              ? "live"
+              : "idle",
+        }));
+
+        const liveNow =
+          String(res?.hostMediaStatus || (res?.isLive ? "live" : "idle")) === "live";
+
+        setMediaLive(liveNow);
+
+        await api.liveHostRealtimeState(eventId, {
+          scope,
+          state: liveNow ? "broadcasting" : "joined",
+        });
+
+        return res;
+      } catch {
+        setMediaLive(false);
+        return null;
+      }
+    },
+    [eventId]
+  );
+
+  const copyText = useCallback(async (value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+    } catch {
+      // ignore
+    }
+  }, []);
+
   useEffect(() => {
     if (!eventId) return;
 
@@ -304,13 +377,28 @@ export default function HostLiveConsolePage() {
         const ev = normalizeEventDetail(rawEvent);
         setEventDetail(ev);
 
+        const baseScope = getEventBaseScope(ev);
+        runtimeScopeRef.current = baseScope;
+
+        await loadHostSession(baseScope);
+
         if (String(ev?.status || "").trim().toLowerCase() === "live") {
-          const baseScope = getEventBaseScope(ev);
-          runtimeScopeRef.current = baseScope;
+          await api.liveHostRealtimeState(eventId, {
+            scope: baseScope,
+            state: "joined",
+          });
+
           setStep("LIVE_RECOVERY");
           await loadStatus(baseScope);
+          await loadMediaStatus(baseScope);
           return;
         }
+
+        await api.liveHostRealtimeState(eventId, {
+          scope: baseScope,
+          state: "setup",
+        });
+
         setStep("PRE_GO_LIVE");
       } catch (e: any) {
         if (!alive) return;
@@ -325,7 +413,7 @@ export default function HostLiveConsolePage() {
     return () => {
       alive = false;
     };
-  }, [eventId, loadStatus]);
+  }, [eventId, loadHostSession, loadMediaStatus, loadStatus]);
 
   useEffect(() => {
     if (!eventId) return;
@@ -448,7 +536,7 @@ export default function HostLiveConsolePage() {
   useEffect(() => {
     if (!eventId) return;
     if (!isHost) return;
-    if (step !== "LIVE_RECOVERY") return;
+    if (step !== "LIVE_RECOVERY" && step !== "LIVE_RUNNING") return;
 
     const t = window.setInterval(() => {
       const scope: LiveScope =
@@ -456,10 +544,11 @@ export default function HostLiveConsolePage() {
         eventBaseScope;
 
       void loadStatus(scope);
-    }, 1000);
+      void loadMediaStatus(scope);
+    }, 3000);
 
     return () => window.clearInterval(t);
-  }, [eventBaseScope, eventId, isHost, loadStatus, step]);
+  }, [eventBaseScope, eventId, isHost, loadMediaStatus, loadStatus, step]);
 
   async function handleGoLive() {
     if (!eventId) return;
@@ -472,8 +561,14 @@ export default function HostLiveConsolePage() {
 
     try {
       await api.eventGoLive(eventId);
+      await api.liveHostRealtimeState(eventId, {
+        scope: eventBaseScope,
+        state: "joined",
+      });
       await api.liveHostPing(eventId, eventBaseScope);
       await loadEvent();
+      await loadHostSession(eventBaseScope);
+      await loadMediaStatus(eventBaseScope);
 
       runtimeScopeRef.current = eventBaseScope;
       setStep("LIVE_RUNNING");
@@ -498,8 +593,14 @@ export default function HostLiveConsolePage() {
         runtimeScopeRef.current ||
         eventBaseScope;
 
+      await api.liveHostRealtimeState(eventId, {
+        scope,
+        state: "joined",
+      });
       await api.liveHostPing(eventId, scope);
       await loadEvent();
+      await loadHostSession(scope);
+      await loadMediaStatus(scope);
 
       setStep("LIVE_RUNNING");
     } catch (e: any) {
@@ -687,12 +788,82 @@ export default function HostLiveConsolePage() {
               position: "relative",
             }}
           >
-            <div>
-              <div style={{ fontWeight: 1000, fontSize: 18 }}>
-                Host media setup moved to the new live system
+            <div style={{ width: "min(760px, 100%)", textAlign: "left" }}>
+              <div style={{ fontWeight: 1000, fontSize: 18, textAlign: "center" }}>
+                OME host console
               </div>
-              <div style={{ marginTop: 8, opacity: 0.88, fontWeight: 800, lineHeight: 1.45 }}>
-                The old realtime preview has been disabled. You can continue with the NestX live flow and start the event from here.
+
+              <div
+                style={{
+                  marginTop: 10,
+                  opacity: 0.88,
+                  fontWeight: 800,
+                  lineHeight: 1.45,
+                  textAlign: "center",
+                }}
+              >
+                Host media is now external. Start the event here, then publish from OBS using the RTMP data below.
+              </div>
+
+              <div
+                style={{
+                  marginTop: 18,
+                  display: "grid",
+                  gap: 12,
+                }}
+              >
+                <div style={infoRowStyle}>
+                  <div style={infoLabelStyle}>RTMP URL</div>
+                  <div style={infoValueStyle}>{hostSession?.rtmpUrl || "—"}</div>
+                  <button
+                    type="button"
+                    onClick={() => void copyText(String(hostSession?.rtmpUrl || ""))}
+                    style={secondaryBtnStyle}
+                  >
+                    Copy
+                  </button>
+                </div>
+
+                <div style={infoRowStyle}>
+                  <div style={infoLabelStyle}>Stream key</div>
+                  <div style={infoValueStyle}>{hostSession?.streamKey || "—"}</div>
+                  <button
+                    type="button"
+                    onClick={() => void copyText(String(hostSession?.streamKey || ""))}
+                    style={secondaryBtnStyle}
+                  >
+                    Copy
+                  </button>
+                </div>
+
+                <div style={infoRowStyle}>
+                  <div style={infoLabelStyle}>Playback URL</div>
+                  <div style={infoValueStyle}>{hostSession?.playbackUrl || "—"}</div>
+                  <button
+                    type="button"
+                    onClick={() => void copyText(String(hostSession?.playbackUrl || ""))}
+                    style={secondaryBtnStyle}
+                  >
+                    Copy
+                  </button>
+                </div>
+
+                <div style={infoRowStyle}>
+                  <div style={infoLabelStyle}>Media status</div>
+                  <div style={infoValueStyle}>
+                    {mediaLive ? "LIVE" : "WAITING_FOR_STREAM"}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const scope: LiveScope = runtimeScopeRef.current || eventBaseScope;
+                      void loadMediaStatus(scope);
+                    }}
+                    style={secondaryBtnStyle}
+                  >
+                    Refresh media
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -887,4 +1058,26 @@ const secondaryBtnStyle = {
   background: "transparent",
   color: "white",
   border: "1px solid rgba(255,255,255,0.14)",
+} as const;
+
+const infoRowStyle = {
+  display: "grid",
+  gridTemplateColumns: "140px 1fr auto",
+  gap: 10,
+  alignItems: "center",
+  padding: "10px 12px",
+  borderRadius: 12,
+  border: "1px solid rgba(255,255,255,0.10)",
+  background: "rgba(255,255,255,0.04)",
+} as const;
+
+const infoLabelStyle = {
+  fontWeight: 900,
+  opacity: 0.85,
+} as const;
+
+const infoValueStyle = {
+  fontWeight: 800,
+  opacity: 0.96,
+  wordBreak: "break-all" as const,
 } as const;

@@ -4,29 +4,35 @@ type LiveScope = "public" | "private";
 
 type HostRealtimeState = "idle" | "setup" | "joined" | "broadcasting" | "ended";
 
-export type LiveTokenResponse = {
+export type LiveHostSessionResponse = {
   eventId: string;
-  requestedScope?: LiveScope;
-  authorizedScope: LiveScope;
   scope: LiveScope;
   roomId?: string | null;
-  provider: "cloudflare" | string;
-  meetingId: string;
-  authToken: string;
-  participantId?: string;
-  participantPreset?: string;
-  role: "host" | "viewer";
-  isHost?: boolean;
-  isAdmin?: boolean;
-  viewerCountMode?: string;
+  rtmpUrl: string;
+  streamKey: string;
+  playbackUrl?: string | null;
+  hostMediaStatus: "idle" | "live";
+};
+
+export type LiveViewerSessionResponse = {
+  eventId: string;
+  scope: LiveScope;
+  authorizedScope: LiveScope;
+  roomId?: string | null;
+  playbackUrl?: string | null;
+  streamKey?: string | null;
+  isLive: boolean;
+  hostMediaStatus: "idle" | "live";
 };
 
 export type LiveMediaStatusResponse = {
   eventId: string;
   scope: LiveScope;
+  roomId?: string | null;
   hostMediaStatus: "idle" | "live";
   playbackUrl?: string | null;
   streamKey?: string | null;
+  isLive: boolean;
 };
 
 export type LiveMessageItem = {
@@ -927,16 +933,21 @@ export const api = {
     });
   },
 
-  liveGetToken: (eventId: string, scope: LiveScope = "public") =>
-    request<LiveTokenResponse>(`/live/token`, {
-      method: "POST",
-      body: JSON.stringify({ eventId, scope }),
-    }),
-
-  liveStartBroadcast: (eventId: string, scope: LiveScope = "public") =>
-    request<any>(`/live/${eventId}/start-broadcast`, {
+  liveHostSession: (eventId: string, scope: LiveScope = "public") =>
+    request<LiveHostSessionResponse>(`/live/${eventId}/host/session`, {
       method: "POST",
       body: JSON.stringify({ scope }),
+    }),
+
+  liveViewerSession: (eventId: string, scope: LiveScope = "public") =>
+    request<LiveViewerSessionResponse>(`/live/${eventId}/viewer/session`, {
+      method: "POST",
+      body: JSON.stringify({ scope }),
+    }),
+
+  liveMediaStatus: (eventId: string, scope: LiveScope = "public") =>
+    request<LiveMediaStatusResponse>(`/live/${eventId}/media-status?scope=${scope}`, {
+      method: "GET",
     }),
 
   liveHostRealtimeState: (
