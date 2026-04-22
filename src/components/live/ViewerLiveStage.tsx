@@ -38,7 +38,7 @@ export default function ViewerLiveStage({
 }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const testPlaybackUrl =
-    "https://live.nestx.live/app/69e87ea4b2b66f0a552683a2/master.m3u8";
+    "https://live.nestx.live/app/69e87ea4b2b66f0a552683a2/playlist.m3u8";
 
   useEffect(() => {
     const video = videoRef.current;
