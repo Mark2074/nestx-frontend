@@ -64,10 +64,13 @@ export default function ViewerLiveStage({
           hls = new Hls({
             enableWorker: true,
             lowLatencyMode: true,
-            backBufferLength: 30,
-            maxBufferLength: 6,
-            liveSyncDurationCount: 2,
-            liveMaxLatencyDurationCount: 4,
+            backBufferLength: 10,
+            maxBufferLength: 2,
+            maxMaxBufferLength: 4,
+            liveSyncDurationCount: 1,
+            liveMaxLatencyDurationCount: 2,
+            liveDurationInfinity: true,
+            startPosition: -1,
           });
 
           hls.loadSource(testPlaybackUrl);
@@ -76,6 +79,23 @@ export default function ViewerLiveStage({
           hls.on(Hls.Events.MANIFEST_PARSED, async () => {
             if (cancelled) return;
             await video.play().catch(() => {});
+          });
+
+          hls.on(Hls.Events.LEVEL_UPDATED, (_, data) => {
+            if (cancelled) return;
+
+            const details = data.details;
+            if (!details) return;
+
+            const edge = details.edge;
+            if (typeof edge !== "number" || !Number.isFinite(edge)) return;
+            if (!Number.isFinite(video.currentTime)) return;
+
+            const drift = edge - video.currentTime;
+
+            if (drift > 1.5) {
+              video.currentTime = edge - 0.3;
+            }
           });
 
           return;
