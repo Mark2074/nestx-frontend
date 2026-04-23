@@ -72,7 +72,7 @@ export default function ViewerLiveStage({
         const seekable = video.seekable;
         if (seekable && seekable.length > 0) {
           const liveEdge = seekable.end(seekable.length - 1);
-          const safeTarget = Math.max(seekable.start(0), liveEdge - 2.5);
+          const safeTarget = Math.max(seekable.start(0), liveEdge - 5);
 
           if (
             Number.isFinite(safeTarget) &&
@@ -151,13 +151,13 @@ export default function ViewerLiveStage({
             enableWorker: true,
             lowLatencyMode: false,
             backBufferLength: 90,
-            maxBufferLength: 30,
-            maxMaxBufferLength: 60,
+            maxBufferLength: 40,
+            maxMaxBufferLength: 80,
             liveDurationInfinity: true,
             startPosition: -1,
-            maxBufferHole: 1.5,
-            liveSyncDurationCount: 6,
-            liveMaxLatencyDurationCount: 12,
+            maxBufferHole: 2,
+            liveSyncDurationCount: 10,
+            liveMaxLatencyDurationCount: 20,
             maxLiveSyncPlaybackRate: 1.0,
           });
 
@@ -176,7 +176,7 @@ export default function ViewerLiveStage({
                 const seekable = video.seekable;
                 if (seekable && seekable.length > 0) {
                   const liveEdge = seekable.end(seekable.length - 1);
-                  const safeTarget = Math.max(seekable.start(0), liveEdge - 2.5);
+                  const safeTarget = Math.max(seekable.start(0), liveEdge - 5);
 
                   if (Number.isFinite(safeTarget) && safeTarget > 0) {
                     video.currentTime = safeTarget;
