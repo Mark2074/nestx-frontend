@@ -39,6 +39,13 @@ export default function ViewerLiveStage({
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
+    console.log("=== VIEWER STAGE MOUNTED ===", {
+      playbackUrl,
+      stageReady,
+      hostMediaStatus,
+      isHost,
+      shouldPausePublic,
+    });
     const video = videoRef.current;
     if (!video) return;
     if (isHost) return;
@@ -46,6 +53,28 @@ export default function ViewerLiveStage({
     if (shouldPausePublic) return;
     if (!playbackUrl) return;
     if (hostMediaStatus !== "live") return;
+
+    video?.addEventListener("playing", () => {
+      console.log("[VIDEO PLAYING]", { currentTime: video.currentTime });
+    });
+
+    video?.addEventListener("waiting", () => {
+      console.log("[VIDEO WAITING]", {
+        currentTime: video.currentTime,
+        readyState: video.readyState,
+      });
+    });
+
+    video?.addEventListener("stalled", () => {
+      console.log("[VIDEO STALLED]", {
+        currentTime: video.currentTime,
+        readyState: video.readyState,
+      });
+    });
+
+    video?.addEventListener("error", () => {
+      console.log("[VIDEO ERROR]", video.error);
+    });
 
     let hls: Hls | null = null;
     let destroyed = false;
