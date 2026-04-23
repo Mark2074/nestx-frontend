@@ -500,20 +500,8 @@ export default function LiveRoomPage() {
           res?.hostGraceExpiresAt ? String(res.hostGraceExpiresAt) : null
         );
 
-        try {
-          const mediaRes: any = await api.liveMediaStatus(eventId, scope);
-          applyViewerMediaState({
-            playbackUrl: mediaRes?.playbackUrl,
-            hostMediaStatus: mediaRes?.hostMediaStatus,
-            isLive: mediaRes?.isLive,
-          });
-        } catch {
-          applyViewerMediaState({
-            playbackUrl: null,
-            hostMediaStatus: "idle",
-            isLive: false,
-          });
-        }
+        // media playback is initialized from viewer session
+        // do not poll playback url continuously from room status flow
       } catch {
         // ignore
       }

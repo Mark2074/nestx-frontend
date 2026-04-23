@@ -67,6 +67,14 @@ export default function ViewerLiveStage({
         currentTime: video.currentTime,
         readyState: video.readyState,
       });
+
+      try {
+        if (video.paused) {
+          void video.play().catch(() => {});
+        }
+      } catch {
+        // ignore
+      }
     };
 
     const onStalled = () => {
@@ -130,10 +138,13 @@ export default function ViewerLiveStage({
             enableWorker: true,
             lowLatencyMode: false,
             backBufferLength: 90,
-            maxBufferLength: 30,
-            maxMaxBufferLength: 60,
+            maxBufferLength: 20,
+            maxMaxBufferLength: 30,
             liveDurationInfinity: true,
             startPosition: -1,
+            maxBufferHole: 1,
+            liveSyncDurationCount: 3,
+            liveMaxLatencyDurationCount: 10,
           });
 
           hlsRef.current = hls;
