@@ -50,6 +50,11 @@ export default function ViewerLiveStage({
     let hls: Hls | null = null;
     let destroyed = false;
 
+    console.log("[ViewerLiveStage] stageReady =", stageReady);
+    console.log("[ViewerLiveStage] playbackUrl =", playbackUrl);
+    console.log("[ViewerLiveStage] hostMediaStatus =", hostMediaStatus);
+    console.log("[ViewerLiveStage] window.location.origin =", window.location.origin);
+
     const attach = async () => {
       try {
         video.autoplay = true;
@@ -59,6 +64,9 @@ export default function ViewerLiveStage({
 
         if (video.canPlayType("application/vnd.apple.mpegurl")) {
           video.src = playbackUrl;
+          video.addEventListener("error", () => {
+            console.log("[VIDEO ERROR]", video.error);
+          });
           video.load();
           await video.play().catch(() => {});
           return;
@@ -77,6 +85,10 @@ export default function ViewerLiveStage({
 
           hls.loadSource(playbackUrl);
           hls.attachMedia(video);
+
+          hls.on(Hls.Events.ERROR, (_event, data) => {
+            console.log("[HLS ERROR]", data);
+          });
 
           hls.on(Hls.Events.MANIFEST_PARSED, async () => {
             if (destroyed) return;
