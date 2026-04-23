@@ -74,17 +74,47 @@ export default function ViewerLiveStage({
 
         if (Hls.isSupported()) {
           hls = new Hls({
-            enableWorker: true,
+            enableWorker: false,
             lowLatencyMode: false,
-            backBufferLength: 30,
-            maxBufferLength: 20,
-            maxMaxBufferLength: 30,
+            backBufferLength: 90,
+            maxBufferLength: 30,
+            maxMaxBufferLength: 60,
             liveDurationInfinity: true,
             startPosition: -1,
           });
 
           hls.loadSource(playbackUrl);
           hls.attachMedia(video);
+
+          hls.on(Hls.Events.ERROR, (_event, data) => {
+            console.log("[HLS ERROR]", data);
+          });
+
+          hls.on(Hls.Events.FRAG_LOADED, (_event, data) => {
+            console.log("[HLS FRAG LOADED]", data.frag?.sn);
+          });
+
+          hls.on(Hls.Events.BUFFER_APPENDED, () => {
+            console.log("[HLS BUFFER APPENDED]");
+          });
+
+          video.addEventListener("waiting", () => {
+            console.log("[VIDEO WAITING]", {
+              currentTime: video.currentTime,
+              readyState: video.readyState,
+            });
+          });
+
+          video.addEventListener("stalled", () => {
+            console.log("[VIDEO STALLED]", {
+              currentTime: video.currentTime,
+              readyState: video.readyState,
+            });
+          });
+
+          video.addEventListener("error", () => {
+            console.log("[VIDEO ERROR]", video.error);
+          });
 
           hls.on(Hls.Events.ERROR, (_event, data) => {
             console.log("[HLS ERROR]", data);
