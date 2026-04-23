@@ -69,6 +69,19 @@ export default function ViewerLiveStage({
       });
 
       try {
+        const seekable = video.seekable;
+        if (seekable && seekable.length > 0) {
+          const liveEdge = seekable.end(seekable.length - 1);
+          const safeTarget = Math.max(seekable.start(0), liveEdge - 2.5);
+
+          if (
+            Number.isFinite(safeTarget) &&
+            Math.abs(video.currentTime - safeTarget) > 1
+          ) {
+            video.currentTime = safeTarget;
+          }
+        }
+
         if (video.paused) {
           void video.play().catch(() => {});
         }
@@ -138,21 +151,46 @@ export default function ViewerLiveStage({
             enableWorker: true,
             lowLatencyMode: false,
             backBufferLength: 90,
-            maxBufferLength: 20,
-            maxMaxBufferLength: 30,
+            maxBufferLength: 30,
+            maxMaxBufferLength: 60,
             liveDurationInfinity: true,
             startPosition: -1,
-            maxBufferHole: 1,
-            liveSyncDurationCount: 3,
-            liveMaxLatencyDurationCount: 10,
+            maxBufferHole: 1.5,
+            liveSyncDurationCount: 6,
+            liveMaxLatencyDurationCount: 12,
+            maxLiveSyncPlaybackRate: 1.0,
           });
 
           hlsRef.current = hls;
 
-          hls.on(Hls.Events.ERROR, (_event, data) => {
+           hls.on(Hls.Events.ERROR, (_event, data) => {
             console.log("[HLS ERROR]", data);
 
-            if (!hlsRef.current || !data?.fatal) return;
+            if (!hlsRef.current) return;
+
+            const details = String(data?.details || "");
+            const fatal = Boolean(data?.fatal);
+
+            if (details === "bufferStalledError") {
+              try {
+                const seekable = video.seekable;
+                if (seekable && seekable.length > 0) {
+                  const liveEdge = seekable.end(seekable.length - 1);
+                  const safeTarget = Math.max(seekable.start(0), liveEdge - 2.5);
+
+                  if (Number.isFinite(safeTarget) && safeTarget > 0) {
+                    video.currentTime = safeTarget;
+                  }
+                }
+              } catch {
+                // ignore
+              }
+
+              void video.play().catch(() => {});
+              return;
+            }
+
+            if (!fatal) return;
 
             switch (data.type) {
               case Hls.ErrorTypes.NETWORK_ERROR:
