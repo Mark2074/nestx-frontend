@@ -37,8 +37,6 @@ export default function ViewerLiveStage({
   navToLive,
 }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const testPlaybackUrl =
-    "https://live.nestx.live/app/69e87ea4b2b66f0a552683a2/playlist.m3u8";
 
   useEffect(() => {
     const video = videoRef.current;
@@ -46,88 +44,69 @@ export default function ViewerLiveStage({
     if (isHost) return;
     if (!stageReady) return;
     if (shouldPausePublic) return;
-    if (!testPlaybackUrl) return;
+    if (!playbackUrl) return;
+    if (hostMediaStatus !== "live") return;
 
     let hls: Hls | null = null;
-    let cancelled = false;
+    let destroyed = false;
 
     const attach = async () => {
       try {
+        video.autoplay = true;
+        video.playsInline = true;
+        video.muted = false;
+        video.preload = "auto";
+
         if (video.canPlayType("application/vnd.apple.mpegurl")) {
-          video.src = testPlaybackUrl;
+          video.src = playbackUrl;
           video.load();
           await video.play().catch(() => {});
           return;
         }
 
         if (Hls.isSupported()) {
-          const isChrome =
-            typeof navigator !== "undefined" &&
-            /Chrome/.test(navigator.userAgent) &&
-            !/Edg|OPR/.test(navigator.userAgent);
+          hls = new Hls({
+            enableWorker: true,
+            lowLatencyMode: false,
+            backBufferLength: 30,
+            maxBufferLength: 20,
+            maxMaxBufferLength: 30,
+            liveDurationInfinity: true,
+            startPosition: -1,
+          });
 
-          hls = new Hls(
-            isChrome
-              ? {
-                  enableWorker: true,
-                  lowLatencyMode: false,
-                  backBufferLength: 30,
-                  maxBufferLength: 10,
-                  maxMaxBufferLength: 20,
-                  liveSyncDurationCount: 3,
-                  liveMaxLatencyDurationCount: 6,
-                  liveDurationInfinity: true,
-                  startPosition: -1,
-                }
-              : {
-                  enableWorker: true,
-                  lowLatencyMode: true,
-                  backBufferLength: 10,
-                  maxBufferLength: 2,
-                  maxMaxBufferLength: 4,
-                  liveSyncDurationCount: 1,
-                  liveMaxLatencyDurationCount: 2,
-                  liveDurationInfinity: true,
-                  startPosition: -1,
-                }
-          );
-
-          hls.loadSource(testPlaybackUrl);
+          hls.loadSource(playbackUrl);
           hls.attachMedia(video);
 
           hls.on(Hls.Events.MANIFEST_PARSED, async () => {
-            if (cancelled) return;
+            if (destroyed) return;
             await video.play().catch(() => {});
           });
 
-          hls.on(Hls.Events.LEVEL_UPDATED, (_, data) => {
-            if (cancelled) return;
+          hls.on(Hls.Events.ERROR, (_event, data) => {
+            if (!hls) return;
+            if (!data?.fatal) return;
 
-            const details = data.details;
-            if (!details || !Number.isFinite(video.currentTime)) return;
-
-            const edge = details.edge;
-            if (typeof edge !== "number" || !Number.isFinite(edge)) return;
-
-            const drift = edge - video.currentTime;
-
-            if (isChrome) {
-              if (drift > 4) {
-                video.currentTime = Math.max(0, edge - 1.5);
-              }
-              return;
-            }
-
-            if (drift > 1.5) {
-              video.currentTime = Math.max(0, edge - 0.3);
+            switch (data.type) {
+              case Hls.ErrorTypes.NETWORK_ERROR:
+                hls.startLoad();
+                break;
+              case Hls.ErrorTypes.MEDIA_ERROR:
+                hls.recoverMediaError();
+                break;
+              default:
+                hls.destroy();
+                hls = null;
+                break;
             }
           });
 
           return;
         }
 
-        video.src = testPlaybackUrl;
+        video.src = playbackUrl;
         video.load();
+        await video.play().catch(() => {});
       } catch {
         // ignore
       }
@@ -136,10 +115,11 @@ export default function ViewerLiveStage({
     void attach();
 
     return () => {
-      cancelled = true;
+      destroyed = true;
 
       if (hls) {
         hls.destroy();
+        hls = null;
       }
 
       try {
@@ -150,12 +130,12 @@ export default function ViewerLiveStage({
         // ignore
       }
     };
-  }, [isHost, shouldPausePublic, stageReady]);
+  }, [isHost, stageReady, shouldPausePublic, playbackUrl, hostMediaStatus]);
 
   const showVideo =
     !isHost &&
     !!stageReady &&
-    !!testPlaybackUrl &&
+    !!playbackUrl &&
     hostMediaStatus === "live" &&
     !shouldPausePublic &&
     uiMode !== "PRELIVE_HOST_WAITING" &&
@@ -258,7 +238,10 @@ export default function ViewerLiveStage({
             Playback url is ready, but media is not live yet.
           </div>
         </div>
-      ) : uiMode === "PUBLIC_ACTIVE" || uiMode === "PRIVATE_ACTIVE" || uiMode === "RETURNING_PUBLIC" || uiMode === "HOST_RECONNECTING" ? (
+      ) : uiMode === "PUBLIC_ACTIVE" ||
+        uiMode === "PRIVATE_ACTIVE" ||
+        uiMode === "RETURNING_PUBLIC" ||
+        uiMode === "HOST_RECONNECTING" ? (
         <div style={{ opacity: 0.9 }}>Live media temporarily unavailable</div>
       ) : (
         <div style={{ opacity: 0.9 }}>Waiting for live stream…</div>
