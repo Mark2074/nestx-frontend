@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import Hls from "hls.js";
 
 type Props = {
@@ -29,7 +29,6 @@ export default function ViewerLiveStage({
   roomBlockCode,
   uiMode,
   playbackUrl,
-  hostMediaStatus = "idle",
   hostGraceActive,
   hostGraceCountdownLabel,
   onBack,
@@ -37,78 +36,98 @@ export default function ViewerLiveStage({
   navToLive,
 }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const hlsRef = useRef<Hls | null>(null);
+  const attachedPlaybackUrlRef = useRef<string | null>(null);
+
+  const isSafariNative = useMemo(() => {
+    if (typeof navigator === "undefined") return false;
+    const ua = navigator.userAgent || "";
+    const isSafari = /Safari/i.test(ua) && !/Chrome|Chromium|Edg|OPR/i.test(ua);
+    return isSafari;
+  }, []);
 
   useEffect(() => {
-    console.log("=== VIEWER STAGE MOUNTED ===", {
-      playbackUrl,
-      stageReady,
-      hostMediaStatus,
-      isHost,
-      shouldPausePublic,
-    });
     const video = videoRef.current;
+
     if (!video) return;
     if (isHost) return;
     if (!stageReady) return;
     if (shouldPausePublic) return;
     if (!playbackUrl) return;
 
-    video?.addEventListener("playing", () => {
-      console.log("[VIDEO PLAYING]", { currentTime: video.currentTime });
-    });
+    const normalizedPlaybackUrl = String(playbackUrl).trim();
+    if (!normalizedPlaybackUrl) return;
 
-    video?.addEventListener("waiting", () => {
+    const onPlaying = () => {
+      console.log("[VIDEO PLAYING]", { currentTime: video.currentTime });
+    };
+
+    const onWaiting = () => {
       console.log("[VIDEO WAITING]", {
         currentTime: video.currentTime,
         readyState: video.readyState,
       });
-    });
+    };
 
-    video?.addEventListener("stalled", () => {
+    const onStalled = () => {
       console.log("[VIDEO STALLED]", {
         currentTime: video.currentTime,
         readyState: video.readyState,
       });
-    });
+    };
 
-    video?.addEventListener("error", () => {
+    const onVideoError = () => {
       console.log("[VIDEO ERROR]", video.error);
-    });
+    };
 
-    let hls: Hls | null = null;
-    let destroyed = false;
+    video.addEventListener("playing", onPlaying);
+    video.addEventListener("waiting", onWaiting);
+    video.addEventListener("stalled", onStalled);
+    video.addEventListener("error", onVideoError);
 
-    console.log("[ViewerLiveStage] stageReady =", stageReady);
-    console.log("[ViewerLiveStage] playbackUrl =", playbackUrl);
-    console.log("[ViewerLiveStage] hostMediaStatus =", hostMediaStatus);
-    console.log("[ViewerLiveStage] window.location.origin =", window.location.origin);
+    const samePlaybackAlreadyAttached =
+      attachedPlaybackUrlRef.current === normalizedPlaybackUrl;
 
-    const attach = async () => {
+    const boot = async () => {
       try {
         video.autoplay = true;
         video.playsInline = true;
-        video.muted = false;
         video.preload = "auto";
+        video.muted = true;
 
-        const forceDirectVideo = true;
-
-        if (forceDirectVideo) {
-          video.src = playbackUrl;
-          video.load();
-          await video.play().catch(() => {});
+        if (samePlaybackAlreadyAttached) {
+          if (video.paused) {
+            await video.play().catch(() => {});
+          }
           return;
         }
 
-        if (video.canPlayType("application/vnd.apple.mpegurl")) {
-          video.src = playbackUrl;
+        attachedPlaybackUrlRef.current = normalizedPlaybackUrl;
+
+        if (hlsRef.current) {
+          hlsRef.current.destroy();
+          hlsRef.current = null;
+        }
+
+        try {
+          video.pause();
+        } catch {}
+
+        try {
+          video.removeAttribute("src");
+          video.load();
+        } catch {}
+
+        if (isSafariNative && video.canPlayType("application/vnd.apple.mpegurl")) {
+          video.src = normalizedPlaybackUrl;
           video.load();
           await video.play().catch(() => {});
           return;
         }
 
         if (Hls.isSupported()) {
-          hls = new Hls({
-            enableWorker: false,
+          const hls = new Hls({
+            enableWorker: true,
             lowLatencyMode: false,
             backBufferLength: 90,
             maxBufferLength: 30,
@@ -117,30 +136,47 @@ export default function ViewerLiveStage({
             startPosition: -1,
           });
 
-          hls.loadSource(playbackUrl);
-          hls.attachMedia(video);
+          hlsRef.current = hls;
 
           hls.on(Hls.Events.ERROR, (_event, data) => {
-            console.error("[HLS ERROR]", data);
+            console.log("[HLS ERROR]", data);
+
+            if (!hlsRef.current || !data?.fatal) return;
+
+            switch (data.type) {
+              case Hls.ErrorTypes.NETWORK_ERROR:
+                hls.startLoad();
+                break;
+              case Hls.ErrorTypes.MEDIA_ERROR:
+                hls.recoverMediaError();
+                break;
+              default:
+                hls.destroy();
+                if (hlsRef.current === hls) {
+                  hlsRef.current = null;
+                }
+                break;
+            }
           });
 
           hls.on(Hls.Events.FRAG_LOADED, (_event, data) => {
-            console.error("[HLS FRAG LOADED]", data.frag?.sn);
+            console.log("[HLS FRAG LOADED]", data.frag?.sn);
           });
 
           hls.on(Hls.Events.BUFFER_APPENDED, () => {
-            console.error("[HLS BUFFER APPENDED]");
+            console.log("[HLS BUFFER APPENDED]");
           });
 
           hls.on(Hls.Events.MANIFEST_PARSED, async () => {
-            if (destroyed) return;
             await video.play().catch(() => {});
           });
 
+          hls.loadSource(normalizedPlaybackUrl);
+          hls.attachMedia(video);
           return;
         }
 
-        video.src = playbackUrl;
+        video.src = normalizedPlaybackUrl;
         video.load();
         await video.play().catch(() => {});
       } catch {
@@ -148,25 +184,38 @@ export default function ViewerLiveStage({
       }
     };
 
-    void attach();
+    void boot();
 
     return () => {
-      destroyed = true;
+      video.removeEventListener("playing", onPlaying);
+      video.removeEventListener("waiting", onWaiting);
+      video.removeEventListener("stalled", onStalled);
+      video.removeEventListener("error", onVideoError);
+    };
+  }, [isHost, isSafariNative, playbackUrl, shouldPausePublic, stageReady]);
 
-      if (hls) {
-        hls.destroy();
-        hls = null;
+  useEffect(() => {
+    return () => {
+      const video = videoRef.current;
+
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
       }
 
-      try {
-        video.pause();
-        video.removeAttribute("src");
-        video.load();
-      } catch {
-        // ignore
+      attachedPlaybackUrlRef.current = null;
+
+      if (video) {
+        try {
+          video.pause();
+          video.removeAttribute("src");
+          video.load();
+        } catch {
+          // ignore
+        }
       }
     };
-  }, [isHost, stageReady, shouldPausePublic, playbackUrl, hostMediaStatus]);
+  }, []);
 
   const showVideo =
     !isHost &&

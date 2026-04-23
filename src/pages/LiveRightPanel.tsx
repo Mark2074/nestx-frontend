@@ -245,17 +245,6 @@ export default function LiveRightPanel() {
       ? "You are muted in this live chat"
       : "Chat available only for VIP or users with tokens";
 
-  console.log("LIVE_CHAT_DEBUG", {
-    isHost,
-    canShow,
-    canAccessChat,
-    runtimeScope,
-    canWriteChat,
-    chatState,
-    isRoomFullBlocked,
-    isChatTemporarilyBlocked,
-  });
-
   const canUseChatComposer =
     canShow &&
     canAccessChat &&

@@ -307,6 +307,27 @@ export default function LiveRoomPage() {
   const lastAppliedTargetScopeRef = useRef<LiveScope | null>(null);
   const viewerWasHiddenRef = useRef(false);
 
+  const lastViewerPlaybackUrlRef = useRef<string | null>(null);
+
+  const applyViewerMediaState = useCallback((payload: {
+    playbackUrl?: string | null;
+    hostMediaStatus?: "idle" | "live" | string | null;
+    isLive?: boolean | null;
+  }) => {
+    const nextPlaybackUrl = String(payload?.playbackUrl || "").trim() || null;
+    const nextHostMediaStatus: "idle" | "live" =
+      String(payload?.hostMediaStatus || (payload?.isLive ? "live" : "idle")) === "live"
+        ? "live"
+        : "idle";
+
+    setHostMediaStatus(nextHostMediaStatus);
+
+    if (lastViewerPlaybackUrlRef.current !== nextPlaybackUrl) {
+      lastViewerPlaybackUrlRef.current = nextPlaybackUrl;
+      setViewerPlaybackUrl(nextPlaybackUrl);
+    }
+  }, []);
+
   const creatorId = useMemo(() => getCreatorId(eventDetail), [eventDetail]);
   const isHost = useMemo(() => !!meId && !!creatorId && meId === creatorId, [meId, creatorId]);
   const isAdmin = meAccountType === "admin";
@@ -478,23 +499,26 @@ export default function LiveRoomPage() {
         setHostGraceExpiresAt(
           res?.hostGraceExpiresAt ? String(res.hostGraceExpiresAt) : null
         );
+
         try {
           const mediaRes: any = await api.liveMediaStatus(eventId, scope);
-          setViewerPlaybackUrl(String(mediaRes?.playbackUrl || "").trim() || null);
-          setHostMediaStatus(
-            String(mediaRes?.hostMediaStatus || (mediaRes?.isLive ? "live" : "idle")) === "live"
-              ? "live"
-              : "idle"
-          );
+          applyViewerMediaState({
+            playbackUrl: mediaRes?.playbackUrl,
+            hostMediaStatus: mediaRes?.hostMediaStatus,
+            isLive: mediaRes?.isLive,
+          });
         } catch {
-          setViewerPlaybackUrl(null);
-          setHostMediaStatus("idle");
+          applyViewerMediaState({
+            playbackUrl: null,
+            hostMediaStatus: "idle",
+            isLive: false,
+          });
         }
       } catch {
         // ignore
       }
     },
-    [eventId]
+    [applyViewerMediaState, eventId]
   );
 
   const applyPreLiveHostState = useCallback(
@@ -502,6 +526,7 @@ export default function LiveRoomPage() {
       runtimeScopeRef.current = null;
       joinedPresenceRef.current = false;
 
+      lastViewerPlaybackUrlRef.current = null;
       setRuntimeScope(null);
       setRuntimeRoomId("");
       setEntered(false);
@@ -532,6 +557,7 @@ export default function LiveRoomPage() {
       lastAppliedTargetScopeRef.current = null;
       viewerWasHiddenRef.current = false;
 
+      lastViewerPlaybackUrlRef.current = null;
       setRuntimeScope(null);
       setRuntimeRoomId("");
       setEntered(false);
@@ -694,15 +720,11 @@ export default function LiveRoomPage() {
           setViewersNow(viewers);
         }
 
-        setViewerPlaybackUrl(String(viewerSessionRes?.playbackUrl || "").trim() || null);
-        setHostMediaStatus(
-          String(
-            viewerSessionRes?.hostMediaStatus ||
-              (viewerSessionRes?.isLive ? "live" : "idle")
-          ) === "live"
-            ? "live"
-            : "idle"
-        );
+        applyViewerMediaState({
+          playbackUrl: viewerSessionRes?.playbackUrl,
+          hostMediaStatus: viewerSessionRes?.hostMediaStatus,
+          isLive: viewerSessionRes?.isLive,
+        });
 
         emitRuntimeState({
           entered: true,
