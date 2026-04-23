@@ -90,11 +90,17 @@ export default function ViewerLiveStage({
         video.muted = false;
         video.preload = "auto";
 
+        const forceDirectVideo = true;
+
+        if (forceDirectVideo) {
+          video.src = playbackUrl;
+          video.load();
+          await video.play().catch(() => {});
+          return;
+        }
+
         if (video.canPlayType("application/vnd.apple.mpegurl")) {
           video.src = playbackUrl;
-          video.addEventListener("error", () => {
-            console.log("[VIDEO ERROR]", video.error);
-          });
           video.load();
           await video.play().catch(() => {});
           return;
@@ -115,60 +121,20 @@ export default function ViewerLiveStage({
           hls.attachMedia(video);
 
           hls.on(Hls.Events.ERROR, (_event, data) => {
-            console.log("[HLS ERROR]", data);
+            console.error("[HLS ERROR]", data);
           });
 
           hls.on(Hls.Events.FRAG_LOADED, (_event, data) => {
-            console.log("[HLS FRAG LOADED]", data.frag?.sn);
+            console.error("[HLS FRAG LOADED]", data.frag?.sn);
           });
 
           hls.on(Hls.Events.BUFFER_APPENDED, () => {
-            console.log("[HLS BUFFER APPENDED]");
-          });
-
-          video.addEventListener("waiting", () => {
-            console.log("[VIDEO WAITING]", {
-              currentTime: video.currentTime,
-              readyState: video.readyState,
-            });
-          });
-
-          video.addEventListener("stalled", () => {
-            console.log("[VIDEO STALLED]", {
-              currentTime: video.currentTime,
-              readyState: video.readyState,
-            });
-          });
-
-          video.addEventListener("error", () => {
-            console.log("[VIDEO ERROR]", video.error);
-          });
-
-          hls.on(Hls.Events.ERROR, (_event, data) => {
-            console.log("[HLS ERROR]", data);
+            console.error("[HLS BUFFER APPENDED]");
           });
 
           hls.on(Hls.Events.MANIFEST_PARSED, async () => {
             if (destroyed) return;
             await video.play().catch(() => {});
-          });
-
-          hls.on(Hls.Events.ERROR, (_event, data) => {
-            if (!hls) return;
-            if (!data?.fatal) return;
-
-            switch (data.type) {
-              case Hls.ErrorTypes.NETWORK_ERROR:
-                hls.startLoad();
-                break;
-              case Hls.ErrorTypes.MEDIA_ERROR:
-                hls.recoverMediaError();
-                break;
-              default:
-                hls.destroy();
-                hls = null;
-                break;
-            }
           });
 
           return;
