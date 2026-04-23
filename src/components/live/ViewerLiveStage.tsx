@@ -52,7 +52,6 @@ export default function ViewerLiveStage({
     if (!stageReady) return;
     if (shouldPausePublic) return;
     if (!playbackUrl) return;
-    if (hostMediaStatus !== "live") return;
 
     video?.addEventListener("playing", () => {
       console.log("[VIDEO PLAYING]", { currentTime: video.currentTime });
@@ -207,7 +206,6 @@ export default function ViewerLiveStage({
     !isHost &&
     !!stageReady &&
     !!playbackUrl &&
-    hostMediaStatus === "live" &&
     !shouldPausePublic &&
     uiMode !== "PRELIVE_HOST_WAITING" &&
     uiMode !== "ENDED";
@@ -294,7 +292,7 @@ export default function ViewerLiveStage({
             Room access is active, but no playback url is available yet.
           </div>
         </div>
-      ) : stageReady && playbackUrl && hostMediaStatus !== "live" ? (
+      ) : stageReady && playbackUrl ? (
         <div
           style={{
             maxWidth: 560,
@@ -306,7 +304,7 @@ export default function ViewerLiveStage({
             Stream starting…
           </div>
           <div style={{ marginTop: 8, opacity: 0.9, fontWeight: 800, lineHeight: 1.45 }}>
-            Playback url is ready, but media is not live yet.
+            Playback url is ready. Waiting for media...
           </div>
         </div>
       ) : uiMode === "PUBLIC_ACTIVE" ||
