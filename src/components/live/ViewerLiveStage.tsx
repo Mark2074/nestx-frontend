@@ -137,8 +137,8 @@ export default function ViewerLiveStage({
             liveDurationInfinity: true,
             startPosition: -1,
 
-            liveSyncDurationCount: 5,
-            liveMaxLatencyDurationCount: 9,
+            liveSyncDurationCount: 4,
+            liveMaxLatencyDurationCount: 7,
 
             maxBufferLength: 18,
             maxMaxBufferLength: 24,
