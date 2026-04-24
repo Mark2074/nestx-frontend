@@ -68,25 +68,8 @@ export default function ViewerLiveStage({
         readyState: video.readyState,
       });
 
-      try {
-        const seekable = video.seekable;
-        if (seekable && seekable.length > 0) {
-          const liveEdge = seekable.end(seekable.length - 1);
-          const safeTarget = Math.max(seekable.start(0), liveEdge - 5);
-
-          if (
-            Number.isFinite(safeTarget) &&
-            Math.abs(video.currentTime - safeTarget) > 1
-          ) {
-            video.currentTime = safeTarget;
-          }
-        }
-
-        if (video.paused) {
-          void video.play().catch(() => {});
-        }
-      } catch {
-        // ignore
+      if (video.paused) {
+        void video.play().catch(() => {});
       }
     };
 
@@ -150,15 +133,21 @@ export default function ViewerLiveStage({
           const hls = new Hls({
             enableWorker: true,
             lowLatencyMode: false,
-            backBufferLength: 90,
-            maxBufferLength: 40,
-            maxMaxBufferLength: 80,
+
             liveDurationInfinity: true,
             startPosition: -1,
-            maxBufferHole: 2,
-            liveSyncDurationCount: 10,
-            liveMaxLatencyDurationCount: 20,
-            maxLiveSyncPlaybackRate: 1.0,
+
+            liveSyncDurationCount: 5,
+            liveMaxLatencyDurationCount: 9,
+
+            maxBufferLength: 18,
+            maxMaxBufferLength: 24,
+            backBufferLength: 10,
+
+            maxBufferHole: 0.5,
+            maxFragLookUpTolerance: 0.25,
+
+            maxLiveSyncPlaybackRate: 1.05,
           });
 
           hlsRef.current = hls;
@@ -173,14 +162,14 @@ export default function ViewerLiveStage({
 
             if (details === "bufferStalledError") {
               try {
-                const seekable = video.seekable;
-                if (seekable && seekable.length > 0) {
-                  const liveEdge = seekable.end(seekable.length - 1);
-                  const safeTarget = Math.max(seekable.start(0), liveEdge - 5);
+                const liveSyncPosition = hls.liveSyncPosition;
 
-                  if (Number.isFinite(safeTarget) && safeTarget > 0) {
-                    video.currentTime = safeTarget;
-                  }
+                if (
+                  typeof liveSyncPosition === "number" &&
+                  Number.isFinite(liveSyncPosition) &&
+                  Math.abs(video.currentTime - liveSyncPosition) > 3
+                ) {
+                  video.currentTime = liveSyncPosition;
                 }
               } catch {
                 // ignore
