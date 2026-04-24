@@ -52,6 +52,14 @@ export default function ViewerLiveStage({
     if (!video) return;
     if (isHost) return;
     if (!stageReady) return;
+    if (
+      uiMode !== "PUBLIC_ACTIVE" &&
+      uiMode !== "PRIVATE_ACTIVE" &&
+      uiMode !== "RETURNING_PUBLIC" &&
+      uiMode !== "HOST_RECONNECTING"
+    ) {
+      return;
+    }
     if (shouldPausePublic) return;
     if (!playbackUrl) return;
 
@@ -230,7 +238,7 @@ export default function ViewerLiveStage({
       video.removeEventListener("stalled", onStalled);
       video.removeEventListener("error", onVideoError);
     };
-  }, [isHost, isSafariNative, playbackUrl, shouldPausePublic, stageReady]);
+  }, [isHost, isSafariNative, playbackUrl, shouldPausePublic, stageReady, uiMode]);
 
   useEffect(() => {
     return () => {
