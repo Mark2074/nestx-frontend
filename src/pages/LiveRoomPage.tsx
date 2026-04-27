@@ -494,14 +494,45 @@ export default function LiveRoomPage() {
         const viewers = Number(res?.viewersNow ?? 0);
         setViewersNow(Number.isFinite(viewers) ? viewers : 0);
 
-        setHostDisconnectState(String(res?.hostDisconnectState || "offline").trim().toLowerCase());
-        setHostGraceActive(Boolean(res?.hostGraceActive));
+        const nextHostDisconnectState = String(
+          res?.hostDisconnectState ||
+            res?.live?.hostDisconnectState ||
+            "offline"
+        )
+          .trim()
+          .toLowerCase();
+
+        const nextHostGraceExpiresAt =
+          res?.hostGraceExpiresAt ||
+          res?.live?.hostDisconnectGraceExpiresAt ||
+          null;
+
+        const nextHostGraceActive =
+          Boolean(res?.hostGraceActive) ||
+          nextHostDisconnectState === "grace";
+
+        setHostDisconnectState(nextHostDisconnectState);
+        setHostGraceActive(nextHostGraceActive);
         setHostGraceExpiresAt(
-          res?.hostGraceExpiresAt ? String(res.hostGraceExpiresAt) : null
+          nextHostGraceExpiresAt ? String(nextHostGraceExpiresAt) : null
         );
 
-        // media playback is initialized from viewer session
-        // do not poll playback url continuously from room status flow
+        const nextPlaybackUrl =
+          res?.playbackUrl ||
+          res?.live?.playbackUrl ||
+          null;
+
+        const nextHostMediaStatus =
+          res?.hostMediaStatus ||
+          res?.live?.hostMediaStatus ||
+          null;
+
+        if (nextPlaybackUrl || nextHostMediaStatus) {
+          applyViewerMediaState({
+            playbackUrl: nextPlaybackUrl,
+            hostMediaStatus: nextHostMediaStatus,
+          });
+        }
       } catch {
         // ignore
       }
@@ -1493,6 +1524,7 @@ export default function LiveRoomPage() {
         ) : null}
 
         <ViewerLiveStage
+          key={`${eventId}:${runtimeScope || "none"}:${hostGraceActive ? "grace" : "live"}:${hostMediaStatus}`}
           eventId={eventId}
           stageReady={roomReady && entered && !!runtimeScope}
           stageErr=""
