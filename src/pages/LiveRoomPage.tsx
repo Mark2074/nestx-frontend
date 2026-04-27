@@ -1178,6 +1178,7 @@ export default function LiveRoomPage() {
 
     const t = window.setInterval(async () => {
       if (!isHost && !isDocumentVisible) return;
+      if (hostGraceActive) return;
       const latest = await loadEvent();
       if (!latest) return;
 
@@ -1223,6 +1224,7 @@ export default function LiveRoomPage() {
     loadEvent,
     meId,
     isLive,
+    hostGraceActive,
   ]);
 
   useEffect(() => {
