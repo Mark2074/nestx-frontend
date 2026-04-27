@@ -68,6 +68,9 @@ export default function ViewerLiveStage({
 
   useEffect(() => {
     const video = videoRef.current;
+    let lastTime = 0;
+    let stuckCount = 0;
+    let monitorInterval: number | null = null;
 
     if (!video) return;
     if (!canShowVideo) return;
@@ -249,6 +252,40 @@ export default function ViewerLiveStage({
     video.addEventListener("error", onVideoError);
 
     void bootPlayer();
+    monitorInterval = window.setInterval(() => {
+      if (!video || video.paused) return;
+
+      const current = video.currentTime;
+
+      if (current === lastTime) {
+        stuckCount += 1;
+      } else {
+        stuckCount = 0;
+      }
+
+      lastTime = current;
+
+      if (stuckCount >= 3) {
+        console.log("[PLAYER STUCK DETECTED]");
+
+        stuckCount = 0;
+
+        attachedPlaybackUrlRef.current = null;
+
+        if (hlsRef.current) {
+          hlsRef.current.destroy();
+          hlsRef.current = null;
+        }
+
+        try {
+          video.pause();
+          video.load();
+        } catch {}
+
+        retryCountRef.current = 0;
+        setPlayerState("recovering");
+      }
+    }, 1000);
 
     return () => {
       disposed = true;
@@ -258,6 +295,9 @@ export default function ViewerLiveStage({
       video.removeEventListener("waiting", onWaiting);
       video.removeEventListener("stalled", onStalled);
       video.removeEventListener("error", onVideoError);
+      if (monitorInterval !== null) {
+        window.clearInterval(monitorInterval);
+      }
     };
   }, [canShowVideo, isSafariNative, playbackUrl]);
 
@@ -276,6 +316,7 @@ export default function ViewerLiveStage({
       attachedPlaybackUrlRef.current = null;
 
       const video = videoRef.current;
+      
       if (video) {
         try {
           video.pause();
