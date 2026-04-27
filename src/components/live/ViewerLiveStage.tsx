@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Hls from "hls.js";
 
 type Props = {
@@ -21,6 +21,15 @@ type Props = {
   navToLive: () => void;
 };
 
+type PlayerState =
+  | "idle"
+  | "loading"
+  | "playing"
+  | "recovering"
+  | "failed";
+
+const RECOVERY_DELAYS_MS = [1000, 3000, 5000];
+
 export default function ViewerLiveStage({
   stageReady,
   stageErr,
@@ -38,58 +47,200 @@ export default function ViewerLiveStage({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const hlsRef = useRef<Hls | null>(null);
   const attachedPlaybackUrlRef = useRef<string | null>(null);
+  const retryCountRef = useRef(0);
+  const retryTimerRef = useRef<number | null>(null);
+
+  const [playerState, setPlayerState] = useState<PlayerState>("idle");
 
   const isSafariNative = useMemo(() => {
     if (typeof navigator === "undefined") return false;
     const ua = navigator.userAgent || "";
-    const isSafari = /Safari/i.test(ua) && !/Chrome|Chromium|Edg|OPR/i.test(ua);
-    return isSafari;
+    return /Safari/i.test(ua) && !/Chrome|Chromium|Edg|OPR/i.test(ua);
   }, []);
+
+  const canShowVideo =
+    !isHost &&
+    !!stageReady &&
+    !!playbackUrl &&
+    !shouldPausePublic &&
+    uiMode !== "PRELIVE_HOST_WAITING" &&
+    uiMode !== "ENDED";
 
   useEffect(() => {
     const video = videoRef.current;
 
     if (!video) return;
-    if (isHost) return;
-    if (!stageReady) return;
-    if (
-      uiMode !== "PUBLIC_ACTIVE" &&
-      uiMode !== "PRIVATE_ACTIVE" &&
-      uiMode !== "RETURNING_PUBLIC" &&
-      uiMode !== "HOST_RECONNECTING"
-    ) {
-      return;
-    }
-    if (shouldPausePublic) return;
-    if (!playbackUrl) return;
+    if (!canShowVideo) return;
 
-    const normalizedPlaybackUrl = String(playbackUrl).trim();
+    const normalizedPlaybackUrl = String(playbackUrl || "").trim();
     if (!normalizedPlaybackUrl) return;
 
-    const onPlaying = () => {
-      console.log("[VIDEO PLAYING]", { currentTime: video.currentTime });
-    };
+    let disposed = false;
 
-    const onWaiting = () => {
-      console.log("[VIDEO WAITING]", {
-        currentTime: video.currentTime,
-        readyState: video.readyState,
-      });
-
-      if (video.paused) {
-        void video.play().catch(() => {});
+    const clearRetryTimer = () => {
+      if (retryTimerRef.current !== null) {
+        window.clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
       }
     };
 
-    const onStalled = () => {
-      console.log("[VIDEO STALLED]", {
-        currentTime: video.currentTime,
-        readyState: video.readyState,
+    const resetMedia = () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+
+      try {
+        video.pause();
+        video.removeAttribute("src");
+        video.load();
+      } catch {
+        // ignore
+      }
+    };
+
+    const hardReloadPlayer = () => {
+      clearRetryTimer();
+
+      if (retryCountRef.current >= RECOVERY_DELAYS_MS.length) {
+        setPlayerState("failed");
+        return;
+      }
+
+      const delay = RECOVERY_DELAYS_MS[retryCountRef.current];
+      retryCountRef.current += 1;
+      setPlayerState("recovering");
+
+      retryTimerRef.current = window.setTimeout(() => {
+        if (disposed) return;
+
+        attachedPlaybackUrlRef.current = null;
+        resetMedia();
+        bootPlayer();
+      }, delay);
+    };
+
+    const bootPlayer = async () => {
+      if (disposed) return;
+
+      setPlayerState("loading");
+
+      video.autoplay = true;
+      video.playsInline = true;
+      video.preload = "auto";
+      video.muted = true;
+
+      const samePlaybackAlreadyAttached =
+        attachedPlaybackUrlRef.current === normalizedPlaybackUrl;
+
+      if (samePlaybackAlreadyAttached) {
+        await video.play().catch(() => {});
+        return;
+      }
+
+      attachedPlaybackUrlRef.current = normalizedPlaybackUrl;
+      resetMedia();
+
+      if (isSafariNative && video.canPlayType("application/vnd.apple.mpegurl")) {
+        video.src = normalizedPlaybackUrl;
+        video.load();
+        await video.play().catch(() => {});
+        return;
+      }
+
+      if (!Hls.isSupported()) {
+        video.src = normalizedPlaybackUrl;
+        video.load();
+        await video.play().catch(() => {});
+        return;
+      }
+
+      const hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: false,
+        liveDurationInfinity: true,
+        startPosition: -1,
+        liveSyncDurationCount: 3,
+        liveMaxLatencyDurationCount: 5,
+        maxBufferLength: 8,
+        maxMaxBufferLength: 12,
+        backBufferLength: 4,
+        maxBufferHole: 0.5,
+        maxFragLookUpTolerance: 0.25,
+        maxLiveSyncPlaybackRate: 1.05,
       });
+
+      hlsRef.current = hls;
+
+      hls.on(Hls.Events.MANIFEST_PARSED, async () => {
+        if (disposed) return;
+        await video.play().catch(() => {});
+      });
+
+      hls.on(Hls.Events.ERROR, (_event, data) => {
+        if (disposed) return;
+        if (hlsRef.current !== hls) return;
+
+        const details = String(data?.details || "");
+        const fatal = Boolean(data?.fatal);
+
+        if (details === "bufferStalledError") {
+          try {
+            const liveSyncPosition = hls.liveSyncPosition;
+
+            if (
+              typeof liveSyncPosition === "number" &&
+              Number.isFinite(liveSyncPosition) &&
+              Math.abs(video.currentTime - liveSyncPosition) > 3
+            ) {
+              video.currentTime = liveSyncPosition;
+            }
+          } catch {
+            // ignore
+          }
+
+          void video.play().catch(() => {});
+          return;
+        }
+
+        if (!fatal) return;
+
+        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+          setPlayerState("recovering");
+          hls.startLoad();
+          return;
+        }
+
+        if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+          setPlayerState("recovering");
+          hls.recoverMediaError();
+          return;
+        }
+
+        hardReloadPlayer();
+      });
+
+      hls.loadSource(normalizedPlaybackUrl);
+      hls.attachMedia(video);
+    };
+
+    const onPlaying = () => {
+      retryCountRef.current = 0;
+      clearRetryTimer();
+      setPlayerState("playing");
+    };
+
+    const onWaiting = () => {
+      if (playerState !== "failed") setPlayerState("recovering");
+      if (video.paused) void video.play().catch(() => {});
+    };
+
+    const onStalled = () => {
+      hardReloadPlayer();
     };
 
     const onVideoError = () => {
-      console.log("[VIDEO ERROR]", video.error);
+      hardReloadPlayer();
     };
 
     video.addEventListener("playing", onPlaying);
@@ -97,152 +248,25 @@ export default function ViewerLiveStage({
     video.addEventListener("stalled", onStalled);
     video.addEventListener("error", onVideoError);
 
-    const samePlaybackAlreadyAttached =
-      attachedPlaybackUrlRef.current === normalizedPlaybackUrl;
-
-    const boot = async () => {
-      try {
-        video.autoplay = true;
-        video.playsInline = true;
-        video.preload = "auto";
-        video.muted = true;
-
-        if (samePlaybackAlreadyAttached) {
-          if (video.paused) {
-            await video.play().catch(() => {});
-          }
-          return;
-        }
-
-        attachedPlaybackUrlRef.current = normalizedPlaybackUrl;
-
-        if (hlsRef.current) {
-          hlsRef.current.destroy();
-          hlsRef.current = null;
-        }
-
-        try {
-          video.pause();
-        } catch {}
-
-        try {
-          video.removeAttribute("src");
-          video.load();
-        } catch {}
-
-        if (isSafariNative && video.canPlayType("application/vnd.apple.mpegurl")) {
-          video.src = normalizedPlaybackUrl;
-          video.load();
-          await video.play().catch(() => {});
-          return;
-        }
-
-        if (Hls.isSupported()) {
-          const hls = new Hls({
-            enableWorker: true,
-            lowLatencyMode: false,
-
-            liveDurationInfinity: true,
-            startPosition: -1,
-
-            liveSyncDurationCount: 3,
-            liveMaxLatencyDurationCount: 5,
-
-            maxBufferLength: 8,
-            maxMaxBufferLength: 12,
-            backBufferLength: 4,
-
-            maxBufferHole: 0.5,
-            maxFragLookUpTolerance: 0.25,
-
-            maxLiveSyncPlaybackRate: 1.05,
-          });
-
-          hlsRef.current = hls;
-
-           hls.on(Hls.Events.ERROR, (_event, data) => {
-            console.log("[HLS ERROR]", data);
-
-            if (!hlsRef.current) return;
-
-            const details = String(data?.details || "");
-            const fatal = Boolean(data?.fatal);
-
-            if (details === "bufferStalledError") {
-              try {
-                const liveSyncPosition = hls.liveSyncPosition;
-
-                if (
-                  typeof liveSyncPosition === "number" &&
-                  Number.isFinite(liveSyncPosition) &&
-                  Math.abs(video.currentTime - liveSyncPosition) > 3
-                ) {
-                  video.currentTime = liveSyncPosition;
-                }
-              } catch {
-                // ignore
-              }
-
-              void video.play().catch(() => {});
-              return;
-            }
-
-            if (!fatal) return;
-
-            switch (data.type) {
-              case Hls.ErrorTypes.NETWORK_ERROR:
-                hls.startLoad();
-                break;
-              case Hls.ErrorTypes.MEDIA_ERROR:
-                hls.recoverMediaError();
-                break;
-              default:
-                hls.destroy();
-                if (hlsRef.current === hls) {
-                  hlsRef.current = null;
-                }
-                break;
-            }
-          });
-
-          hls.on(Hls.Events.FRAG_LOADED, (_event, data) => {
-            console.log("[HLS FRAG LOADED]", data.frag?.sn);
-          });
-
-          hls.on(Hls.Events.BUFFER_APPENDED, () => {
-            console.log("[HLS BUFFER APPENDED]");
-          });
-
-          hls.on(Hls.Events.MANIFEST_PARSED, async () => {
-            await video.play().catch(() => {});
-          });
-
-          hls.loadSource(normalizedPlaybackUrl);
-          hls.attachMedia(video);
-          return;
-        }
-
-        video.src = normalizedPlaybackUrl;
-        video.load();
-        await video.play().catch(() => {});
-      } catch {
-        // ignore
-      }
-    };
-
-    void boot();
+    void bootPlayer();
 
     return () => {
+      disposed = true;
+      clearRetryTimer();
+
       video.removeEventListener("playing", onPlaying);
       video.removeEventListener("waiting", onWaiting);
       video.removeEventListener("stalled", onStalled);
       video.removeEventListener("error", onVideoError);
     };
-  }, [isHost, isSafariNative, playbackUrl, shouldPausePublic, stageReady, uiMode]);
+  }, [canShowVideo, isSafariNative, playbackUrl]);
 
   useEffect(() => {
     return () => {
-      const video = videoRef.current;
+      if (retryTimerRef.current !== null) {
+        window.clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
 
       if (hlsRef.current) {
         hlsRef.current.destroy();
@@ -251,6 +275,7 @@ export default function ViewerLiveStage({
 
       attachedPlaybackUrlRef.current = null;
 
+      const video = videoRef.current;
       if (video) {
         try {
           video.pause();
@@ -263,188 +288,76 @@ export default function ViewerLiveStage({
     };
   }, []);
 
-  const showVideo =
-    !isHost &&
-    !!stageReady &&
-    !!playbackUrl &&
-    !shouldPausePublic &&
-    uiMode !== "PRELIVE_HOST_WAITING" &&
-    uiMode !== "ENDED";
+  const showRecoveryOverlay =
+    canShowVideo &&
+    (playerState === "loading" || playerState === "recovering" || playerState === "failed");
 
   return (
-    <div
-      style={{
-        height: isHost ? 500 : 520,
-        minHeight: isHost ? 500 : 520,
-        borderRadius: 14,
-        border: "1px solid rgba(255,255,255,0.10)",
-        background: "rgba(0,0,0,0.25)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        textAlign: "center",
-        padding: 12,
-        position: "relative",
-        overflow: "hidden",
-        opacity: shouldPausePublic ? 0 : 1,
-        pointerEvents: shouldPausePublic ? "none" : "auto",
-      }}
-    >
-      {showVideo ? (
-        <video
-          ref={videoRef}
-          controls
-          autoPlay
-          playsInline
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "contain",
-            borderRadius: 10,
-            background: "black",
-          }}
-        />
+    <div style={stageBoxStyle(isHost, shouldPausePublic)}>
+      {canShowVideo ? (
+        <video ref={videoRef} controls autoPlay playsInline style={videoStyle} />
       ) : isHost ? (
-        <div
-          style={{
-            maxWidth: 560,
-            textAlign: "center",
-            opacity: 0.95,
-          }}
-        >
-          <div style={{ fontWeight: 1000, fontSize: 18 }}>
-            Live is running.
-          </div>
-          <div style={{ marginTop: 8, opacity: 0.9, fontWeight: 800, lineHeight: 1.45 }}>
-            Host streaming is managed from OBS/OME. This page does not render host return video.
-          </div>
-        </div>
+        <InfoBox
+          title="Live is running."
+          text="Host streaming is managed from OBS/OME. This page does not render host return video."
+        />
       ) : uiMode === "PRELIVE_HOST_WAITING" ? (
-        <div
-          style={{
-            maxWidth: 560,
-            textAlign: "center",
-            opacity: 0.95,
-          }}
-        >
-          <div style={{ fontWeight: 1000, fontSize: 18 }}>
-            Waiting to go live.
-          </div>
-          <div style={{ marginTop: 8, opacity: 0.9, fontWeight: 800, lineHeight: 1.45 }}>
-            The host has not started the live yet.
-          </div>
-        </div>
+        <InfoBox title="Waiting to go live." text="The host has not started the live yet." />
       ) : stageErr ? (
-        <div style={{ opacity: 0.95, color: "salmon", fontWeight: 900 }}>
-          {stageErr}
-        </div>
+        <div style={{ opacity: 0.95, color: "salmon", fontWeight: 900 }}>{stageErr}</div>
       ) : stageReady && !playbackUrl ? (
-        <div
-          style={{
-            maxWidth: 560,
-            textAlign: "center",
-            opacity: 0.95,
-          }}
-        >
-          <div style={{ fontWeight: 1000, fontSize: 18 }}>
-            Waiting for live stream…
-          </div>
-          <div style={{ marginTop: 8, opacity: 0.9, fontWeight: 800, lineHeight: 1.45 }}>
-            Room access is active, but no playback url is available yet.
-          </div>
-        </div>
-      ) : stageReady && playbackUrl ? (
-        <div
-          style={{
-            maxWidth: 560,
-            textAlign: "center",
-            opacity: 0.95,
-          }}
-        >
-          <div style={{ fontWeight: 1000, fontSize: 18 }}>
-            Stream starting…
-          </div>
-          <div style={{ marginTop: 8, opacity: 0.9, fontWeight: 800, lineHeight: 1.45 }}>
-            Playback url is ready. Waiting for media...
-          </div>
-        </div>
-      ) : uiMode === "PUBLIC_ACTIVE" ||
-        uiMode === "PRIVATE_ACTIVE" ||
-        uiMode === "RETURNING_PUBLIC" ||
-        uiMode === "HOST_RECONNECTING" ? (
-        <div style={{ opacity: 0.9 }}>Live media temporarily unavailable</div>
+        <InfoBox
+          title="Waiting for live stream…"
+          text="Room access is active, but no playback url is available yet."
+        />
       ) : (
         <div style={{ opacity: 0.9 }}>Waiting for live stream…</div>
       )}
 
+      {showRecoveryOverlay ? (
+        <div style={softOverlayStyle}>
+          <div style={overlayCardStyle}>
+            <div style={{ fontWeight: 1000, fontSize: 18 }}>
+              {playerState === "failed" ? "Stream error" : "Connection unstable…"}
+            </div>
+
+            <div style={{ marginTop: 8, opacity: 0.9, fontWeight: 800, lineHeight: 1.45 }}>
+              {playerState === "failed"
+                ? "Playback could not be restored automatically."
+                : "Trying to reconnect to the live stream…"}
+            </div>
+
+            {playerState === "failed" ? (
+              <button
+                onClick={() => {
+                  retryCountRef.current = 0;
+                  attachedPlaybackUrlRef.current = null;
+                  setPlayerState("idle");
+                  onRetry();
+                }}
+                style={{ ...secondaryBtnStyle, marginTop: 14 }}
+              >
+                Retry
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
       {uiMode === "HOST_RECONNECTING" && hostGraceActive ? (
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            zIndex: 18,
-            display: "grid",
-            placeItems: "center",
-            padding: 16,
-            background: "rgba(0,0,0,0.58)",
-            backdropFilter: "blur(4px)",
-            pointerEvents: "all",
-          }}
-        >
-          <div
-            style={{
-              width: "min(520px, 100%)",
-              borderRadius: 18,
-              border: "1px solid rgba(255,255,255,0.16)",
-              background: "rgba(12,12,12,0.94)",
-              padding: 20,
-              textAlign: "center",
-              boxShadow: "0 20px 80px rgba(0,0,0,0.45)",
-            }}
-          >
+        <div style={hardOverlayStyle}>
+          <div style={overlayCardStyle}>
             <div style={{ fontWeight: 1000, fontSize: 22, color: "salmon", lineHeight: 1.1 }}>
               Host disconnected
             </div>
 
-            <div
-              style={{
-                marginTop: 10,
-                opacity: 0.92,
-                fontWeight: 800,
-                lineHeight: 1.45,
-                fontSize: 14,
-              }}
-            >
+            <div style={{ marginTop: 10, opacity: 0.92, fontWeight: 800, lineHeight: 1.45 }}>
               Waiting for the host to resume the live stream.
             </div>
 
-            <div
-              style={{
-                marginTop: 14,
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: "10px 16px",
-                borderRadius: 999,
-                border: "1px solid rgba(255,255,255,0.18)",
-                background: "rgba(255,255,255,0.06)",
-                fontWeight: 1000,
-                fontSize: 18,
-                minWidth: 110,
-              }}
-            >
-              {hostGraceCountdownLabel}
-            </div>
+            <div style={countdownStyle}>{hostGraceCountdownLabel}</div>
 
-            <div
-              style={{
-                marginTop: 12,
-                opacity: 0.84,
-                fontWeight: 700,
-                fontSize: 13,
-                lineHeight: 1.4,
-              }}
-            >
+            <div style={{ marginTop: 12, opacity: 0.84, fontWeight: 700, fontSize: 13 }}>
               The session will end automatically if the host does not reconnect before the timer reaches zero.
             </div>
           </div>
@@ -452,22 +365,9 @@ export default function ViewerLiveStage({
       ) : null}
 
       {shouldPausePublic ? (
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            zIndex: 20,
-            display: "grid",
-            placeItems: "center",
-            padding: 16,
-            background: "rgba(0,0,0,0.92)",
-            pointerEvents: "all",
-          }}
-        >
+        <div style={hardOverlayStyle}>
           <div style={{ maxWidth: 520 }}>
-            <div style={{ fontWeight: 1000, fontSize: 16 }}>
-              Host is in a private session.
-            </div>
+            <div style={{ fontWeight: 1000, fontSize: 16 }}>Host is in a private session.</div>
             <div style={{ marginTop: 8, opacity: 0.9, fontWeight: 800 }}>
               Public live is temporarily paused.
             </div>
@@ -476,57 +376,23 @@ export default function ViewerLiveStage({
       ) : null}
 
       {roomBlockCode === "ROOM_FULL" ? (
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            zIndex: 30,
-            display: "grid",
-            placeItems: "center",
-            padding: 16,
-            background: "rgba(0,0,0,0.94)",
-            pointerEvents: "all",
-          }}
-        >
+        <div style={hardOverlayStyle}>
           <div style={{ maxWidth: 520, textAlign: "center" }}>
-            <div style={{ fontWeight: 1000, fontSize: 18, color: "salmon" }}>
-              Room is full
-            </div>
+            <div style={{ fontWeight: 1000, fontSize: 18, color: "salmon" }}>Room is full</div>
             <div style={{ marginTop: 8, opacity: 0.9, fontWeight: 800 }}>
               Maximum capacity reached. Try again later.
             </div>
 
-            <div
-              style={{
-                marginTop: 14,
-                display: "flex",
-                justifyContent: "center",
-                gap: 10,
-                flexWrap: "wrap",
-              }}
-            >
-              <button onClick={onBack} style={secondaryBtnStyle}>
-                Back
-              </button>
-              <button onClick={onRetry} style={secondaryBtnStyle}>
-                Retry
-              </button>
+            <div style={{ marginTop: 14, display: "flex", justifyContent: "center", gap: 10 }}>
+              <button onClick={onBack} style={secondaryBtnStyle}>Back</button>
+              <button onClick={onRetry} style={secondaryBtnStyle}>Retry</button>
             </div>
           </div>
         </div>
       ) : null}
 
       {uiMode === "ENDED" ? (
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            display: "grid",
-            placeItems: "center",
-            padding: 16,
-            background: "rgba(0,0,0,0.65)",
-          }}
-        >
+        <div style={hardOverlayStyle}>
           <div style={{ maxWidth: 520, textAlign: "center" }}>
             <div style={{ fontWeight: 1000, fontSize: 16, color: "salmon" }}>
               This live has ended.
@@ -535,17 +401,98 @@ export default function ViewerLiveStage({
               You can go back to Live.
             </div>
 
-            <div style={{ marginTop: 12 }}>
-              <button onClick={navToLive} style={secondaryBtnStyle}>
-                Back to Live
-              </button>
-            </div>
+            <button onClick={navToLive} style={{ ...secondaryBtnStyle, marginTop: 12 }}>
+              Back to Live
+            </button>
           </div>
         </div>
       ) : null}
     </div>
   );
 }
+
+function InfoBox({ title, text }: { title: string; text: string }) {
+  return (
+    <div style={{ maxWidth: 560, textAlign: "center", opacity: 0.95 }}>
+      <div style={{ fontWeight: 1000, fontSize: 18 }}>{title}</div>
+      <div style={{ marginTop: 8, opacity: 0.9, fontWeight: 800, lineHeight: 1.45 }}>
+        {text}
+      </div>
+    </div>
+  );
+}
+
+const stageBoxStyle = (isHost: boolean, shouldPausePublic: boolean) =>
+  ({
+    height: isHost ? 500 : 520,
+    minHeight: isHost ? 500 : 520,
+    borderRadius: 14,
+    border: "1px solid rgba(255,255,255,0.10)",
+    background: "rgba(0,0,0,0.25)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    textAlign: "center",
+    padding: 12,
+    position: "relative",
+    overflow: "hidden",
+    opacity: shouldPausePublic ? 0 : 1,
+    pointerEvents: shouldPausePublic ? "none" : "auto",
+  }) as const;
+
+const videoStyle = {
+  width: "100%",
+  height: "100%",
+  objectFit: "contain",
+  borderRadius: 10,
+  background: "black",
+} as const;
+
+const softOverlayStyle = {
+  position: "absolute",
+  inset: 0,
+  zIndex: 12,
+  display: "grid",
+  placeItems: "center",
+  padding: 16,
+  background: "rgba(0,0,0,0.34)",
+  pointerEvents: "none",
+} as const;
+
+const hardOverlayStyle = {
+  position: "absolute",
+  inset: 0,
+  zIndex: 30,
+  display: "grid",
+  placeItems: "center",
+  padding: 16,
+  background: "rgba(0,0,0,0.92)",
+  pointerEvents: "all",
+} as const;
+
+const overlayCardStyle = {
+  width: "min(520px, 100%)",
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.16)",
+  background: "rgba(12,12,12,0.94)",
+  padding: 20,
+  textAlign: "center",
+  boxShadow: "0 20px 80px rgba(0,0,0,0.45)",
+} as const;
+
+const countdownStyle = {
+  marginTop: 14,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "10px 16px",
+  borderRadius: 999,
+  border: "1px solid rgba(255,255,255,0.18)",
+  background: "rgba(255,255,255,0.06)",
+  fontWeight: 1000,
+  fontSize: 18,
+  minWidth: 110,
+} as const;
 
 const secondaryBtnStyle = {
   padding: "8px 12px",
