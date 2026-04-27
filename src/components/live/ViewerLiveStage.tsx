@@ -336,6 +336,8 @@ export default function ViewerLiveStage({
 
   const showRecoveryOverlay =
     canShowVideo &&
+    uiMode !== "HOST_RECONNECTING" &&
+    !hostGraceActive &&
     (playerState === "loading" || playerState === "recovering" || playerState === "failed");
 
   return (
