@@ -71,6 +71,7 @@ export default function ViewerLiveStage({
     let lastTime = 0;
     let stuckCount = 0;
     let monitorInterval: number | null = null;
+    let hasPlayedOnce = false;
 
     if (!video) return;
     if (!canShowVideo) return;
@@ -228,6 +229,7 @@ export default function ViewerLiveStage({
     };
 
     const onPlaying = () => {
+      hasPlayedOnce = true;
       retryCountRef.current = 0;
       clearRetryTimer();
       setPlayerState("playing");
@@ -254,6 +256,9 @@ export default function ViewerLiveStage({
     void bootPlayer();
     monitorInterval = window.setInterval(() => {
       if (!video || video.paused) return;
+      if (!hasPlayedOnce) return;
+      if (video.readyState < 2) return;
+      if (video.currentTime <= 0.2) return;
 
       const current = video.currentTime;
 
