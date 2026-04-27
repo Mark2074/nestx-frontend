@@ -308,6 +308,8 @@ export default function LiveRoomPage() {
   const viewerWasHiddenRef = useRef(false);
 
   const lastViewerPlaybackUrlRef = useRef<string | null>(null);
+  const hostGraceActiveRef = useRef(false);
+  const hostDisconnectStateRef = useRef("offline");
 
   const applyViewerMediaState = useCallback((payload: {
     playbackUrl?: string | null;
@@ -368,6 +370,11 @@ export default function LiveRoomPage() {
     hostGraceActive,
     hostDisconnectState,
   });
+
+  useEffect(() => {
+    hostGraceActiveRef.current = hostGraceActive;
+    hostDisconnectStateRef.current = hostDisconnectState;
+  }, [hostGraceActive, hostDisconnectState]);
 
   const targetRuntimeScope = resolveTargetRuntimeScope({
     event: eventDetail,
@@ -1178,7 +1185,14 @@ export default function LiveRoomPage() {
 
     const t = window.setInterval(async () => {
       if (!isHost && !isDocumentVisible) return;
-      if (hostGraceActive) return;
+
+      if (
+        hostGraceActiveRef.current ||
+        hostDisconnectStateRef.current === "grace"
+      ) {
+        return;
+      }
+
       const latest = await loadEvent();
       if (!latest) return;
 
@@ -1224,7 +1238,6 @@ export default function LiveRoomPage() {
     loadEvent,
     meId,
     isLive,
-    hostGraceActive,
   ]);
 
   useEffect(() => {
