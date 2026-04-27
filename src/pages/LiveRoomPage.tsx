@@ -1503,26 +1503,6 @@ export default function LiveRoomPage() {
       >
         <div style={{ fontWeight: 900, marginBottom: 6 }}>Live</div>
 
-        {uiMode === "HOST_RECONNECTING" ? (
-          <div
-            style={{
-              marginBottom: 12,
-              padding: 12,
-              border: "1px solid rgba(255,255,255,0.14)",
-              borderRadius: 14,
-              background: "rgba(255,255,255,0.04)",
-            }}
-          >
-            <div style={{ fontWeight: 900, color: "salmon" }}>
-              Host disconnected — reconnecting
-            </div>
-            <div style={{ opacity: 0.88, marginTop: 6 }}>
-              Waiting for host reconnection. Session will close automatically in{" "}
-              <b>{formatCountdownTo(hostGraceExpiresAt)}</b>.
-            </div>
-          </div>
-        ) : null}
-
         <ViewerLiveStage
           key={`${eventId}:${runtimeScope || "none"}:${hostGraceActive ? "grace" : "live"}:${hostMediaStatus}`}
           eventId={eventId}
