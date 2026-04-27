@@ -230,6 +230,8 @@ export default function ViewerLiveStage({
 
     const onPlaying = () => {
       hasPlayedOnce = true;
+      lastTime = video.currentTime;
+      stuckCount = 0;
       retryCountRef.current = 0;
       clearRetryTimer();
       setPlayerState("playing");
@@ -262,7 +264,7 @@ export default function ViewerLiveStage({
 
       const current = video.currentTime;
 
-      if (current === lastTime) {
+      if (Math.abs(current - lastTime) < 0.05) {
         stuckCount += 1;
       } else {
         stuckCount = 0;
@@ -270,7 +272,7 @@ export default function ViewerLiveStage({
 
       lastTime = current;
 
-      if (stuckCount >= 3) {
+      if (stuckCount >= 8) {
         console.log("[PLAYER STUCK DETECTED]");
 
         stuckCount = 0;
