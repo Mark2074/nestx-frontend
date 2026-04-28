@@ -1213,6 +1213,13 @@ export default function LiveRoomPage() {
       }
 
       await loadStatus(currentScope);
+      const viewerSessionRes: any = await api.liveViewerSession(eventId, currentScope);
+
+      applyViewerMediaState({
+        playbackUrl: viewerSessionRes?.playbackUrl,
+        hostMediaStatus: viewerSessionRes?.hostMediaStatus,
+        isLive: viewerSessionRes?.isLive,
+      });
     }, 5000);
 
     return () => window.clearInterval(t);

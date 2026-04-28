@@ -32,11 +32,10 @@ type HostConsoleState =
   | "READY"
   | "GOING_LIVE"
   | "LIVE"
-  | "LIVE_RECOVERY"
   | "FINISHING"
   | "ERROR";
 
-type HostConsoleStep = "DEVICE_SETUP" | "PRE_GO_LIVE" | "LIVE_RECOVERY" | "LIVE_RUNNING";
+type HostConsoleStep = "PRE_GO_LIVE" | "LIVE_RUNNING";
 
 function normalizeEventDetail(input: any): EventDetail {
   return {
@@ -179,7 +178,6 @@ export default function HostLiveConsolePage() {
     if (err || previewErr) return "ERROR";
     if (loadingFinish) return "FINISHING";
     if (loadingGoLive) return "GOING_LIVE";
-    if (step === "LIVE_RECOVERY") return "LIVE_RECOVERY";
     if (isLive) return "LIVE";
     if (loadingBootstrap) return "BOOTING";
     return "READY";
@@ -301,11 +299,6 @@ export default function HostLiveConsolePage() {
 
         setMediaLive(liveNow);
 
-        await api.liveHostRealtimeState(eventId, {
-          scope,
-          state: liveNow ? "broadcasting" : "joined",
-        });
-
         return res;
       } catch {
         setMediaLive(false);
@@ -329,11 +322,7 @@ export default function HostLiveConsolePage() {
     try {
       const saved = sessionStorage.getItem(stepStorageKey);
 
-      if (
-        saved === "PRE_GO_LIVE" ||
-        saved === "LIVE_RECOVERY" ||
-        saved === "LIVE_RUNNING"
-      ) {
+      if (saved === "PRE_GO_LIVE" || saved === "LIVE_RUNNING") {
         setStep(saved);
         return;
       }
@@ -381,22 +370,20 @@ export default function HostLiveConsolePage() {
         runtimeScopeRef.current = baseScope;
 
         await loadHostSession(baseScope);
-
         if (String(ev?.status || "").trim().toLowerCase() === "live") {
           await api.liveHostRealtimeState(eventId, {
             scope: baseScope,
-            state: "joined",
+            state: "broadcasting",
           });
 
-          setStep("LIVE_RECOVERY");
+          setStep("LIVE_RUNNING");
           await loadStatus(baseScope);
-          await loadMediaStatus(baseScope);
           return;
         }
 
         await api.liveHostRealtimeState(eventId, {
           scope: baseScope,
-          state: "setup",
+          state: "joined",
         });
 
         setStep("PRE_GO_LIVE");
@@ -480,7 +467,7 @@ export default function HostLiveConsolePage() {
     if (!eventId) return;
     if (!isHost) return;
     if (isFinished || isCancelled) return;
-    if (step !== "PRE_GO_LIVE" && step !== "LIVE_RECOVERY" && step !== "LIVE_RUNNING") return;
+    if (step !== "PRE_GO_LIVE" && step !== "LIVE_RUNNING") return;
 
     const t = window.setInterval(async () => {
       try {
@@ -536,7 +523,7 @@ export default function HostLiveConsolePage() {
   useEffect(() => {
     if (!eventId) return;
     if (!isHost) return;
-    if (step !== "LIVE_RECOVERY" && step !== "LIVE_RUNNING") return;
+    if (step !== "LIVE_RUNNING") return;
 
     const t = window.setInterval(() => {
       const scope: LiveScope =
@@ -544,11 +531,10 @@ export default function HostLiveConsolePage() {
         eventBaseScope;
 
       void loadStatus(scope);
-      void loadMediaStatus(scope);
-    }, 3000);
+    }, 5000);
 
     return () => window.clearInterval(t);
-  }, [eventBaseScope, eventId, isHost, loadMediaStatus, loadStatus, step]);
+  }, [eventBaseScope, eventId, isHost, loadStatus, step]);
 
   async function handleGoLive() {
     if (!eventId) return;
@@ -563,48 +549,15 @@ export default function HostLiveConsolePage() {
       await api.eventGoLive(eventId);
       await api.liveHostRealtimeState(eventId, {
         scope: eventBaseScope,
-        state: "joined",
+        state: "broadcasting",
       });
-      await api.liveHostPing(eventId, eventBaseScope);
       await loadEvent();
       await loadHostSession(eventBaseScope);
-      await loadMediaStatus(eventBaseScope);
 
       runtimeScopeRef.current = eventBaseScope;
       setStep("LIVE_RUNNING");
     } catch (e: any) {
       setErr(String(e?.message || "Failed to go live"));
-    } finally {
-      setLoadingGoLive(false);
-    }
-  }
-
-  async function handleResumeLive() {
-    if (!eventId) return;
-    if (!isHost) return;
-    if (loadingGoLive) return;
-    if (isFinished || isCancelled) return;
-
-    setLoadingGoLive(true);
-    setErr("");
-
-    try {
-      const scope: LiveScope =
-        runtimeScopeRef.current ||
-        eventBaseScope;
-
-      await api.liveHostRealtimeState(eventId, {
-        scope,
-        state: "joined",
-      });
-      await api.liveHostPing(eventId, scope);
-      await loadEvent();
-      await loadHostSession(scope);
-      await loadMediaStatus(scope);
-
-      setStep("LIVE_RUNNING");
-    } catch (e: any) {
-      setErr(String(e?.message || "Failed to resume live"));
     } finally {
       setLoadingGoLive(false);
     }
@@ -645,6 +598,10 @@ export default function HostLiveConsolePage() {
     setErr("");
 
     try {
+      await api.liveHostRealtimeState(eventId, {
+        scope: runtimeScopeRef.current || eventBaseScope,
+        state: "ended",
+      });
       await api.eventFinish(eventId);
       setHostLiveLock(false);
       try {
@@ -720,10 +677,8 @@ export default function HostLiveConsolePage() {
             <span style={pillStyle}>{step}</span>
             <span style={pillStyle}>
               {step === "LIVE_RUNNING"
-                ? "LIVE_CONNECTED"
-                : step === "LIVE_RECOVERY"
-                ? "RECOVERY_PENDING"
-                : "READY_FOR_GO_LIVE"}
+                ? "Host live console"
+                : "Pre-live host console"}
             </span>
             <span style={pillStyle}>👁 0 watching</span>
             <span style={pillStyle}>⏱ {formatDuration(providerDurationMs)}</span>
@@ -770,8 +725,6 @@ export default function HostLiveConsolePage() {
           <div style={{ fontWeight: 900, marginBottom: 10 }}>
             {step === "LIVE_RUNNING"
               ? "Host live console"
-              : step === "LIVE_RECOVERY"
-              ? "Live recovery console"
               : "Pre-live host console"}
           </div>
 
@@ -867,84 +820,6 @@ export default function HostLiveConsolePage() {
               </div>
             </div>
 
-            {step === "LIVE_RECOVERY" && hostGraceActive ? (
-              <div
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  zIndex: 30,
-                  display: "grid",
-                  placeItems: "center",
-                  padding: 20,
-                  background: "rgba(0,0,0,0.72)",
-                  backdropFilter: "blur(4px)",
-                }}
-              >
-                <div
-                  style={{
-                    width: "min(520px, 100%)",
-                    borderRadius: 18,
-                    border: "1px solid rgba(255,255,255,0.16)",
-                    background: "rgba(12,12,12,0.94)",
-                    padding: 20,
-                    textAlign: "center",
-                    boxShadow: "0 20px 80px rgba(0,0,0,0.45)",
-                  }}
-                >
-                  <div style={{ fontSize: 22, fontWeight: 1000, lineHeight: 1.1 }}>
-                    Resume live
-                  </div>
-
-                  <div
-                    style={{
-                      marginTop: 10,
-                      fontSize: 14,
-                      lineHeight: 1.45,
-                      opacity: 0.92,
-                      fontWeight: 800,
-                    }}
-                  >
-                    Your live is still active, but your host connection was interrupted.
-                    Resume before the reconnect window expires.
-                  </div>
-
-                  <div
-                    style={{
-                      marginTop: 14,
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      padding: "10px 16px",
-                      borderRadius: 999,
-                      border: "1px solid rgba(255,255,255,0.18)",
-                      background: "rgba(255,255,255,0.06)",
-                      fontWeight: 1000,
-                      fontSize: 18,
-                      minWidth: 110,
-                    }}
-                  >
-                    {formatCountdownTo(hostGraceExpiresAt)}
-                  </div>
-
-                  <div style={{ marginTop: 16 }}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        void handleResumeLive();
-                      }}
-                      disabled={loadingGoLive}
-                      style={{
-                        ...primaryBtnStyle,
-                        minWidth: 180,
-                        fontSize: 14,
-                      }}
-                    >
-                      {loadingGoLive ? "Resuming..." : "Resume now"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : null}
           </div>
 
           <div
@@ -959,10 +834,8 @@ export default function HostLiveConsolePage() {
           >
             <div style={{ opacity: 0.86, lineHeight: 1.45 }}>
               {step === "PRE_GO_LIVE"
-                ? "The old preview step has been removed. Start the event directly from this host console."
-                : step === "LIVE_RECOVERY"
-                ? "The event is still marked as live, but the host connection was interrupted. Resume the live before the timer reaches zero."
-                : "You are live. The old provider-based host console has been disabled while NestX transitions to the new live media system."}
+                ? "Start the event from this host console, then publish from OBS."
+                : "You are live. OBS is the media source; NestX only controls the event state."}
             </div>
 
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -986,18 +859,6 @@ export default function HostLiveConsolePage() {
                     }}
                   >
                     {loadingFinish ? "Cancelling..." : "Cancel event"}
-                  </button>
-                </>
-              ) : step === "LIVE_RECOVERY" ? (
-                <>
-                  <button
-                    onClick={() => {
-                      void handleFinishEvent();
-                    }}
-                    disabled={loadingFinish}
-                    style={secondaryBtnStyle}
-                  >
-                    {loadingFinish ? "Finishing..." : "Finish"}
                   </button>
                 </>
               ) : (

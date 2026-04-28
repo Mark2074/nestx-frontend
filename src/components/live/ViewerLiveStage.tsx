@@ -20,11 +20,12 @@ type Props = {
 type PlayerState =
   | "idle"
   | "loading"
+  | "waiting_stream"
   | "playing"
-  | "recovering"
+  | "interrupted"
   | "failed";
 
-const RECOVERY_DELAYS_MS = [1000, 3000, 5000];
+const STREAM_RETRY_MS = 5000;
 
 export default function ViewerLiveStage({
   stageReady,
@@ -97,25 +98,18 @@ export default function ViewerLiveStage({
       }
     };
 
-    const hardReloadPlayer = () => {
+    const markStreamUnavailable = () => {
       clearRetryTimer();
 
-      if (retryCountRef.current >= RECOVERY_DELAYS_MS.length) {
-        setPlayerState("failed");
-        return;
-      }
-
-      const delay = RECOVERY_DELAYS_MS[retryCountRef.current];
-      retryCountRef.current += 1;
-      setPlayerState("recovering");
+      setPlayerState(hasPlayedOnce ? "interrupted" : "waiting_stream");
 
       retryTimerRef.current = window.setTimeout(() => {
         if (disposed) return;
 
         attachedPlaybackUrlRef.current = null;
         resetMedia();
-        bootPlayer();
-      }, delay);
+        void bootPlayer();
+      }, STREAM_RETRY_MS);
     };
 
     const bootPlayer = async () => {
@@ -190,18 +184,18 @@ export default function ViewerLiveStage({
         if (!fatal) return;
 
         if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-          setPlayerState("recovering");
+          markStreamUnavailable();
           hls.startLoad();
           return;
         }
 
         if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-          setPlayerState("recovering");
+          markStreamUnavailable();
           hls.recoverMediaError();
           return;
         }
 
-        hardReloadPlayer();
+        markStreamUnavailable();
       });
 
       hls.loadSource(normalizedPlaybackUrl);
@@ -222,11 +216,11 @@ export default function ViewerLiveStage({
     };
 
     const onStalled = () => {
-      hardReloadPlayer();
+      markStreamUnavailable();
     };
 
     const onVideoError = () => {
-      hardReloadPlayer();
+      markStreamUnavailable();
     };
 
     video.addEventListener("playing", onPlaying);
@@ -302,7 +296,10 @@ export default function ViewerLiveStage({
 
   const showRecoveryOverlay =
     canShowVideo &&
-    (playerState === "loading" || playerState === "recovering" || playerState === "failed");
+    (playerState === "loading" ||
+      playerState === "waiting_stream" ||
+      playerState === "interrupted" ||
+      playerState === "failed");
 
   return (
     <div style={stageBoxStyle(isHost, shouldPausePublic)}>
@@ -330,13 +327,19 @@ export default function ViewerLiveStage({
         <div style={softOverlayStyle}>
           <div style={overlayCardStyle}>
             <div style={{ fontWeight: 1000, fontSize: 18 }}>
-              {playerState === "failed" ? "Stream error" : "Connection unstable…"}
+              {playerState === "failed"
+                ? "Stream unavailable"
+                : playerState === "interrupted"
+                ? "Stream temporarily unavailable"
+                : "Waiting for stream"}
             </div>
 
             <div style={{ marginTop: 8, opacity: 0.9, fontWeight: 800, lineHeight: 1.45 }}>
               {playerState === "failed"
                 ? "Playback could not be restored automatically."
-                : "Trying to reconnect to the live stream…"}
+                : playerState === "interrupted"
+                ? "The live stream paused or lost signal. It will resume automatically when available."
+                : "The host has started the room. Video will appear when the stream is available."}
             </div>
 
             {playerState === "failed" ? (
