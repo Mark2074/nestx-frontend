@@ -13,7 +13,6 @@ type UiMode =
   | "BOOT"
   | "ACCESS_DENIED"
   | "PRELIVE_HOST_WAITING"
-  | "HOST_RECONNECTING"
   | "PUBLIC_ACTIVE"
   | "PRIVATE_RESERVED"
   | "PRIVATE_ACTIVE"
@@ -103,8 +102,6 @@ function resolveUiMode(params: {
   isAdmin: boolean;
   runtimeScope: LiveScope | null;
   access: AccessResponse | null;
-  hostGraceActive: boolean;
-  hostDisconnectState: string;
 }): UiMode {
   const {
     event,
@@ -113,21 +110,12 @@ function resolveUiMode(params: {
     runtimeScope,
     access,
     meId,
-    hostGraceActive,
-    hostDisconnectState,
   } = params;
 
   if (!event) return "BOOT";
 
   const status = getEventStatus(event);
   if (status === "finished" || status === "cancelled") return "ENDED";
-
-  if (
-    status === "live" &&
-    (hostGraceActive || hostDisconnectState === "grace")
-  ) {
-    return "HOST_RECONNECTING";
-  }
 
   const baseScope = getEventBaseScope(event);
   const contentScope = getContentScope(event);
@@ -226,16 +214,6 @@ function formatDuration(ms: number): string {
   return `${p2(mm)}:${p2(ss)}`;
 }
 
-function formatCountdownTo(targetIso: string | null): string {
-  if (!targetIso) return "00:00";
-
-  const targetMs = new Date(targetIso).getTime();
-  if (!Number.isFinite(targetMs)) return "00:00";
-
-  const diff = Math.max(0, targetMs - Date.now());
-  return formatDuration(diff);
-}
-
 export default function LiveRoomPage() {
   const nav = useNavigate();
   const { id } = useParams();
@@ -259,9 +237,6 @@ export default function LiveRoomPage() {
   const [meta, setMeta] = useState<any>(null);
   const [viewersNow, setViewersNow] = useState(0);
   const [providerDurationMs] = useState(0);
-  const [hostDisconnectState, setHostDisconnectState] = useState("offline");
-  const [hostGraceActive, setHostGraceActive] = useState(false);
-  const [hostGraceExpiresAt, setHostGraceExpiresAt] = useState<string | null>(null);
 
   const [loadingBootstrap, setLoadingBootstrap] = useState(false);
   const [loadingTransition, setLoadingTransition] = useState(false);
@@ -282,13 +257,14 @@ export default function LiveRoomPage() {
   const [reportSending, setReportSending] = useState(false);
   const [reportOkMsg, setReportOkMsg] = useState<string | null>(null);
   const [reportErrMsg, setReportErrMsg] = useState<string | null>(null);
-  const [, setGraceTick] = useState(0);
   const [isDocumentVisible, setIsDocumentVisible] = useState(() => {
     if (typeof document === "undefined") return true;
     return document.visibilityState === "visible";
   });
   const [viewerPlaybackUrl, setViewerPlaybackUrl] = useState<string | null>(null);
-  const [hostMediaStatus, setHostMediaStatus] = useState<"idle" | "live">("idle");
+  useEffect(() => {
+    console.log("PLAYBACK URL:", viewerPlaybackUrl);
+  }, [viewerPlaybackUrl]);
 
   const REPORT_REASONS: { value: string; label: string }[] = [
     { value: "minor_involved", label: "Minor in stream" },
@@ -308,8 +284,6 @@ export default function LiveRoomPage() {
   const viewerWasHiddenRef = useRef(false);
 
   const lastViewerPlaybackUrlRef = useRef<string | null>(null);
-  const hostGraceActiveRef = useRef(false);
-  const hostDisconnectStateRef = useRef("offline");
 
   const applyViewerMediaState = useCallback((payload: {
     playbackUrl?: string | null;
@@ -317,12 +291,6 @@ export default function LiveRoomPage() {
     isLive?: boolean | null;
   }) => {
     const nextPlaybackUrl = String(payload?.playbackUrl || "").trim() || null;
-    const nextHostMediaStatus: "idle" | "live" =
-      String(payload?.hostMediaStatus || (payload?.isLive ? "live" : "idle")) === "live"
-        ? "live"
-        : "idle";
-
-    setHostMediaStatus(nextHostMediaStatus);
 
     if (lastViewerPlaybackUrlRef.current !== nextPlaybackUrl) {
       lastViewerPlaybackUrlRef.current = nextPlaybackUrl;
@@ -367,14 +335,7 @@ export default function LiveRoomPage() {
     isAdmin,
     runtimeScope,
     access,
-    hostGraceActive,
-    hostDisconnectState,
   });
-
-  useEffect(() => {
-    hostGraceActiveRef.current = hostGraceActive;
-    hostDisconnectStateRef.current = hostDisconnectState;
-  }, [hostGraceActive, hostDisconnectState]);
 
   const targetRuntimeScope = resolveTargetRuntimeScope({
     event: eventDetail,
@@ -500,51 +461,11 @@ export default function LiveRoomPage() {
 
         const viewers = Number(res?.viewersNow ?? 0);
         setViewersNow(Number.isFinite(viewers) ? viewers : 0);
-
-        const nextHostDisconnectState = String(
-          res?.hostDisconnectState ||
-            res?.live?.hostDisconnectState ||
-            "offline"
-        )
-          .trim()
-          .toLowerCase();
-
-        const nextHostGraceExpiresAt =
-          res?.hostGraceExpiresAt ||
-          res?.live?.hostDisconnectGraceExpiresAt ||
-          null;
-
-        const nextHostGraceActive =
-          Boolean(res?.hostGraceActive) ||
-          nextHostDisconnectState === "grace";
-
-        setHostDisconnectState(nextHostDisconnectState);
-        setHostGraceActive(nextHostGraceActive);
-        setHostGraceExpiresAt(
-          nextHostGraceExpiresAt ? String(nextHostGraceExpiresAt) : null
-        );
-
-        const nextPlaybackUrl =
-          res?.playbackUrl ||
-          res?.live?.playbackUrl ||
-          null;
-
-        const nextHostMediaStatus =
-          res?.hostMediaStatus ||
-          res?.live?.hostMediaStatus ||
-          null;
-
-        if (nextPlaybackUrl || nextHostMediaStatus) {
-          applyViewerMediaState({
-            playbackUrl: nextPlaybackUrl,
-            hostMediaStatus: nextHostMediaStatus,
-          });
-        }
       } catch {
         // ignore
       }
     },
-    [applyViewerMediaState, eventId]
+    [eventId]
   );
 
   const applyPreLiveHostState = useCallback(
@@ -558,7 +479,6 @@ export default function LiveRoomPage() {
       setEntered(false);
       setRoomReady(false);
       setViewerPlaybackUrl(null);
-      setHostMediaStatus("idle");
       setCanWriteChat(true);
       setCanWriteChatReason("HOST");
       setRoomBlockCode("");
@@ -589,7 +509,6 @@ export default function LiveRoomPage() {
       setEntered(false);
       setRoomReady(false);
       setViewerPlaybackUrl(null);
-      setHostMediaStatus("idle");
       setCanWriteChat(false);
       setCanWriteChatReason("");
       setRoomBlockCode(nextRoomBlockCode);
@@ -711,14 +630,6 @@ export default function LiveRoomPage() {
         if (seq !== transitionSeqRef.current) return;
 
         const viewers = Number(joinRoomRes?.currentViewersCount ?? 0);
-
-        setHostDisconnectState(
-          String(joinRoomRes?.hostDisconnectState || "offline").trim().toLowerCase()
-        );
-        setHostGraceActive(Boolean(joinRoomRes?.hostGraceActive));
-        setHostGraceExpiresAt(
-          joinRoomRes?.hostGraceExpiresAt ? String(joinRoomRes.hostGraceExpiresAt) : null
-        );
 
         runtimeScopeRef.current = authorizedScope;
         joinedPresenceRef.current = true;
@@ -1186,13 +1097,6 @@ export default function LiveRoomPage() {
     const t = window.setInterval(async () => {
       if (!isHost && !isDocumentVisible) return;
 
-      if (
-        hostGraceActiveRef.current ||
-        hostDisconnectStateRef.current === "grace"
-      ) {
-        return;
-      }
-
       const latest = await loadEvent();
       if (!latest) return;
 
@@ -1239,24 +1143,6 @@ export default function LiveRoomPage() {
     meId,
     isLive,
   ]);
-
-  useEffect(() => {
-    if (!eventId) return;
-    if (!isHost) return;
-    if (!isLive) return;
-
-    const t = window.setInterval(async () => {
-      try {
-        const scope = runtimeScopeRef.current || "public";
-        await api.liveHostPing(eventId, scope);
-        await loadStatus(scope);
-      } catch {
-        // ignore
-      }
-    }, 5000);
-
-    return () => window.clearInterval(t);
-  }, [eventId, isHost, isLive, loadStatus]);
 
   useEffect(() => {
     if (!eventId) return;
@@ -1400,16 +1286,6 @@ export default function LiveRoomPage() {
   }, [eventId]);
 
   useEffect(() => {
-    if (!hostGraceActive || !hostGraceExpiresAt) return;
-
-    const t = window.setInterval(() => {
-      setGraceTick((v) => v + 1);
-    }, 1000);
-
-    return () => window.clearInterval(t);
-  }, [hostGraceActive, hostGraceExpiresAt]);
-
-  useEffect(() => {
     if (!eventId) return;
     if (!isFinished && !isCancelled) return;
 
@@ -1458,11 +1334,6 @@ export default function LiveRoomPage() {
                 : (runtimeScope || eventBaseScope).toUpperCase()}
             </span>
             <span style={pillStyle}>{uiMode}</span>
-            {hostGraceActive ? (
-              <span style={pillStyle}>
-                reconnect {formatCountdownTo(hostGraceExpiresAt)}
-              </span>
-            ) : null}
           </div>
         </div>
 
@@ -1519,7 +1390,7 @@ export default function LiveRoomPage() {
         <div style={{ fontWeight: 900, marginBottom: 6 }}>Live</div>
 
         <ViewerLiveStage
-          key={`${eventId}:${runtimeScope || "none"}:${hostGraceActive ? "grace" : "live"}:${hostMediaStatus}`}
+          key={`${eventId}:${runtimeScope || "none"}:${viewerPlaybackUrl || "no-url"}`}
           eventId={eventId}
           stageReady={roomReady && entered && !!runtimeScope}
           stageErr=""
@@ -1530,11 +1401,7 @@ export default function LiveRoomPage() {
           eventBaseScope={eventBaseScope}
           runtimeScope={runtimeScope}
           playbackUrl={viewerPlaybackUrl}
-          hostMediaStatus={hostMediaStatus}
           onBack={goBackToDetail}
-          hostGraceActive={hostGraceActive}
-          hostGraceExpiresAt={hostGraceExpiresAt}
-          hostGraceCountdownLabel={formatCountdownTo(hostGraceExpiresAt)}
           onRetry={() => {
             setRoomBlockCode("");
             setErr("");

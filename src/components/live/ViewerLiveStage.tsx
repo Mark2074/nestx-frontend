@@ -12,10 +12,6 @@ type Props = {
   eventBaseScope: "public" | "private";
   runtimeScope: "public" | "private" | null;
   playbackUrl?: string | null;
-  hostMediaStatus?: "idle" | "live";
-  hostGraceActive: boolean;
-  hostGraceExpiresAt: string | null;
-  hostGraceCountdownLabel: string;
   onBack: () => void;
   onRetry: () => void;
   navToLive: () => void;
@@ -38,8 +34,6 @@ export default function ViewerLiveStage({
   roomBlockCode,
   uiMode,
   playbackUrl,
-  hostGraceActive,
-  hostGraceCountdownLabel,
   onBack,
   onRetry,
   navToLive,
@@ -189,20 +183,6 @@ export default function ViewerLiveStage({
         const fatal = Boolean(data?.fatal);
 
         if (details === "bufferStalledError") {
-          try {
-            const liveSyncPosition = hls.liveSyncPosition;
-
-            if (
-              typeof liveSyncPosition === "number" &&
-              Number.isFinite(liveSyncPosition) &&
-              Math.abs(video.currentTime - liveSyncPosition) > 3
-            ) {
-              video.currentTime = liveSyncPosition;
-            }
-          } catch {
-            // ignore
-          }
-
           void video.play().catch(() => {});
           return;
         }
@@ -238,7 +218,6 @@ export default function ViewerLiveStage({
     };
 
     const onWaiting = () => {
-      if (playerState !== "failed") setPlayerState("recovering");
       if (video.paused) void video.play().catch(() => {});
     };
 
@@ -272,25 +251,10 @@ export default function ViewerLiveStage({
 
       lastTime = current;
 
-      if (stuckCount >= 8) {
+      if (stuckCount >= 12) {
         console.log("[PLAYER STUCK DETECTED]");
-
         stuckCount = 0;
-
-        attachedPlaybackUrlRef.current = null;
-
-        if (hlsRef.current) {
-          hlsRef.current.destroy();
-          hlsRef.current = null;
-        }
-
-        try {
-          video.pause();
-          video.load();
-        } catch {}
-
-        retryCountRef.current = 0;
-        setPlayerState("recovering");
+        void video.play().catch(() => {});
       }
     }, 1000);
 
@@ -338,8 +302,6 @@ export default function ViewerLiveStage({
 
   const showRecoveryOverlay =
     canShowVideo &&
-    uiMode !== "HOST_RECONNECTING" &&
-    !hostGraceActive &&
     (playerState === "loading" || playerState === "recovering" || playerState === "failed");
 
   return (
@@ -390,26 +352,6 @@ export default function ViewerLiveStage({
                 Retry
               </button>
             ) : null}
-          </div>
-        </div>
-      ) : null}
-
-      {uiMode === "HOST_RECONNECTING" && hostGraceActive ? (
-        <div style={hardOverlayStyle}>
-          <div style={overlayCardStyle}>
-            <div style={{ fontWeight: 1000, fontSize: 22, color: "salmon", lineHeight: 1.1 }}>
-              Host disconnected
-            </div>
-
-            <div style={{ marginTop: 10, opacity: 0.92, fontWeight: 800, lineHeight: 1.45 }}>
-              Waiting for the host to resume the live stream.
-            </div>
-
-            <div style={countdownStyle}>{hostGraceCountdownLabel}</div>
-
-            <div style={{ marginTop: 12, opacity: 0.84, fontWeight: 700, fontSize: 13 }}>
-              The session will end automatically if the host does not reconnect before the timer reaches zero.
-            </div>
           </div>
         </div>
       ) : null}
@@ -528,20 +470,6 @@ const overlayCardStyle = {
   padding: 20,
   textAlign: "center",
   boxShadow: "0 20px 80px rgba(0,0,0,0.45)",
-} as const;
-
-const countdownStyle = {
-  marginTop: 14,
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: "10px 16px",
-  borderRadius: 999,
-  border: "1px solid rgba(255,255,255,0.18)",
-  background: "rgba(255,255,255,0.06)",
-  fontWeight: 1000,
-  fontSize: 18,
-  minWidth: 110,
 } as const;
 
 const secondaryBtnStyle = {
