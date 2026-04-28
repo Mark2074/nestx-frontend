@@ -246,7 +246,6 @@ export default function ViewerLiveStage({
       lastTime = current;
 
       if (stuckCount >= 12) {
-        console.log("[PLAYER STUCK DETECTED]");
         stuckCount = 0;
         void video.play().catch(() => {});
       }
@@ -296,10 +295,7 @@ export default function ViewerLiveStage({
 
   const showRecoveryOverlay =
     canShowVideo &&
-    (playerState === "loading" ||
-      playerState === "waiting_stream" ||
-      playerState === "interrupted" ||
-      playerState === "failed");
+    (playerState === "interrupted" || playerState === "failed");
 
   return (
     <div style={stageBoxStyle(isHost, shouldPausePublic)}>
@@ -320,7 +316,10 @@ export default function ViewerLiveStage({
           text="Room access is active, but no playback url is available yet."
         />
       ) : (
-        <div style={{ opacity: 0.9 }}>Waiting for live stream…</div>
+        <InfoBox
+          title="Waiting for stream"
+          text="The stream will start automatically when available."
+        />
       )}
 
       {showRecoveryOverlay ? (
@@ -328,7 +327,7 @@ export default function ViewerLiveStage({
           <div style={overlayCardStyle}>
             <div style={{ fontWeight: 1000, fontSize: 18 }}>
               {playerState === "failed"
-                ? "Stream unavailable"
+                ? "Stream not available"
                 : playerState === "interrupted"
                 ? "Stream temporarily unavailable"
                 : "Waiting for stream"}

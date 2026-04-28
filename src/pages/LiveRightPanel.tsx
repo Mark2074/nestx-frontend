@@ -162,18 +162,6 @@ export default function LiveRightPanel() {
 
   const runtimeScope = chatState.authorizedScope;
 
-  const isFreeze =
-    psStatus === "running" &&
-    chatState.shouldPausePublic === true &&
-    !isNativePrivateEvent;
-
-  const uiScope: LiveScope =
-    isNativePrivateEvent
-      ? "private"
-      : psStatus === "running" && runtimeScope === "private"
-      ? "private"
-      : "public";
-
   const goal = ev?.goal || ev?.live?.goal || null;
   const goalIsActive = !!goal?.isActive;
 
@@ -207,12 +195,32 @@ export default function LiveRightPanel() {
     return !!meId && !!hostUserId && meId === hostUserId;
   }, [hostUserId, meId]);
 
-  const hideToolsPanel = !isHost || isNativePrivateEvent;
-
   const reservedBy = String(ps?.reservedByUserId || "").trim();
   const isReservedUser = !!meId && !!reservedBy && meId === reservedBy;
+
+  const isAuthorizedPrivateUser =
+    isHost || isReservedUser || runtimeScope === "private";
+
+  const isFreeze =
+    psStatus === "running" &&
+    chatState.shouldPausePublic === true &&
+    !isAuthorizedPrivateUser &&
+    !isNativePrivateEvent;
+
+  const uiScope: LiveScope =
+    isNativePrivateEvent
+      ? "private"
+      : psStatus === "running" && isAuthorizedPrivateUser
+      ? "private"
+      : "public";
+
   const isRunningLockedOut =
-    canShow && psStatus === "running" && !isHost && !isReservedUser;
+    canShow &&
+    psStatus === "running" &&
+    !isHost &&
+    !isAuthorizedPrivateUser;
+
+  const hideToolsPanel = !isHost || isNativePrivateEvent;
 
   const viewerPrivateVisible =
     supportsInternalPrivate &&
@@ -290,7 +298,6 @@ export default function LiveRightPanel() {
   const hostCanFinish =
     isHost &&
     canShow &&
-    supportsInternalPrivate &&
     psStatus === "running";
 
   const canOpenPrivateTab = supportsInternalPrivate && !isTicketedEvent;
@@ -737,6 +744,28 @@ useEffect(() => {
     }
   }
 
+  async function onCancelPrivate() {
+    if (!eventId) return;
+    if (!supportsInternalPrivate) {
+      setErr("Private session is not available for this live.");
+      return;
+    }
+
+    setBusy(true);
+    setErr("");
+
+    try {
+      await api.eventPrivateCancel(eventId);
+      setExpiredLock(false);
+      setWaitLeft(null);
+      await loadEvent();
+    } catch (e: any) {
+      setErr(String(e?.message || "Private cancel failed"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function onAccept() {
     if (!eventId) return;
     if (!supportsInternalPrivate) {
@@ -887,6 +916,22 @@ useEffect(() => {
                 }}
               >
                 Private session is locked while a goal is active.
+              </div>
+            ) : psStatus === "running" && isAuthorizedPrivateUser ? (
+              <div
+                style={{
+                  padding: 12,
+                  borderRadius: 12,
+                  background: "rgba(34,197,94,0.14)",
+                  border: "1px solid rgba(34,197,94,0.35)",
+                  fontWeight: 900,
+                  lineHeight: 1.35,
+                }}
+              >
+                You are inside the private session.
+                <div style={{ marginTop: 8, opacity: 0.9, fontWeight: 800 }}>
+                  Private chat is active.
+                </div>
               </div>
             ) : isRunningLockedOut ? (
               <div
@@ -1261,6 +1306,32 @@ useEffect(() => {
                   >
                     Private session is locked while a goal is active.
                   </div>
+                ) : psStatus === "running" && isAuthorizedPrivateUser ? (
+                  <div
+                    style={{
+                      padding: 12,
+                      borderRadius: 12,
+                      background: "rgba(34,197,94,0.14)",
+                      border: "1px solid rgba(34,197,94,0.35)",
+                      fontWeight: 900,
+                      lineHeight: 1.35,
+                    }}
+                  >
+                    Private session is running.
+                    <div style={{ marginTop: 8, opacity: 0.9, fontWeight: 800 }}>
+                      Private chat is active.
+                    </div>
+
+                    <div style={{ marginTop: 12, display: "flex", justifyContent: "flex-end" }}>
+                      <button
+                        onClick={() => void onFinish()}
+                        style={secondaryBtnStyle}
+                        disabled={busy}
+                      >
+                        {busy ? "Finishing..." : "Finish private"}
+                      </button>
+                    </div>
+                  </div>
                 ) : isRunningLockedOut ? (
                   <div
                     style={{
@@ -1311,6 +1382,20 @@ useEffect(() => {
                       {hostCanSchedule ? (
                         <button onClick={() => setOpen(true)} style={secondaryBtnStyle} disabled={busy}>
                           Schedule private
+                        </button>
+                      ) : null}
+
+                      {isHost && psStatus === "scheduled" ? (
+                        <button
+                          onClick={() => void onCancelPrivate()}
+                          style={{
+                            ...secondaryBtnStyle,
+                            borderColor: "rgba(255,100,120,0.35)",
+                            color: "salmon",
+                          }}
+                          disabled={busy}
+                        >
+                          {busy ? "Cancelling..." : "Cancel private"}
                         </button>
                       ) : null}
 

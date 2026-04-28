@@ -985,6 +985,9 @@ export const api = {
     });
   },
 
+  eventPrivateCancel: (eventId: string) =>
+    request<any>(`/events/${eventId}/private/cancel`, { method: "POST" }),
+
   eventPrivateAccept: (eventId: string) =>
     request<any>(`/events/${eventId}/private/accept`, { method: "POST" }),
 
