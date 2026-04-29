@@ -12,6 +12,8 @@ type Props = {
   eventBaseScope: "public" | "private";
   runtimeScope: "public" | "private" | null;
   playbackUrl?: string | null;
+  hostGraceActive?: boolean;
+  hostGraceExpiresAt?: string | null;
   onBack: () => void;
   onRetry: () => void;
   navToLive: () => void;
@@ -35,6 +37,8 @@ export default function ViewerLiveStage({
   roomBlockCode,
   uiMode,
   playbackUrl,
+  hostGraceActive,
+  hostGraceExpiresAt,
   onBack,
   onRetry,
   navToLive,
@@ -46,6 +50,39 @@ export default function ViewerLiveStage({
   const retryTimerRef = useRef<number | null>(null);
 
   const [playerState, setPlayerState] = useState<PlayerState>("idle");
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!hostGraceActive || !hostGraceExpiresAt) return;
+
+    const t = window.setInterval(() => {
+      setNowMs(Date.now());
+    }, 1000);
+
+    return () => window.clearInterval(t);
+  }, [hostGraceActive, hostGraceExpiresAt]);
+
+  const hostGraceRemainingMs = useMemo(() => {
+    if (!hostGraceActive || !hostGraceExpiresAt) return 0;
+
+    const expiresMs = new Date(hostGraceExpiresAt).getTime();
+    if (!Number.isFinite(expiresMs)) return 0;
+
+    return Math.max(0, expiresMs - nowMs);
+  }, [hostGraceActive, hostGraceExpiresAt, nowMs]);
+
+  const showHostGraceOverlay =
+    hostGraceActive &&
+    hostGraceRemainingMs > 0 &&
+    hostGraceRemainingMs <= 105000;
+
+  const hostGraceRemainingLabel = useMemo(() => {
+    const totalSec = Math.ceil(hostGraceRemainingMs / 1000);
+    const mm = Math.floor(totalSec / 60);
+    const ss = totalSec % 60;
+
+    return `${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
+  }, [hostGraceRemainingMs]);
 
   const isSafariNative = useMemo(() => {
     if (typeof navigator === "undefined") return false;
@@ -295,7 +332,7 @@ export default function ViewerLiveStage({
 
   const showRecoveryOverlay =
     canShowVideo &&
-    (playerState === "interrupted" || playerState === "failed");
+    (showHostGraceOverlay || playerState === "failed");
 
   return (
     <div style={stageBoxStyle(isHost, shouldPausePublic)}>
@@ -326,7 +363,9 @@ export default function ViewerLiveStage({
         <div style={softOverlayStyle}>
           <div style={overlayCardStyle}>
             <div style={{ fontWeight: 1000, fontSize: 18 }}>
-              {playerState === "failed"
+              {showHostGraceOverlay
+                ? "Host disconnected"
+                : playerState === "failed"
                 ? "Stream not available"
                 : playerState === "interrupted"
                 ? "Stream temporarily unavailable"
@@ -334,7 +373,9 @@ export default function ViewerLiveStage({
             </div>
 
             <div style={{ marginTop: 8, opacity: 0.9, fontWeight: 800, lineHeight: 1.45 }}>
-              {playerState === "failed"
+              {showHostGraceOverlay
+                ? `The host lost connection. Reconnecting... ${hostGraceRemainingLabel}`
+                : playerState === "failed"
                 ? "Playback could not be restored automatically."
                 : playerState === "interrupted"
                 ? "The live stream paused or lost signal. It will resume automatically when available."

@@ -376,6 +376,8 @@ export default function HostLiveConsolePage() {
             state: "broadcasting",
           });
 
+          await api.liveHostPing(eventId, baseScope);
+
           setStep("LIVE_RUNNING");
           await loadStatus(baseScope);
           return;
@@ -469,7 +471,7 @@ export default function HostLiveConsolePage() {
     if (isFinished || isCancelled) return;
     if (step !== "PRE_GO_LIVE" && step !== "LIVE_RUNNING") return;
 
-    const t = window.setInterval(async () => {
+    const sendHostPing = async () => {
       try {
         const scope: LiveScope =
           runtimeScopeRef.current ||
@@ -479,7 +481,13 @@ export default function HostLiveConsolePage() {
       } catch {
         // ignore
       }
-    }, 5000);
+    };
+
+    void sendHostPing();
+
+    const t = window.setInterval(() => {
+      void sendHostPing();
+    }, 3000);
 
     return () => window.clearInterval(t);
   }, [eventBaseScope, eventId, isCancelled, isFinished, isHost, step]);
@@ -525,10 +533,16 @@ export default function HostLiveConsolePage() {
     if (!isHost) return;
     if (step !== "LIVE_RUNNING") return;
 
-    const t = window.setInterval(() => {
+    const t = window.setInterval(async () => {
       const scope: LiveScope =
         runtimeScopeRef.current ||
         eventBaseScope;
+
+      try {
+        await api.liveHostPing(eventId, scope);
+      } catch {
+        // ignore
+      }
 
       void loadStatus(scope);
     }, 5000);
@@ -551,6 +565,9 @@ export default function HostLiveConsolePage() {
         scope: eventBaseScope,
         state: "broadcasting",
       });
+
+      await api.liveHostPing(eventId, eventBaseScope);
+
       await loadEvent();
       await loadHostSession(eventBaseScope);
 

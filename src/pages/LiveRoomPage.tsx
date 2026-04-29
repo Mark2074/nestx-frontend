@@ -262,6 +262,8 @@ export default function LiveRoomPage() {
     return document.visibilityState === "visible";
   });
   const [viewerPlaybackUrl, setViewerPlaybackUrl] = useState<string | null>(null);
+  const [hostGraceActive, setHostGraceActive] = useState(false);
+  const [hostGraceExpiresAt, setHostGraceExpiresAt] = useState<string | null>(null);
   useEffect(() => {
     console.log("PLAYBACK URL:", viewerPlaybackUrl);
   }, [viewerPlaybackUrl]);
@@ -461,6 +463,8 @@ export default function LiveRoomPage() {
 
         const viewers = Number(res?.viewersNow ?? 0);
         setViewersNow(Number.isFinite(viewers) ? viewers : 0);
+        setHostGraceActive(Boolean(res?.hostGraceActive));
+        setHostGraceExpiresAt(res?.hostGraceExpiresAt ? String(res.hostGraceExpiresAt) : null);
       } catch {
         // ignore
       }
@@ -1163,7 +1167,9 @@ export default function LiveRoomPage() {
       if (!joinedPresenceRef.current) return;
 
       try {
-        await api.livePing(eventId, currentScope);
+        const pingRes: any = await api.livePing(eventId, currentScope);
+        setHostGraceActive(Boolean(pingRes?.hostGraceActive));
+        setHostGraceExpiresAt(pingRes?.hostGraceExpiresAt ? String(pingRes.hostGraceExpiresAt) : null);
       } catch (e: any) {
         const httpStatus = Number(e?.status || e?.response?.status || 0);
 
@@ -1213,6 +1219,14 @@ export default function LiveRoomPage() {
       }
 
       await loadStatus(currentScope);
+
+      const latestStatusRes: any = await api.liveStatus(eventId, currentScope);
+
+      setHostGraceActive(Boolean(latestStatusRes?.hostGraceActive));
+      setHostGraceExpiresAt(
+        latestStatusRes?.hostGraceExpiresAt ? String(latestStatusRes.hostGraceExpiresAt) : null
+      );
+
       const viewerSessionRes: any = await api.liveViewerSession(eventId, currentScope);
 
       applyViewerMediaState({
@@ -1398,6 +1412,8 @@ export default function LiveRoomPage() {
 
         <ViewerLiveStage
           key={`${eventId}:${runtimeScope || "none"}:${viewerPlaybackUrl || "no-url"}`}
+          hostGraceActive={hostGraceActive}
+          hostGraceExpiresAt={hostGraceExpiresAt}
           eventId={eventId}
           stageReady={roomReady && entered && !!runtimeScope}
           stageErr=""
