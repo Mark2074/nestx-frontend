@@ -34,7 +34,7 @@ export default function LiveCreatePage() {
     isNoHot ? "private" : accessScope;
 
   const isPrivateModel = effectiveAccessScope === "private";
-  const canPromoteEvent = liveEnabled && economyEnabled !== false && !!contentScope;
+  const canPromoteEvent = liveEnabled && !!contentScope;
 
   const interactionMode: "broadcast" | "interactive" = "broadcast";
 
@@ -66,13 +66,6 @@ export default function LiveCreatePage() {
     if (step === 2) void loadEconomyFlag();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
-
-  // When economy is OFF, disable promote (avoid paid logic in a phase that doesn't support it)
-  useEffect(() => {
-    if (economyEnabled === false) {
-      setPromote(false);
-    }
-  }, [economyEnabled]);
 
   function goBack() {
     setStep(1);
