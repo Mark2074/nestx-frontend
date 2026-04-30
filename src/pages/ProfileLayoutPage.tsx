@@ -1,21 +1,166 @@
 import { useEffect, useMemo, useState } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { Outlet, useLocation, useParams } from "react-router-dom";
 import ProfileLeftPage from "./ProfileLeftPage.tsx";
 import ProfileRightPage from "./ProfileRightPage.tsx";
 import LiveRightPanel from "./LiveRightPanel.tsx";
 import AdminDictionaryDrawer from "./admin/AdminDictionaryDrawer";
 
+function ObsSetupPanel({ eventId }: { eventId: string }) {
+  const rtmpUrl = "rtmp://46.101.183.107:1935/app";
+  const streamKey = eventId;
+
+  const copy = (text: string) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+  };
+
+  return (
+    <div
+      style={{
+        borderRadius: 18,
+        border: "1px solid rgba(255,255,255,0.10)",
+        background: "rgba(15,23,42,0.72)",
+        padding: 14,
+        display: "grid",
+        gap: 10,
+      }}
+    >
+      <div style={{ fontWeight: 950, fontSize: 16 }}>OBS setup</div>
+
+      {/* STEP 1 */}
+      <div style={obsStepStyle}>
+        <div style={obsStepTitleStyle}>1. Download</div>
+        <a
+          href="https://obsproject.com/download"
+          target="_blank"
+          rel="noreferrer"
+          style={obsButtonStyle}
+        >
+          Download OBS
+        </a>
+      </div>
+
+      {/* STEP 2 */}
+      <div style={obsStepStyle}>
+        <div style={obsStepTitleStyle}>2. Stream setup</div>
+
+        <div style={obsHintStyle}>Open OBS → Controls → Settings → Stream</div>
+
+        <div style={obsRowStyle}>
+          <div style={obsLabelStyle}>Server</div>
+          <div style={obsValueStyle}>{rtmpUrl || "-"}</div>
+          <button onClick={() => copy(rtmpUrl)} style={obsCopyBtn}>
+            Copy
+          </button>
+        </div>
+        <div style={obsHintStyle}>Paste into OBS Server</div>
+
+        <div style={obsRowStyle}>
+          <div style={obsLabelStyle}>Stream Key</div>
+          <div style={obsValueStyle}>{streamKey || "-"}</div>
+          <button onClick={() => copy(streamKey)} style={obsCopyBtn}>
+            Copy
+          </button>
+        </div>
+        <div style={obsHintStyle}>Paste into OBS Stream Key</div>
+
+        <div style={obsHintStyle}>Click Apply → OK</div>
+      </div>
+
+      {/* STEP 3 */}
+      <div style={obsStepStyle}>
+        <div style={obsStepTitleStyle}>3. Camera</div>
+        <div style={obsHintStyle}>Click ➕ (Sources)</div>
+        <div style={obsHintStyle}>Video Capture Device</div>
+        <div style={obsHintStyle}>Select camera & microphone</div>
+      </div>
+
+      {/* STEP 4 */}
+      <div style={obsStepStyle}>
+        <div style={obsStepTitleStyle}>4. Go live</div>
+        <div style={obsHintStyle}>Start Streaming (OBS Controls)</div>
+        <div style={obsHintStyle}>Go Live (NestX)</div>
+      </div>
+    </div>
+  );
+}
+
+const obsStepStyle: React.CSSProperties = {
+  borderRadius: 14,
+  background: "rgba(255,255,255,0.055)",
+  padding: 10,
+  display: "grid",
+  gap: 6,
+};
+
+const obsStepTitleStyle: React.CSSProperties = {
+  fontWeight: 950,
+  fontSize: 13,
+};
+
+const obsHintStyle: React.CSSProperties = {
+  fontWeight: 750,
+  fontSize: 12,
+  opacity: 0.86,
+  lineHeight: 1.25,
+};
+
+const obsButtonStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "9px 10px",
+  borderRadius: 12,
+  background: "rgba(59,130,246,0.95)",
+  color: "white",
+  fontWeight: 950,
+  fontSize: 13,
+  textDecoration: "none",
+};
+
+const obsRowStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "70px 1fr 60px",
+  alignItems: "center",
+  gap: 6,
+};
+
+const obsLabelStyle: React.CSSProperties = {
+  fontWeight: 800,
+  fontSize: 12,
+};
+
+const obsValueStyle: React.CSSProperties = {
+  fontSize: 11,
+  opacity: 0.9,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
+const obsCopyBtn: React.CSSProperties = {
+  borderRadius: 10,
+  padding: "6px 8px",
+  fontWeight: 900,
+  fontSize: 11,
+  cursor: "pointer",
+};
+
 export default function ProfileLayoutPage() {
 
   const loc = useLocation();
+  const { id } = useParams();
+  const eventId = String(id || "").trim();
   const rightKey = `${loc.pathname}${loc.search}`;
 
-  const isLiveRightPanelRoute = useMemo(() => {
+  const isLiveRoomRoute = useMemo(() => {
     const p = String(loc.pathname || "");
-    return (
-      /^\/app\/live\/[^/]+\/room\/?$/.test(p) ||
-      /^\/app\/live\/[^/]+\/host-console\/?$/.test(p)
-    );
+    return /^\/app\/live\/[^/]+\/room\/?$/.test(p);
+  }, [loc.pathname]);
+
+  const isHostConsoleRoute = useMemo(() => {
+    const p = String(loc.pathname || "");
+    return /^\/app\/live\/[^/]+\/host-console\/?$/.test(p);
   }, [loc.pathname]);
 
   const block = (() => {
@@ -166,7 +311,9 @@ export default function ProfileLayoutPage() {
           paddingBottom: 12,
         }}
       >
-        {isLiveRightPanelRoute ? (
+        {isHostConsoleRoute ? (
+          <ObsSetupPanel eventId={eventId} />
+        ) : isLiveRoomRoute ? (
           <LiveRightPanel />
         ) : (
           <ProfileRightPage key={rightKey} />

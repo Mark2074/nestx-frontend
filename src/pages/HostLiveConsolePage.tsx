@@ -27,14 +27,6 @@ type EventDetail = {
   live?: any;
 };
 
-type HostConsoleState =
-  | "BOOTING"
-  | "READY"
-  | "GOING_LIVE"
-  | "LIVE"
-  | "FINISHING"
-  | "ERROR";
-
 type HostConsoleStep = "PRE_GO_LIVE" | "LIVE_RUNNING";
 
 function normalizeEventDetail(input: any): EventDetail {
@@ -92,17 +84,14 @@ export default function HostLiveConsolePage() {
   const [loadingFinish, setLoadingFinish] = useState(false);
 
   const [err, setErr] = useState("");
-  const [previewErr] = useState("");
 
   const [step, setStep] = useState<HostConsoleStep>("PRE_GO_LIVE");
-  const [providerDurationMs] = useState(0);
 
   const [, setGraceTick] = useState(0);
-  const [hostDisconnectState, setHostDisconnectState] = useState("offline");
   const [hostGraceActive, setHostGraceActive] = useState(false);
   const [hostGraceExpiresAt, setHostGraceExpiresAt] = useState<string | null>(null);
 
-  const [hostSession, setHostSession] = useState<{
+  const [, setHostSession] = useState<{
     rtmpUrl: string;
     streamKey: string;
     playbackUrl: string | null;
@@ -110,6 +99,7 @@ export default function HostLiveConsolePage() {
   } | null>(null);
 
   const [mediaLive, setMediaLive] = useState(false);
+  const [viewersNow, setViewersNow] = useState(0);
 
   const stepStorageKey = `nx_host_console_step_${eventId}`;
   const hostLiveLockStorageKey = "nx_host_live_lock";
@@ -174,23 +164,6 @@ export default function HostLiveConsolePage() {
     [eventBaseScope, eventDetail, eventId]
   );
 
-  const consoleState: HostConsoleState = useMemo(() => {
-    if (err || previewErr) return "ERROR";
-    if (loadingFinish) return "FINISHING";
-    if (loadingGoLive) return "GOING_LIVE";
-    if (isLive) return "LIVE";
-    if (loadingBootstrap) return "BOOTING";
-    return "READY";
-  }, [
-    err,
-    isLive,
-    previewErr,
-    loadingBootstrap,
-    loadingFinish,
-    loadingGoLive,
-    step,
-  ]);
-
   const setHostLiveLock = useCallback(
     (active: boolean) => {
       try {
@@ -243,9 +216,6 @@ export default function HostLiveConsolePage() {
       try {
         const res: any = await api.liveStatus(eventId, scope);
 
-        setHostDisconnectState(
-          String(res?.hostDisconnectState || "offline").trim().toLowerCase()
-        );
         setHostGraceActive(Boolean(res?.hostGraceActive));
         setHostGraceExpiresAt(
           res?.hostGraceExpiresAt ? String(res.hostGraceExpiresAt) : null
@@ -307,14 +277,6 @@ export default function HostLiveConsolePage() {
     },
     [eventId]
   );
-
-  const copyText = useCallback(async (value: string) => {
-    try {
-      await navigator.clipboard.writeText(value);
-    } catch {
-      // ignore
-    }
-  }, []);
 
   useEffect(() => {
     if (!eventId) return;
@@ -439,16 +401,26 @@ export default function HostLiveConsolePage() {
     if (step !== "LIVE_RUNNING") return;
 
     const t = window.setInterval(async () => {
-      const latest = await loadEvent();
-      const latestStatus = String(latest?.status || "").trim().toLowerCase();
+    const scope: LiveScope =
+      runtimeScopeRef.current ||
+      eventBaseScope;
 
-      if (latestStatus === "finished" || latestStatus === "cancelled") {
-        try {
-          sessionStorage.removeItem(stepStorageKey);
-        } catch {}
-        nav("/app/live", { replace: true });
-      }
-    }, 5000);
+    try {
+      await api.liveHostPing(eventId, scope);
+    } catch {}
+
+    try {
+      const res: any = await api.liveStatus(eventId, scope);
+      setViewersNow(Number(res?.viewersNow || 0));
+
+      setHostGraceActive(Boolean(res?.hostGraceActive));
+      setHostGraceExpiresAt(
+        res?.hostGraceExpiresAt ? String(res.hostGraceExpiresAt) : null
+      );
+    } catch {}
+
+    void loadMediaStatus(scope);
+  }, 5000);
 
     return () => window.clearInterval(t);
   }, [eventId, isCancelled, isFinished, isHost, loadEvent, nav, step, stepStorageKey]);
@@ -545,6 +517,7 @@ export default function HostLiveConsolePage() {
       }
 
       void loadStatus(scope);
+      void loadMediaStatus(scope);
     }, 5000);
 
     return () => window.clearInterval(t);
@@ -688,17 +661,9 @@ export default function HostLiveConsolePage() {
             }}
           >
             <span style={pillStyle}>{(eventDetail?.contentScope || "—").toString()}</span>
-            <span style={pillStyle}>{eventBaseScope.toUpperCase()}</span>
-            <span style={pillStyle}>{consoleState}</span>
-            <span style={pillStyle}>host {hostDisconnectState}</span>
-            <span style={pillStyle}>{step}</span>
             <span style={pillStyle}>
-              {step === "LIVE_RUNNING"
-                ? "Host live console"
-                : "Pre-live host console"}
+              {isFinished || isCancelled ? "ENDED" : isLive ? "LIVE" : "WAITING"}
             </span>
-            <span style={pillStyle}>👁 0 watching</span>
-            <span style={pillStyle}>⏱ {formatDuration(providerDurationMs)}</span>
             {hostGraceActive ? (
               <span style={pillStyle}>
                 reconnect {formatCountdownTo(hostGraceExpiresAt)}
@@ -739,127 +704,76 @@ export default function HostLiveConsolePage() {
             padding: 12,
           }}
         >
-          <div style={{ fontWeight: 900, marginBottom: 10 }}>
-            {step === "LIVE_RUNNING"
-              ? "Host live console"
-              : "Pre-live host console"}
-          </div>
-
           <div
             style={{
-              minHeight: 560,
+              borderRadius: 16,
+              background: "rgba(255,255,255,0.035)",
+              padding: 18,
               display: "grid",
-              placeItems: "center",
-              opacity: 0.9,
-              borderRadius: 14,
-              background: "rgba(0,0,0,0.28)",
-              textAlign: "center",
-              padding: 20,
-              position: "relative",
+              gap: 14,
             }}
           >
-            <div style={{ width: "min(760px, 100%)", textAlign: "left" }}>
-              <div style={{ fontWeight: 1000, fontSize: 18, textAlign: "center" }}>
-                OME host console
+            <div style={{ display: "grid", gap: 8 }}>
+              <div style={{ fontSize: 26, fontWeight: 1000 }}>
+                {step === "LIVE_RUNNING" ? "Live active" : "Ready to go live"}
               </div>
 
-              <div
-                style={{
-                  marginTop: 10,
-                  opacity: 0.88,
-                  fontWeight: 800,
-                  lineHeight: 1.45,
-                  textAlign: "center",
-                }}
-              >
-                Host media is now external. Start the event here, then publish from OBS using the RTMP data below.
+              <div style={{ opacity: 0.82, fontWeight: 800 }}>
+                {step === "LIVE_RUNNING"
+                  ? "Your event is live on NestX."
+                  : "Start streaming in OBS, then click Go Live."}
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                gap: 12,
+              }}
+            >
+              <div style={statusCardStyle}>
+                <div style={statusLabelStyle}>Viewers</div>
+                <div style={statusValueStyle}>
+                  {viewersNow}
+                </div>
+              </div>
+              
+              <div style={statusCardStyle}>
+                <div style={statusLabelStyle}>Event</div>
+                <div style={statusValueStyle}>
+                  {isFinished || isCancelled ? "ENDED" : isLive ? "LIVE" : "WAITING"}
+                </div>
               </div>
 
-              <div
-                style={{
-                  marginTop: 18,
-                  display: "grid",
-                  gap: 12,
-                }}
-              >
-                <div style={infoRowStyle}>
-                  <div style={infoLabelStyle}>Host panel</div>
-                  <div style={infoValueStyle}>Chat, goals and private controls</div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const w = window.open(
-                        `/app/live/${eventId}/host-panel`,
-                        "nestx_host_panel",
-                        "popup=yes,width=420,height=900,left=40,top=40,menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=no"
-                      );
-
-                      try {
-                        w?.focus();
-                      } catch {
-                        // ignore
-                      }
-                    }}
-                    style={secondaryBtnStyle}
-                  >
-                    Open
-                  </button>
+              <div style={statusCardStyle}>
+                <div style={statusLabelStyle}>Stream</div>
+                <div style={statusValueStyle}>
+                  {mediaLive ? "ACTIVE" : "WAITING"}
                 </div>
-                <div style={infoRowStyle}>
-                  <div style={infoLabelStyle}>RTMP URL</div>
-                  <div style={infoValueStyle}>{hostSession?.rtmpUrl || "—"}</div>
-                  <button
-                    type="button"
-                    onClick={() => void copyText(String(hostSession?.rtmpUrl || ""))}
-                    style={secondaryBtnStyle}
-                  >
-                    Copy
-                  </button>
-                </div>
+              </div>
 
-                <div style={infoRowStyle}>
-                  <div style={infoLabelStyle}>Stream key</div>
-                  <div style={infoValueStyle}>{hostSession?.streamKey || "—"}</div>
-                  <button
-                    type="button"
-                    onClick={() => void copyText(String(hostSession?.streamKey || ""))}
-                    style={secondaryBtnStyle}
-                  >
-                    Copy
-                  </button>
-                </div>
-
-                <div style={infoRowStyle}>
-                  <div style={infoLabelStyle}>Playback URL</div>
-                  <div style={infoValueStyle}>{hostSession?.playbackUrl || "—"}</div>
-                  <button
-                    type="button"
-                    onClick={() => void copyText(String(hostSession?.playbackUrl || ""))}
-                    style={secondaryBtnStyle}
-                  >
-                    Copy
-                  </button>
-                </div>
-
-                <div style={infoRowStyle}>
-                  <div style={infoLabelStyle}>Media status</div>
-                  <div style={infoValueStyle}>
-                    {mediaLive ? "LIVE" : "WAITING_FOR_STREAM"}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const scope: LiveScope = runtimeScopeRef.current || eventBaseScope;
-                      void loadMediaStatus(scope);
-                    }}
-                    style={secondaryBtnStyle}
-                  >
-                    Refresh media
-                  </button>
+              <div style={statusCardStyle}>
+                <div style={statusLabelStyle}>OBS</div>
+                <div style={statusValueStyle}>
+                  {hostGraceActive ? "DISCONNECTED" : mediaLive ? "CONNECTED" : "WAITING"}
                 </div>
               </div>
             </div>
 
+            {hostGraceActive ? (
+              <div
+                style={{
+                  borderRadius: 14,
+                  border: "1px solid rgba(234,179,8,0.35)",
+                  background: "rgba(234,179,8,0.10)",
+                  padding: 12,
+                  fontWeight: 900,
+                }}
+              >
+                Reconnecting… {formatCountdownTo(hostGraceExpiresAt)}
+              </div>
+            ) : null}
           </div>
 
           <div
@@ -872,11 +786,7 @@ export default function HostLiveConsolePage() {
               flexWrap: "wrap",
             }}
           >
-            <div style={{ opacity: 0.86, lineHeight: 1.45 }}>
-              {step === "PRE_GO_LIVE"
-                ? "Start the event from this host console, then publish from OBS."
-                : "You are live. OBS is the media source; NestX only controls the event state."}
-            </div>
+            <div />
 
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {step === "PRE_GO_LIVE" ? (
@@ -903,15 +813,6 @@ export default function HostLiveConsolePage() {
                 </>
               ) : (
                 <>
-                  <button
-                    onClick={() => {
-                      void loadEvent();
-                    }}
-                    disabled={loadingFinish}
-                    style={secondaryBtnStyle}
-                  >
-                    Refresh status
-                  </button>
 
                   <button
                     onClick={() => {
@@ -961,24 +862,22 @@ const secondaryBtnStyle = {
   border: "1px solid rgba(255,255,255,0.14)",
 } as const;
 
-const infoRowStyle = {
-  display: "grid",
-  gridTemplateColumns: "140px 1fr auto",
-  gap: 10,
-  alignItems: "center",
-  padding: "10px 12px",
-  borderRadius: 12,
+const statusCardStyle = {
+  borderRadius: 14,
   border: "1px solid rgba(255,255,255,0.10)",
-  background: "rgba(255,255,255,0.04)",
+  background: "rgba(0,0,0,0.18)",
+  padding: 14,
+  display: "grid",
+  gap: 6,
 } as const;
 
-const infoLabelStyle = {
+const statusLabelStyle = {
+  fontSize: 12,
   fontWeight: 900,
-  opacity: 0.85,
+  opacity: 0.7,
 } as const;
 
-const infoValueStyle = {
-  fontWeight: 800,
-  opacity: 0.96,
-  wordBreak: "break-all" as const,
+const statusValueStyle = {
+  fontSize: 15,
+  fontWeight: 1000,
 } as const;

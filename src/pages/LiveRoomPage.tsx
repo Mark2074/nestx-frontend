@@ -202,16 +202,32 @@ function resolveTargetRuntimeScope(params: {
   return "public";
 }
 
-function formatDuration(ms: number): string {
-  const totalSec = Math.max(0, Math.floor(ms / 1000));
-  const hh = Math.floor(totalSec / 3600);
-  const mm = Math.floor((totalSec % 3600) / 60);
-  const ss = totalSec % 60;
+function persistHostSessionForObsPanel(ev: EventDetail | null) {
+  try {
+    const live = ev?.live || {};
 
-  const p2 = (n: number) => String(n).padStart(2, "0");
+    const rtmpUrl =
+      String(live?.rtmpUrl || live?.ingestUrl || live?.rtmpURL || "").trim();
 
-  if (hh > 0) return `${p2(hh)}:${p2(mm)}:${p2(ss)}`;
-  return `${p2(mm)}:${p2(ss)}`;
+    const streamKey =
+      String(live?.streamKey || live?.stream_key || "").trim();
+
+    if (!rtmpUrl && !streamKey) return;
+
+    localStorage.setItem(
+      "nx_live_host_session",
+      JSON.stringify({
+        rtmpUrl,
+        streamKey,
+      })
+    );
+
+    window.dispatchEvent(
+      new CustomEvent("nx:host-session:updated", {
+        detail: { rtmpUrl, streamKey },
+      })
+    );
+  } catch {}
 }
 
 export default function LiveRoomPage() {
@@ -236,7 +252,6 @@ export default function LiveRoomPage() {
 
   const [meta, setMeta] = useState<any>(null);
   const [viewersNow, setViewersNow] = useState(0);
-  const [providerDurationMs] = useState(0);
 
   const [loadingBootstrap, setLoadingBootstrap] = useState(false);
   const [loadingTransition, setLoadingTransition] = useState(false);
@@ -371,6 +386,23 @@ export default function LiveRoomPage() {
 
   const canStay = isHost || (access ? !!access.canEnter : true);
   const loading = loadingBootstrap || loadingTransition;
+  const viewerStatusLabel =
+    roomBlockCode === "ROOM_FULL"
+      ? "BLOCKED"
+      : hostGraceActive
+      ? "RECONNECTING"
+      : shouldPausePublic
+      ? "PAUSED"
+      : isFinished || isCancelled
+      ? "ENDED"
+      : isLive
+      ? "LIVE"
+      : "WAITING";
+
+  const scopeLabel =
+    runtimeScope === "private" || eventBaseScope === "private"
+      ? "PRIVATE"
+      : "PUBLIC";
 
   const emitRuntimeState = useCallback(
     (payload?: Partial<RuntimeStatePayload> & { roomBlockCode?: "" | "ROOM_FULL" }) => {
@@ -422,6 +454,7 @@ export default function LiveRoomPage() {
       const raw = await api.eventGet(eventId);
       const ev = normalizeEventDetail(raw);
       setEventDetail(ev);
+      persistHostSessionForObsPanel(ev);
       applyMetaFromEvent(ev);
       return ev;
     } catch {
@@ -886,6 +919,27 @@ export default function LiveRoomPage() {
   }, []);
 
   useEffect(() => {
+    if (!isDocumentVisible) return;
+    if (!eventId) return;
+
+    const currentScope = runtimeScopeRef.current;
+    if (!currentScope) return;
+
+    void loadStatus(currentScope);
+
+    if (!isHost && joinedPresenceRef.current) {
+      void api.livePing(eventId, currentScope)
+        .then((pingRes: any) => {
+          setHostGraceActive(Boolean(pingRes?.hostGraceActive));
+          setHostGraceExpiresAt(
+            pingRes?.hostGraceExpiresAt ? String(pingRes.hostGraceExpiresAt) : null
+          );
+        })
+        .catch(() => {});
+    }
+  }, [eventId, isDocumentVisible, isHost, loadStatus]);
+
+  useEffect(() => {
     if (!eventId) return;
 
     let alive = true;
@@ -923,6 +977,7 @@ export default function LiveRoomPage() {
 
         const ev = normalizeEventDetail(rawEvent);
         setEventDetail(ev);
+        persistHostSessionForObsPanel(ev);
         applyMetaFromEvent(ev);
 
         setAccess(accessRes as AccessResponse);
@@ -1157,7 +1212,6 @@ export default function LiveRoomPage() {
     if (!roomReady) return;
 
     const t = window.setInterval(async () => {
-      if (!isHost && !isDocumentVisible) return;
       const currentScope = runtimeScopeRef.current;
       if (!currentScope) return;
 
@@ -1402,20 +1456,14 @@ export default function LiveRoomPage() {
               flexWrap: "wrap",
             }}
           >
-            <span style={pillStyle}>{String(meta?.scope || eventDetail?.contentScope || "—")}</span>
+            <span style={pillStyle}>{viewerStatusLabel}</span>
+            <span style={pillStyle}>{scopeLabel}</span>
             <span style={pillStyle}>
               {Number(meta?.price ?? eventDetail?.ticketPriceTokens ?? 0) === 0
                 ? "FREE"
                 : `${Number(meta?.price ?? eventDetail?.ticketPriceTokens ?? 0)} tokens`}
             </span>
-            <span style={pillStyle}>👁 {viewersNow} watching</span>
-            <span style={pillStyle}>⏱ {formatDuration(providerDurationMs)}</span>
-            <span style={pillStyle}>
-              {roomBlockCode === "ROOM_FULL"
-                ? "BLOCKED"
-                : (runtimeScope || eventBaseScope).toUpperCase()}
-            </span>
-            <span style={pillStyle}>{uiMode}</span>
+            <span style={pillStyle}>👁 {viewersNow}</span>
           </div>
         </div>
 
