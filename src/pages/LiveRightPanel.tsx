@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { api, mapApiErrorMessage, getApiRetryAfterMs, formatRetryAfterLabel } from "../api/nestxApi";
 
 type LiveScope = "public" | "private";
@@ -102,8 +102,10 @@ function normalizeMessage(item: any): Msg | null {
 
 export default function LiveRightPanel() {
   const nav = useNavigate();
+  const location = useLocation();
   const { id } = useParams();
   const eventId = String(id || "").trim();
+  const isHostPanelRoute = location.pathname.includes("/host-panel");
 
   const [meId, setMeId] = useState("");
   const [ev, setEv] = useState<EventDetail | null>(null);
@@ -426,6 +428,10 @@ export default function LiveRightPanel() {
             (m) => !serverSig.has(`${m.scope}|${m.userId}|${m.text}`)
           );
 
+          if (isHost && scopeToLoad === "private" && normalized.length === 0 && prev.length > 0) {
+            return prev.filter((m) => m.scope === "private" || m.__optimistic);
+          }
+
           return [...normalized, ...keep];
         });
 
@@ -583,36 +589,61 @@ export default function LiveRightPanel() {
     }
   }, [canShow, goalActive, privateActive, tab]);
 
-useEffect(() => {
-  const handler = (e: any) => {
-    const d = e?.detail || {};
-    if (String(d?.eventId || "") !== eventId) return;
+  useEffect(() => {
+    if (!eventId) return;
+    if (!isHost) return;
+    if (!canShow) return;
 
-    const nextAuthorizedScope: LiveScope | null =
-      d?.authorizedScope === "private"
-        ? "private"
-        : d?.authorizedScope === "public"
-        ? "public"
-        : null;
+    const nextScope: LiveScope =
+      psStatus === "running" && supportsInternalPrivate ? "private" : eventBaseScopeForHost(ev);
 
-    const nextRoomBlockCode: "" | "ROOM_FULL" =
-      d?.roomBlockCode === "ROOM_FULL" ? "ROOM_FULL" : "";
+    const nextRoomId =
+      nextScope === "private"
+        ? String(ev?.privateSession?.roomId || "")
+        : String(ev?.live?.roomId || ev?._id || ev?.id || "");
 
     setChatState({
-      entered: Boolean(d?.entered),
-      joinedPresence: Boolean(d?.joinedPresence),
-      authorizedScope: nextAuthorizedScope,
-      authorizedRoomId: typeof d?.authorizedRoomId === "string" ? d.authorizedRoomId : "",
-      shouldPausePublic: Boolean(d?.shouldPausePublic),
-      canWriteChat: Boolean(d?.canWriteChat),
-      canWriteChatReason: String(d?.canWriteChatReason || ""),
-      roomBlockCode: nextRoomBlockCode,
+      entered: true,
+      joinedPresence: true,
+      authorizedScope: nextScope,
+      authorizedRoomId: nextRoomId,
+      shouldPausePublic: false,
+      canWriteChat: true,
+      canWriteChatReason: "HOST",
+      roomBlockCode: "",
     });
-  };
+  }, [canShow, ev, eventId, isHost, psStatus, supportsInternalPrivate]);
 
-  window.addEventListener("nx:livechat:state", handler as any);
-  return () => window.removeEventListener("nx:livechat:state", handler as any);
-}, [eventId]);
+  useEffect(() => {
+    const handler = (e: any) => {
+      const d = e?.detail || {};
+      if (String(d?.eventId || "") !== eventId) return;
+
+      const nextAuthorizedScope: LiveScope | null =
+        d?.authorizedScope === "private"
+          ? "private"
+          : d?.authorizedScope === "public"
+          ? "public"
+          : null;
+
+      const nextRoomBlockCode: "" | "ROOM_FULL" =
+        d?.roomBlockCode === "ROOM_FULL" ? "ROOM_FULL" : "";
+
+      setChatState({
+        entered: Boolean(d?.entered),
+        joinedPresence: Boolean(d?.joinedPresence),
+        authorizedScope: nextAuthorizedScope,
+        authorizedRoomId: typeof d?.authorizedRoomId === "string" ? d.authorizedRoomId : "",
+        shouldPausePublic: Boolean(d?.shouldPausePublic),
+        canWriteChat: Boolean(d?.canWriteChat),
+        canWriteChatReason: String(d?.canWriteChatReason || ""),
+        roomBlockCode: nextRoomBlockCode,
+      });
+    };
+
+    window.addEventListener("nx:livechat:state", handler as any);
+    return () => window.removeEventListener("nx:livechat:state", handler as any);
+  }, [eventId]);
 
   useEffect(() => {
     setMessages([]);
@@ -779,7 +810,10 @@ useEffect(() => {
     try {
       await api.eventPrivateAccept(eventId);
       await loadEvent();
-      nav(`/app/live/${eventId}/room?scope=private`, { replace: true });
+
+      if (!isHostPanelRoute) {
+        nav(`/app/live/${eventId}/room?scope=private`, { replace: true });
+      }
     } catch (e: any) {
       setErr(String(e?.message || "Private accept failed"));
     } finally {
@@ -802,7 +836,10 @@ useEffect(() => {
       setExpiredLock(false);
       setWaitLeft(null);
       await loadEvent();
-      nav(`/app/live/${eventId}/room?scope=public`, { replace: true });
+
+      if (!isHostPanelRoute) {
+        nav(`/app/live/${eventId}/room?scope=public`, { replace: true });
+      }
     } catch (e: any) {
       setErr(String(e?.message || "Private finish failed"));
     } finally {
@@ -1868,6 +1905,10 @@ useEffect(() => {
       ) : null}
     </div>
   );
+}
+
+function eventBaseScopeForHost(ev: EventDetail | null): LiveScope {
+  return ev?.accessScope === "private" ? "private" : "public";
 }
 
 const cardStyle = {

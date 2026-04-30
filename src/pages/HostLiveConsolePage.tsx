@@ -783,6 +783,29 @@ export default function HostLiveConsolePage() {
                 }}
               >
                 <div style={infoRowStyle}>
+                  <div style={infoLabelStyle}>Host panel</div>
+                  <div style={infoValueStyle}>Chat, goals and private controls</div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const w = window.open(
+                        `/app/live/${eventId}/host-panel`,
+                        "nestx_host_panel",
+                        "popup=yes,width=420,height=900,left=40,top=40,menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=no"
+                      );
+
+                      try {
+                        w?.focus();
+                      } catch {
+                        // ignore
+                      }
+                    }}
+                    style={secondaryBtnStyle}
+                  >
+                    Open
+                  </button>
+                </div>
+                <div style={infoRowStyle}>
                   <div style={infoLabelStyle}>RTMP URL</div>
                   <div style={infoValueStyle}>{hostSession?.rtmpUrl || "—"}</div>
                   <button

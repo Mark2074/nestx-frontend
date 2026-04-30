@@ -262,6 +262,7 @@ export default function LiveRoomPage() {
     return document.visibilityState === "visible";
   });
   const [viewerPlaybackUrl, setViewerPlaybackUrl] = useState<string | null>(null);
+  const [playerRefreshNonce, setPlayerRefreshNonce] = useState(0);
   const [hostGraceActive, setHostGraceActive] = useState(false);
   const [hostGraceExpiresAt, setHostGraceExpiresAt] = useState<string | null>(null);
   useEffect(() => {
@@ -286,6 +287,7 @@ export default function LiveRoomPage() {
   const viewerWasHiddenRef = useRef(false);
 
   const lastViewerPlaybackUrlRef = useRef<string | null>(null);
+  const previousPrivateRunningRef = useRef(false);
 
   const applyViewerMediaState = useCallback((payload: {
     playbackUrl?: string | null;
@@ -1268,6 +1270,65 @@ export default function LiveRoomPage() {
 
   useEffect(() => {
     if (!eventId) return;
+    if (isHost) return;
+    if (!supportsInternalPrivate) return;
+
+    const wasPrivateRunning = previousPrivateRunningRef.current;
+    previousPrivateRunningRef.current = isPrivateRunning;
+
+    if (!wasPrivateRunning || isPrivateRunning) return;
+    if (runtimeScopeRef.current !== "public") return;
+    if (!joinedPresenceRef.current) return;
+
+    const resumePublic = async () => {
+      try {
+        setRoomReady(false);
+
+        const latest = await loadEvent();
+        if (!latest) return;
+
+        await loadAccess("public");
+
+        const viewerSessionRes: any = await api.liveViewerSession(eventId, "public");
+
+        applyViewerMediaState({
+          playbackUrl: viewerSessionRes?.playbackUrl,
+          hostMediaStatus: viewerSessionRes?.hostMediaStatus,
+          isLive: viewerSessionRes?.isLive,
+        });
+
+        setRuntimeScope("public");
+        runtimeScopeRef.current = "public";
+        setEntered(true);
+        setRoomReady(true);
+        setPlayerRefreshNonce((v) => v + 1);
+
+        emitRuntimeState({
+          entered: true,
+          joinedPresence: true,
+          authorizedScope: "public",
+          shouldPausePublic: false,
+        });
+      } catch {
+        setPlayerRefreshNonce((v) => v + 1);
+        setRoomReady(true);
+      }
+    };
+
+    void resumePublic();
+  }, [
+    applyViewerMediaState,
+    emitRuntimeState,
+    eventId,
+    isHost,
+    isPrivateRunning,
+    loadAccess,
+    loadEvent,
+    supportsInternalPrivate,
+  ]);
+
+  useEffect(() => {
+    if (!eventId) return;
 
     return () => {
       const current = runtimeScopeRef.current;
@@ -1411,7 +1472,7 @@ export default function LiveRoomPage() {
         <div style={{ fontWeight: 900, marginBottom: 6 }}>Live</div>
 
         <ViewerLiveStage
-          key={`${eventId}:${runtimeScope || "none"}:${viewerPlaybackUrl || "no-url"}`}
+          key={`${eventId}:${runtimeScope || "none"}:${viewerPlaybackUrl || "no-url"}:${shouldPausePublic ? "paused" : "active"}:${playerRefreshNonce}`}
           hostGraceActive={hostGraceActive}
           hostGraceExpiresAt={hostGraceExpiresAt}
           eventId={eventId}

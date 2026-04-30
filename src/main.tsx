@@ -48,6 +48,7 @@ import AdminReportDetailPage from "./pages/admin/AdminReportDetailPage";
 import AdminDeletedAccountsPage from "./pages/admin/AdminDeletedAccountsPage.tsx";
 import FedPage from "./pages/FedPage";
 import HostLiveConsolePage from "./pages/HostLiveConsolePage";
+import HostPanelPage from "./pages/HostPanelPage";
 
 function isAdminAccount() {
   return (localStorage.getItem("accountType") || "").toLowerCase() === "admin";
@@ -184,6 +185,17 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         >
           <Route index element={<ChatPage />} />
         </Route>
+
+        <Route
+          path="/app/live/:id/host-panel"
+          element={
+            <RequireAuth>
+              <RequireNonAdmin>
+                <HostPanelPage />
+              </RequireNonAdmin>
+            </RequireAuth>
+          }
+        />
 
         <Route
           path="/app/live"
