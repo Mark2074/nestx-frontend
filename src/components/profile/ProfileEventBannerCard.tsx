@@ -98,8 +98,12 @@ export default function ProfileEventBannerCard({
     );
   }
 
-  return (
+    return (
     <div
+      onClick={() => {
+        if (!id) return;
+        nav(`/app/live/${id}`);
+      }}
       style={{
         border: "1px solid rgba(255,255,255,0.12)",
         borderRadius: 16,
@@ -107,98 +111,71 @@ export default function ProfileEventBannerCard({
         background: "rgba(255,255,255,0.04)",
         cursor: id ? "pointer" : "default",
         width: "100%",
+        display: "grid",
+        gridTemplateColumns: "140px 1fr",
+        minHeight: 140,
       }}
     >
-      {/* TOP (click -> live details) */}
       <div
-        onClick={() => {
-          if (!id) return;
-          nav(`/app/live/${id}`);
-        }}
         style={{
-          display: "grid",
-          gridTemplateColumns: "minmax(160px, 1fr) 132px",
-          alignItems: "stretch",
-          minHeight: 120,
+          width: 140,
+          height: 140,
+          background: "rgba(255,255,255,0.06)",
+          overflow: "hidden",
         }}
       >
-        {/* Avatar square */}
-        <div
-          style={{
-            width: "100%",
-            minHeight: 120,
-            background: "rgba(255,255,255,0.06)",
-            borderRight: "1px solid rgba(255,255,255,0.10)",
-            overflow: "hidden",
-          }}
-        >
-          {avatarUrl ? (
-            <img
-              src={avatarUrl}
-              alt=""
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
-            />
-          ) : (
-            <div
-              style={{
-                width: "100%",
-                height: "100%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontWeight: 950,
-                opacity: 0.85,
-              }}
-            >
-              {String(event?.creatorDisplayName || title || "U").slice(0, 1).toUpperCase()}
-            </div>
-          )}
-        </div>
-
-        {/* Badges */}
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 10,
-            alignItems: "center",
-            justifyContent: "flex-start", // 👈 top
-            padding: 10,
-            background: "rgba(0,0,0,0.12)",
-          }}
-        >
-          {/* EVENT label (red, no badge) */}
+        {avatarUrl ? (
+          <img
+            src={avatarUrl}
+            alt=""
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          />
+        ) : (
           <div
             style={{
+              width: "100%",
+              height: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
               fontWeight: 950,
-              fontSize: 16,
-              letterSpacing: 0.8,
-              color: "#ff4d4d",
-              textTransform: "uppercase",
-              marginBottom: 4,
+              opacity: 0.85,
             }}
           >
-            EVENT
+            {String(event?.creatorDisplayName || title || "U").slice(0, 1).toUpperCase()}
           </div>
-
-          {/* status badge */}
-          {badge(isLive ? "LIVE" : "SCHEDULED", "live")}
-
-          {/* other badges */}
-          {badge(isHot ? "HOT" : "NO_HOT", "hot")}
-          {badge(isFree ? "FREE" : "PAID", "free")}
-        </div>
+        )}
       </div>
 
-      {/* BOTTOM compact */}
-      <div style={{ padding: "10px 12px 12px 12px" }}>
-        {/* Title first row (left), creator as small meta if available */}
+      <div
+        style={{
+          padding: 14,
+          display: "grid",
+          gap: 8,
+          alignContent: "center",
+          minWidth: 0,
+        }}
+      >
         <div
           style={{
             fontWeight: 950,
-            fontSize: 14,
+            fontSize: 13,
+            color: "#ff4d4d",
+            letterSpacing: 0.7,
+            textTransform: "uppercase",
+          }}
+        >
+          EVENT
+        </div>
+
+        <div
+          style={{
+            fontWeight: 950,
+            fontSize: 16,
             lineHeight: 1.2,
-            wordBreak: "break-word",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
           }}
         >
           {title}
@@ -207,8 +184,7 @@ export default function ProfileEventBannerCard({
         {desc ? (
           <div
             style={{
-              marginTop: 6,
-              opacity: 0.88,
+              opacity: 0.84,
               fontSize: 13,
               lineHeight: 1.35,
               display: "-webkit-box",
@@ -220,6 +196,12 @@ export default function ProfileEventBannerCard({
             {desc}
           </div>
         ) : null}
+
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 2 }}>
+          {badge(isLive ? "LIVE" : "SCHEDULED", "live")}
+          {badge(isHot ? "HOT" : "NO_HOT", "hot")}
+          {badge(isFree ? "FREE" : "PAID", "free")}
+        </div>
       </div>
     </div>
   );
