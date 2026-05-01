@@ -216,6 +216,19 @@ export default function HostLiveConsolePage() {
       try {
         const res: any = await api.liveStatus(eventId, scope);
 
+        const nextEventStatus = String(res?.eventStatus || "").trim().toLowerCase();
+
+        if (nextEventStatus === "finished" || nextEventStatus === "cancelled") {
+          setHostLiveLock(false);
+
+          try {
+            sessionStorage.removeItem(stepStorageKey);
+          } catch {}
+
+          nav("/app/live", { replace: true });
+          return res;
+        }
+
         setHostGraceActive(Boolean(res?.hostGraceActive));
         setHostGraceExpiresAt(
           res?.hostGraceExpiresAt ? String(res.hostGraceExpiresAt) : null
@@ -224,7 +237,7 @@ export default function HostLiveConsolePage() {
         // ignore
       }
     },
-    [eventId]
+    [eventId, nav, setHostLiveLock, stepStorageKey]
   );
 
   const loadHostSession = useCallback(
@@ -436,6 +449,20 @@ export default function HostLiveConsolePage() {
       setHostLiveLock(false);
     };
   }, [eventId, isCancelled, isFinished, isHost, setHostLiveLock, step]);
+
+  useEffect(() => {
+    if (!eventId) return;
+    if (!isHost) return;
+    if (!isFinished && !isCancelled) return;
+
+    setHostLiveLock(false);
+
+    try {
+      sessionStorage.removeItem(stepStorageKey);
+    } catch {}
+
+    nav("/app/live", { replace: true });
+  }, [eventId, isCancelled, isFinished, isHost, nav, setHostLiveLock, stepStorageKey]);
 
   useEffect(() => {
     if (!eventId) return;
