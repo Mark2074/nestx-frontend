@@ -280,6 +280,13 @@ export default function LiveRoomPage() {
   const [playerRefreshNonce, setPlayerRefreshNonce] = useState(0);
   const [hostGraceActive, setHostGraceActive] = useState(false);
   const [hostGraceExpiresAt, setHostGraceExpiresAt] = useState<string | null>(null);
+
+  const economyEnabled =
+    String(import.meta.env.VITE_ECONOMY_ENABLED || "").trim().toLowerCase() === "true";
+
+  const liveAccessOpen = !economyEnabled;
+
+  const [showLiveAccessPopup, setShowLiveAccessPopup] = useState(false);
   useEffect(() => {
     console.log("PLAYBACK URL:", viewerPlaybackUrl);
   }, [viewerPlaybackUrl]);
@@ -325,6 +332,22 @@ export default function LiveRoomPage() {
   const isLive = eventStatus === "live";
   const isFinished = eventStatus === "finished";
   const isCancelled = eventStatus === "cancelled";
+
+  useEffect(() => {
+    if (!liveAccessOpen) return;
+    if (!eventId) return;
+    if (!isLive) return;
+    if (isHost) return;
+
+    const key = `nx_live_full_access_notice_seen_${meId || "anonymous"}`;
+
+    try {
+      if (localStorage.getItem(key) === "1") return;
+      setShowLiveAccessPopup(true);
+    } catch {
+      setShowLiveAccessPopup(true);
+    }
+  }, [eventId, isHost, isLive, liveAccessOpen, meId]);
 
   const eventBaseScope = getEventBaseScope(eventDetail);
   const contentScope = getContentScope(eventDetail);
@@ -686,8 +709,11 @@ export default function LiveRoomPage() {
         setEntered(true);
         setRoomReady(true);
 
-        const joinCanWriteChat = Boolean(joinAccess?.permissions?.canChat);
-        const joinCanWriteChatReason = String(joinAccess?.permissions?.canChatReason || "");
+        const joinCanWriteChat =
+          liveAccessOpen ? true : Boolean(joinAccess?.permissions?.canChat);
+
+        const joinCanWriteChatReason =
+          liveAccessOpen ? "ECONOMY_OFF" : String(joinAccess?.permissions?.canChatReason || "");
 
         setCanWriteChat(joinCanWriteChat);
         setCanWriteChatReason(joinCanWriteChatReason);
@@ -1432,6 +1458,30 @@ export default function LiveRoomPage() {
 
   return (
     <div style={{ maxWidth: 980, margin: "0 auto", padding: 12 }}>
+      {showLiveAccessPopup ? (
+        <div style={modalOverlayStyle}>
+          <div style={modalCardStyle}>
+            <div style={{ fontWeight: 900, fontSize: 16 }}>
+              You currently have full access to live features
+            </div>
+
+            <div style={{ marginTop: 14, display: "flex", justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                style={primaryBtnStyle}
+                onClick={() => {
+                  try {
+                    localStorage.setItem(`nx_live_full_access_notice_seen_${meId || "anonymous"}`, "1");
+                  } catch {}
+                  setShowLiveAccessPopup(false);
+                }}
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <div
         style={{
           display: "flex",
@@ -1908,3 +1958,23 @@ const secondaryBtnStyle = {
   color: "white",
   border: "1px solid rgba(255,255,255,0.14)",
 } as const;
+
+const modalOverlayStyle = {
+  position: "fixed" as const,
+  inset: 0,
+  background: "rgba(0,0,0,0.55)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 12,
+  zIndex: 200,
+};
+
+const modalCardStyle = {
+  width: "min(420px, 100%)",
+  borderRadius: 16,
+  border: "1px solid rgba(255,255,255,0.12)",
+  background: "rgba(20,20,20,0.98)",
+  padding: 16,
+  boxShadow: "0 10px 40px rgba(0,0,0,0.45)",
+};

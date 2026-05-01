@@ -605,6 +605,24 @@ export default function HostLiveConsolePage() {
     }
   }
 
+  function openHostChatPanel() {
+    if (!eventId) return;
+
+    emitHostLiveChatState({
+      entered: true,
+      joinedPresence: true,
+      authorizedScope: runtimeScopeRef.current || eventBaseScope,
+      canWriteChat: true,
+      roomBlockCode: "",
+    });
+
+    window.open(
+      `/app/live/${eventId}/host-panel`,
+      "nestx_host_chat_panel",
+      "width=420,height=760,left=80,top=80,resizable=yes,scrollbars=yes"
+    );
+  }
+
   function goBack() {
     if (step !== "LIVE_RUNNING") {
       setHostLiveLock(false);
@@ -673,6 +691,18 @@ export default function HostLiveConsolePage() {
         </div>
 
         <div style={{ display: "flex", gap: 10 }}>
+          <button
+            onClick={openHostChatPanel}
+            style={{
+              ...secondaryBtnStyle,
+              borderColor: "rgba(34,197,94,0.55)",
+              background: "rgba(34,197,94,0.12)",
+              color: "rgba(120,255,200,0.95)",
+            }}
+          >
+            Open chat panel
+          </button>
+
           <button onClick={goBack} style={secondaryBtnStyle}>
             Back
           </button>

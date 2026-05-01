@@ -142,6 +142,11 @@ export default function LiveRightPanel() {
   const [chatRetryUntil, setChatRetryUntil] = useState<number | null>(null);
   const [chatBlockedUntil, setChatBlockedUntil] = useState<number | null>(null);
 
+  const economyEnabled =
+    String(import.meta.env.VITE_ECONOMY_ENABLED || "").trim().toLowerCase() === "true";
+
+  const liveAccessOpen = !economyEnabled;
+
   const [goalTitleDraft, setGoalTitleDraft] = useState("");
   const [goalTargetDraft, setGoalTargetDraft] = useState<number>(200);
 
@@ -246,7 +251,7 @@ export default function LiveRightPanel() {
   const isChatTemporarilyBlocked =
     !!chatBlockedUntil && Date.now() < chatBlockedUntil;
 
-  const canWriteChat = isHost || chatState.canWriteChat === true;
+  const canWriteChat = isHost || liveAccessOpen || chatState.canWriteChat === true;
 
   const chatWriteBlockedMessage =
     chatState.canWriteChatReason === "CHAT_DISABLED"
@@ -1038,6 +1043,12 @@ export default function LiveRightPanel() {
             <span style={{ ...pillStyle, fontSize: 11 }}>{uiScope.toUpperCase()}</span>
           </div>
 
+          {liveAccessOpen ? (
+            <div style={liveAccessBarStyle}>
+              Live chat currently open to everyone
+            </div>
+          ) : null}
+
           <div style={{ position: "relative" }}>
             <div
               ref={listRef}
@@ -1660,6 +1671,12 @@ export default function LiveRightPanel() {
           <span style={{ ...pillStyle, fontSize: 11 }}>{uiScope.toUpperCase()}</span>
         </div>
 
+        {liveAccessOpen ? (
+          <div style={liveAccessBarStyle}>
+            Live chat currently open to everyone
+          </div>
+        ) : null}
+
         <div style={{ position: "relative" }}>
           <div
             ref={listRef}
@@ -2005,3 +2022,15 @@ const inputStyle = {
   color: "white",
   outline: "none",
 };
+
+const liveAccessBarStyle = {
+  marginBottom: 10,
+  padding: "8px 10px",
+  borderRadius: 12,
+  border: "1px solid rgba(120,255,200,0.22)",
+  background: "rgba(120,255,200,0.08)",
+  color: "rgba(190,255,225,0.95)",
+  fontWeight: 900,
+  fontSize: 12,
+  lineHeight: 1.25,
+} as const;
