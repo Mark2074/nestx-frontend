@@ -225,7 +225,7 @@ export default function HostLiveConsolePage() {
             sessionStorage.removeItem(stepStorageKey);
           } catch {}
 
-          nav("/app/live", { replace: true });
+          nav("/app/live/discover", { replace: true });
           return res;
         }
 
@@ -233,8 +233,18 @@ export default function HostLiveConsolePage() {
         setHostGraceExpiresAt(
           res?.hostGraceExpiresAt ? String(res.hostGraceExpiresAt) : null
         );
-      } catch {
-        // ignore
+      } catch (e: any) {
+        const code = String(e?.data?.code || e?.code || "").trim();
+
+        if (code === "EVENT_ENDED" || code === "EVENT_NOT_LIVE") {
+          setHostLiveLock(false);
+
+          try {
+            sessionStorage.removeItem(stepStorageKey);
+          } catch {}
+
+          nav("/app/live/discover", { replace: true });
+        }
       }
     },
     [eventId, nav, setHostLiveLock, stepStorageKey]
@@ -424,13 +434,42 @@ export default function HostLiveConsolePage() {
 
     try {
       const res: any = await api.liveStatus(eventId, scope);
+
+      const nextEventStatus = String(res?.eventStatus || "")
+        .trim()
+        .toLowerCase();
+
+      if (nextEventStatus === "finished" || nextEventStatus === "cancelled") {
+        setHostLiveLock(false);
+
+        try {
+          sessionStorage.removeItem(stepStorageKey);
+        } catch {}
+
+        nav("/app/live/discover", { replace: true });
+        return;
+      }
+
       setViewersNow(Number(res?.viewersNow || 0));
 
       setHostGraceActive(Boolean(res?.hostGraceActive));
       setHostGraceExpiresAt(
         res?.hostGraceExpiresAt ? String(res.hostGraceExpiresAt) : null
       );
-    } catch {}
+    } catch (e: any) {
+      const code = String(e?.data?.code || e?.code || "").trim();
+
+      if (code === "EVENT_ENDED" || code === "EVENT_NOT_LIVE") {
+        setHostLiveLock(false);
+
+        try {
+          sessionStorage.removeItem(stepStorageKey);
+        } catch {}
+
+        nav("/app/live/discover", { replace: true });
+        return;
+      }
+    }
 
     void loadMediaStatus(scope);
   }, 5000);
@@ -461,7 +500,7 @@ export default function HostLiveConsolePage() {
       sessionStorage.removeItem(stepStorageKey);
     } catch {}
 
-    nav("/app/live", { replace: true });
+    nav("/app/live/discover", { replace: true });
   }, [eventId, isCancelled, isFinished, isHost, nav, setHostLiveLock, stepStorageKey]);
 
   useEffect(() => {
@@ -599,7 +638,7 @@ export default function HostLiveConsolePage() {
       } catch {
         // ignore
       }
-      nav("/app/live", { replace: true });
+      nav("/app/live/discover", { replace: true });
     } catch (e: any) {
       setErr(String(e?.message || "Failed to cancel event"));
     } finally {
@@ -624,7 +663,7 @@ export default function HostLiveConsolePage() {
       try {
         sessionStorage.removeItem(stepStorageKey);
       } catch {}
-      nav("/app/live", { replace: true });
+      nav("/app/live/discover", { replace: true });
     } catch (e: any) {
       setErr(String(e?.message || "Failed to finish event"));
     } finally {

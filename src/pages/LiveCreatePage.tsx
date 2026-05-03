@@ -135,17 +135,49 @@ export default function LiveCreatePage() {
     }
 
     setSubmitting(true);
+
     try {
-      // 1) crea evento UNA SOLA volta
+      let shouldPromote = promote;
+
+      if (shouldPromote) {
+        const precheck: any = await api.advPrecheckCampaign({
+          promote: true,
+          targetType: "event",
+          startTime: startTime || null,
+        });
+
+        const advCheck = precheck?.data ?? precheck;
+
+        if (advCheck?.paidRequired === true) {
+          const price = Number(advCheck?.priceTokens || 10);
+          const ok = window.confirm(`This promoted item costs ${price} tokens. Continue?`);
+
+          if (!ok) {
+            return;
+          }
+        }
+
+        if (advCheck?.applicable === false || advCheck?.requiresConfirmation === true) {
+          const ok = window.confirm(
+            "Promotion is not available for this event.\nCreate the event without promotion?"
+          );
+
+          if (!ok) {
+            return;
+          }
+
+          shouldPromote = false;
+          setPromote(false);
+        }
+      }
+
       const { eventId } = await createEventOnce();
 
-      // 2) se non devo promuovere → fine
-      if (!promote) {
+      if (!shouldPromote) {
         nav("/app/live/discover");
         return;
       }
 
-      // 3) prova a creare ADV (prima senza conferma)
       try {
         await createAdvForEvent(eventId, false);
         nav("/app/live/discover");
@@ -156,25 +188,40 @@ export default function LiveCreatePage() {
         if (code === "ADV_PAYMENT_REQUIRED") {
           const price = Number(err?.data?.priceTokens || 10);
           const ok = window.confirm(`This promoted item costs ${price} tokens. Continue?`);
+
           if (!ok) {
-            // evento rimane creato, ma senza promoted: ok.
             nav("/app/live/discover");
             return;
           }
 
-          // ritenta SOLO ADV con confirmPaid=true (non ricreare evento)
           await createAdvForEvent(eventId, true);
           nav("/app/live/discover");
           return;
         }
 
-        if (code === "INSUFFICIENT_TOKENS") {
-          alert("Not enough tokens to promote this event.");
-          nav("/app/live/discover"); // evento creato, ma niente adv
+        if (
+          code === "ADV_TOO_EARLY" ||
+          code === "ADV_EVENT_STARTED" ||
+          code === "ADV_PAID_DISABLED"
+        ) {
+          const ok = window.confirm(
+            "Promotion is not available for this event.\nCreate the event without promotion?"
+          );
+
+          if (ok) {
+            nav("/app/live/discover");
+            return;
+          }
+
           return;
         }
 
-        // qualsiasi altro errore ADV: evento creato, ma niente adv
+        if (code === "INSUFFICIENT_TOKENS") {
+          alert("Not enough tokens to promote this event.");
+          nav("/app/live/discover");
+          return;
+        }
+
         alert(err?.message || "Error promoting event");
         nav("/app/live/discover");
         return;

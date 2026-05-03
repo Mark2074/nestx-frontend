@@ -823,6 +823,13 @@ export const api = {
     });
   },
 
+  advPrecheckCampaign: (payload: any) => {
+    return request<any>(`/adv/campaign/precheck`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
     // --- SHOWCASE (Vetrina) ---
   showcaseServe: async () => {
     // returns 1 item (FAIR) or null
