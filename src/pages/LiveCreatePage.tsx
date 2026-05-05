@@ -5,6 +5,36 @@ import { api, mapApiErrorMessage, getApiRetryAfterMs, formatRetryAfterLabel } fr
 // BE expects: HOT | NO_HOT
 type Scope = "HOT" | "NO_HOT";
 
+const NO_HOT_CATEGORIES = [
+  { value: "technology_ai", label: "Technology & AI" },
+  { value: "finance_investing", label: "Finance & Investing" },
+  { value: "business", label: "Business & Entrepreneurship" },
+  { value: "science", label: "Science & Research" },
+  { value: "history_culture", label: "History & Culture" },
+  { value: "psychology", label: "Psychology & Mind" },
+  { value: "gaming", label: "Gaming" },
+  { value: "live_shows", label: "Live Shows" },
+  { value: "comedy", label: "Comedy" },
+  { value: "storytelling", label: "Storytelling" },
+  { value: "fitness", label: "Fitness & Health" },
+  { value: "food", label: "Food & Cooking" },
+  { value: "travel", label: "Travel" },
+  { value: "daily_life", label: "Daily Life" },
+  { value: "fashion", label: "Fashion & Style" },
+  { value: "tutorials", label: "Tutorials & How-To" },
+  { value: "art", label: "Art & Drawing" },
+  { value: "design", label: "Design & Creative" },
+  { value: "diy", label: "DIY & Makers" },
+  { value: "coding", label: "Coding & Development" },
+  { value: "qa_chat", label: "Q&A / Chat" },
+  { value: "community", label: "Community Talk" },
+  { value: "debate", label: "Opinions & Debate" },
+  { value: "coaching", label: "Advice / Coaching" },
+  { value: "news", label: "News & Commentary" },
+  { value: "announcements", label: "Events & Announcements" },
+  { value: "experimental", label: "Experimental" },
+] as const;
+
 export default function LiveCreatePage() {
   const nav = useNavigate();
 
@@ -16,6 +46,7 @@ export default function LiveCreatePage() {
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [category, setCategory] = useState("");
   const [accessScope, setAccessScope] = useState<"public" | "private">("public");
 
   const [startTime, setStartTime] = useState("");
@@ -73,6 +104,7 @@ export default function LiveCreatePage() {
     setAccessScope("public");
     setTicketPriceTokens(0);
     setMaxSeats("");
+    setCategory("");
     setPromote(false);
   }
 
@@ -88,10 +120,16 @@ export default function LiveCreatePage() {
         ? (Number.isFinite(Number(durationMinutes)) ? Number(durationMinutes) : 0)
         : Number(durationMinutes);
 
+    const safeCategory = isNoHot ? String(category || "").trim() : "general";
+
+    if (isNoHot && !safeCategory) {
+      throw new Error("Select a category for this event.");
+    }
+
     const res = await api.createEvent({
       title: title.trim(),
       description: description.trim(),
-      category: "general",
+      category: safeCategory,
       startTime: effectiveStartTime,
       durationMinutes: effectiveDuration,
       ticketPriceTokens: isPrivateModel ? Number(ticketPriceTokens) : 0,
@@ -273,6 +311,7 @@ export default function LiveCreatePage() {
             onClick={() => {
               setContentScope("NO_HOT");
               setAccessScope("private");
+              setCategory("");
               if (Number(ticketPriceTokens) <= 0) setTicketPriceTokens(10);
               if (!Number(maxSeats)) setMaxSeats(10);
               setStep(2);
@@ -335,6 +374,25 @@ export default function LiveCreatePage() {
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
+
+        {isNoHot ? (
+          <>
+            <label style={labelStyle}>Category</label>
+            <select
+              style={inputStyle}
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              required
+            >
+              <option value="">Select category</option>
+              {NO_HOT_CATEGORIES.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </>
+        ) : null}
 
         <label style={labelStyle}>
           Start time{" "}

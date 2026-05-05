@@ -17,6 +17,7 @@ type EventDetail = {
   status: string;
   ticketPriceTokens: number;
   contentScope?: "HOT" | "NO_HOT";
+  category?: string | null;
   coverImage?: string | null;
   creator?: { id?: string; _id?: string; displayName?: string; avatar?: string };
   startTime?: string;
@@ -28,6 +29,41 @@ type EventDetail = {
   ticketsSoldCount?: number | null;
   accessScope?: "public" | "private";
 };
+
+const NO_HOT_CATEGORY_LABELS: Record<string, string> = {
+  technology_ai: "Technology & AI",
+  finance_investing: "Finance & Investing",
+  business: "Business & Entrepreneurship",
+  science: "Science & Research",
+  history_culture: "History & Culture",
+  psychology: "Psychology & Mind",
+  gaming: "Gaming",
+  live_shows: "Live Shows",
+  comedy: "Comedy",
+  storytelling: "Storytelling",
+  fitness: "Fitness & Health",
+  food: "Food & Cooking",
+  travel: "Travel",
+  daily_life: "Daily Life",
+  fashion: "Fashion & Style",
+  tutorials: "Tutorials & How-To",
+  art: "Art & Drawing",
+  design: "Design & Creative",
+  diy: "DIY & Makers",
+  coding: "Coding & Development",
+  qa_chat: "Q&A / Chat",
+  community: "Community Talk",
+  debate: "Opinions & Debate",
+  coaching: "Advice / Coaching",
+  news: "News & Commentary",
+  announcements: "Events & Announcements",
+  experimental: "Experimental",
+};
+
+function getCategoryLabel(value?: string | null): string {
+  const key = String(value || "").trim().toLowerCase();
+  return NO_HOT_CATEGORY_LABELS[key] || "";
+}
 
 export default function LiveDetailPage() {
   const nav = useNavigate();
@@ -829,6 +865,13 @@ export default function LiveDetailPage() {
               <span style={{ fontWeight: 900 }}>Content:</span>{" "}
               <span>{meta?.scope || eventDetail?.contentScope || "—"}</span>
             </div>
+
+            {eventDetail?.contentScope === "NO_HOT" && getCategoryLabel(eventDetail?.category) ? (
+              <div style={{ opacity: 0.82 }}>
+                <span style={{ fontWeight: 900 }}>Category:</span>{" "}
+                <span>{getCategoryLabel(eventDetail.category)}</span>
+              </div>
+            ) : null}
 
             <div style={{ opacity: 0.82 }}>
               <span style={{ fontWeight: 900 }}>Access type:</span>{" "}
