@@ -263,8 +263,10 @@ export default function LiveRoomPage() {
   const [tipOpen, setTipOpen] = useState(false);
   const [tipAmount, setTipAmount] = useState<number>(10);
   const [loadingTip, setLoadingTip] = useState(false);
-  const [tipOkMsg, setTipOkMsg] = useState("");
-  const [tipErrMsg, setTipErrMsg] = useState("");
+  const [actionToast, setActionToast] = useState<{
+    type: "error" | "success";
+    message: string;
+  } | null>(null);
 
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState<string>("violent_or_gore_content");
@@ -310,6 +312,19 @@ export default function LiveRoomPage() {
 
   const lastViewerPlaybackUrlRef = useRef<string | null>(null);
   const previousPrivateRunningRef = useRef(false);
+
+  const showActionToast = useCallback((type: "error" | "success", message: string) => {
+    const cleanMessage = String(message || "").trim();
+    if (!cleanMessage) return;
+
+    setActionToast({ type, message: cleanMessage });
+
+    window.setTimeout(() => {
+      setActionToast((current) =>
+        current?.message === cleanMessage && current?.type === type ? null : current
+      );
+    }, 6000);
+  }, []);
 
   const applyViewerMediaState = useCallback((payload: {
     playbackUrl?: string | null;
@@ -842,19 +857,17 @@ export default function LiveRoomPage() {
 
     const toUserId = String(eventDetail?.creator?.id || eventDetail?.creator?._id || "").trim();
     if (!toUserId) {
-      setTipErrMsg("Missing creator id.");
+      showActionToast("error", "Missing creator id.");
       return;
     }
 
     const amount = Math.floor(Number(tipAmount));
     if (!Number.isFinite(amount) || amount <= 0) {
-      setTipErrMsg("Invalid tip amount.");
+      showActionToast("error", "Invalid tip amount.");
       return;
     }
 
     setLoadingTip(true);
-    setTipErrMsg("");
-    setTipOkMsg("");
 
     try {
       await api.tipSend({ toUserId, amountTokens: amount, eventId });
@@ -870,12 +883,13 @@ export default function LiveRoomPage() {
         // ignore
       }
 
-      setTipOkMsg(`Tip sent: ${amount} tokens`);
+      showActionToast("success", `Tip sent: ${amount} tokens`);
       setTipOpen(false);
       setTipAmount(10);
     } catch (e: any) {
       const retryAfterMs = getApiRetryAfterMs(e);
-      setTipErrMsg(
+      showActionToast(
+        "error",
         mapApiErrorMessage(e, "Tip failed.") + formatRetryAfterLabel(retryAfterMs)
       );
     } finally {
@@ -975,8 +989,6 @@ export default function LiveRoomPage() {
       setErr("");
       setRoomBlockCode("");
       setTipOpen(false);
-      setTipOkMsg("");
-      setTipErrMsg("");
       setReportOpen(false);
       setReportOkMsg(null);
       setReportErrMsg(null);
@@ -1458,6 +1470,33 @@ export default function LiveRoomPage() {
 
   return (
     <div style={{ maxWidth: 980, margin: "0 auto", padding: 12 }}>
+      {actionToast ? (
+        <div
+          style={{
+            position: "fixed",
+            right: 16,
+            bottom: 16,
+            zIndex: 300,
+            maxWidth: 360,
+            borderRadius: 14,
+            border:
+              actionToast.type === "error"
+                ? "1px solid rgba(255,120,120,0.45)"
+                : "1px solid rgba(120,255,200,0.45)",
+            background:
+              actionToast.type === "error"
+                ? "rgba(80,20,24,0.96)"
+                : "rgba(20,70,48,0.96)",
+            color: "white",
+            padding: "12px 14px",
+            fontWeight: 900,
+            boxShadow: "0 10px 34px rgba(0,0,0,0.45)",
+            pointerEvents: "none",
+          }}
+        >
+          {actionToast.message}
+        </div>
+      ) : null}
       {showLiveAccessPopup ? (
         <div style={modalOverlayStyle}>
           <div style={modalCardStyle}>
@@ -1617,8 +1656,6 @@ export default function LiveRoomPage() {
             <button
               type="button"
               onClick={() => {
-                setTipErrMsg("");
-                setTipOkMsg("");
                 setTipOpen(true);
               }}
               disabled={shouldPausePublic}
@@ -1655,12 +1692,6 @@ export default function LiveRoomPage() {
             </button>
           ) : null}
         </div>
-
-        {tipErrMsg ? (
-          <div style={{ marginTop: 10, color: "rgba(255,120,120,0.95)", fontWeight: 900 }}>
-            {tipErrMsg}
-          </div>
-        ) : null}
 
         {tipOpen ? (
           <div
@@ -1742,18 +1773,6 @@ export default function LiveRoomPage() {
                 Cancel
               </button>
             </div>
-
-            {tipOkMsg ? (
-              <div style={{ marginTop: 10, color: "rgba(120,255,200,0.95)", fontWeight: 900 }}>
-                {tipOkMsg}
-              </div>
-            ) : null}
-
-            {tipErrMsg ? (
-              <div style={{ marginTop: 10, color: "rgba(255,120,120,0.95)", fontWeight: 900 }}>
-                {tipErrMsg}
-              </div>
-            ) : null}
           </div>
         ) : null}
 

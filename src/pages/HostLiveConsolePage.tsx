@@ -356,24 +356,16 @@ export default function HostLiveConsolePage() {
 
         await loadHostSession(baseScope);
         if (String(ev?.status || "").trim().toLowerCase() === "live") {
-          await api.liveHostRealtimeState(eventId, {
-            scope: baseScope,
-            state: "broadcasting",
-          });
-
           await api.liveHostPing(eventId, baseScope);
 
           setStep("LIVE_RUNNING");
           await loadStatus(baseScope);
+          await loadMediaStatus(baseScope);
           return;
         }
 
-        await api.liveHostRealtimeState(eventId, {
-          scope: baseScope,
-          state: "joined",
-        });
-
         setStep("PRE_GO_LIVE");
+        await loadMediaStatus(baseScope);
       } catch (e: any) {
         if (!alive) return;
         setErr(String(e?.message || "Failed to initialize host console"));
@@ -507,6 +499,31 @@ export default function HostLiveConsolePage() {
     if (!eventId) return;
     if (!isHost) return;
     if (isFinished || isCancelled) return;
+    if (step !== "PRE_GO_LIVE") return;
+
+    const scope: LiveScope = runtimeScopeRef.current || eventBaseScope;
+
+    void loadMediaStatus(scope);
+
+    const t = window.setInterval(() => {
+      void loadMediaStatus(scope);
+    }, 3000);
+
+    return () => window.clearInterval(t);
+  }, [
+    eventBaseScope,
+    eventId,
+    isCancelled,
+    isFinished,
+    isHost,
+    loadMediaStatus,
+    step,
+  ]);
+
+  useEffect(() => {
+    if (!eventId) return;
+    if (!isHost) return;
+    if (isFinished || isCancelled) return;
     if (step !== "PRE_GO_LIVE" && step !== "LIVE_RUNNING") return;
 
     const sendHostPing = async () => {
@@ -599,12 +616,12 @@ export default function HostLiveConsolePage() {
     setErr("");
 
     try {
-      await api.eventGoLive(eventId);
-      await api.liveHostRealtimeState(eventId, {
-        scope: eventBaseScope,
-        state: "broadcasting",
-      });
+      if (!mediaLive) {
+        setErr("Start streaming in OBS first. Go Live is available only after the stream is detected.");
+        return;
+      }
 
+      await api.eventGoLive(eventId);
       await api.liveHostPing(eventId, eventBaseScope);
 
       await loadEvent();
@@ -654,10 +671,6 @@ export default function HostLiveConsolePage() {
     setErr("");
 
     try {
-      await api.liveHostRealtimeState(eventId, {
-        scope: runtimeScopeRef.current || eventBaseScope,
-        state: "ended",
-      });
       await api.eventFinish(eventId);
       setHostLiveLock(false);
       try {
@@ -817,7 +830,9 @@ export default function HostLiveConsolePage() {
               <div style={{ opacity: 0.82, fontWeight: 800 }}>
                 {step === "LIVE_RUNNING"
                   ? "Your event is live on NestX."
-                  : "Start streaming in OBS, then click Go Live."}
+                  : mediaLive
+                    ? "Stream detected. You can now start the live event."
+                    : "Start streaming in OBS. Go Live unlocks after the stream is detected."}
               </div>
             </div>
 
@@ -857,6 +872,26 @@ export default function HostLiveConsolePage() {
               </div>
             </div>
 
+            {step === "PRE_GO_LIVE" ? (
+              <div
+                style={{
+                  borderRadius: 14,
+                  border: mediaLive
+                    ? "1px solid rgba(34,197,94,0.35)"
+                    : "1px solid rgba(234,179,8,0.35)",
+                  background: mediaLive
+                    ? "rgba(34,197,94,0.10)"
+                    : "rgba(234,179,8,0.10)",
+                  padding: 12,
+                  fontWeight: 900,
+                }}
+              >
+                {mediaLive
+                  ? "Stream detected"
+                  : "Waiting for OBS stream. Start streaming in OBS using the RTMP URL and Stream Key."}
+              </div>
+            ) : null}
+
             {hostGraceActive ? (
               <div
                 style={{
@@ -889,10 +924,14 @@ export default function HostLiveConsolePage() {
                 <>
                   <button
                     onClick={() => void handleGoLive()}
-                    disabled={loadingGoLive || loadingFinish}
-                    style={primaryBtnStyle}
+                    disabled={loadingGoLive || loadingFinish || !mediaLive}
+                    style={{
+                      ...primaryBtnStyle,
+                      opacity: mediaLive ? 1 : 0.45,
+                      cursor: mediaLive ? "pointer" : "not-allowed",
+                    }}
                   >
-                    {loadingGoLive ? "Starting..." : "Go live"}
+                    {loadingGoLive ? "Starting..." : mediaLive ? "Go live" : "Waiting for stream"}
                   </button>
 
                   <button
