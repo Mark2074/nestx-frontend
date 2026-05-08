@@ -33,6 +33,10 @@ export default function AuthPage() {
     if (m === "login" || m === "register") {
         setMode(m);
     }
+
+    if (searchParams.get("passwordChanged") === "1") {
+      setInfoMsg("Password changed. Please log in again.");
+    }
     }, [searchParams]);
 
   // LOGIN
@@ -641,4 +645,3 @@ const step2GridStyle: React.CSSProperties = {
   alignItems: "start",
   marginTop: 12,
 };
-

@@ -35,6 +35,10 @@ function normalizeUserList(input: any): UserItem[] {
   return [];
 }
 
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message ? error.message : fallback;
+}
+
 export default function ProfilePrivacySecurityPage() {
   const nav = useNavigate();
 
@@ -42,6 +46,12 @@ export default function ProfilePrivacySecurityPage() {
   const [muted, setMuted] = useState<UserItem[]>([]);
   const [loading, setLoading] = useState(true);
   const loc = useLocation();
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [showPasswords, setShowPasswords] = useState(false);
+  const [passwordBusy, setPasswordBusy] = useState(false);
+  const [passwordMsg, setPasswordMsg] = useState("");
   const [delBusy, setDelBusy] = useState(false);
   const [delErr, setDelErr] = useState<string>("");
   const [confirmText, setConfirmText] = useState("");
@@ -76,6 +86,71 @@ export default function ProfilePrivacySecurityPage() {
     setMuted((prev) => prev.filter((u) => u.id !== userId));
   }
 
+  function validatePasswordForm() {
+    if (!currentPassword || !newPassword || !confirmNewPassword) {
+      return "All fields are required.";
+    }
+
+    if (newPassword.length < 8) {
+      return "New password must be at least 8 characters.";
+    }
+
+    if (confirmNewPassword !== newPassword) {
+      return "New passwords do not match.";
+    }
+
+    return "";
+  }
+
+  function clearLocalAuthSession() {
+    try {
+      [
+        "token",
+        "accountType",
+        "username",
+        "userId",
+        "displayName",
+        "avatar",
+        "coverImage",
+        "isVip",
+        "isCreator",
+        "isVerified",
+        "isPrivate",
+        "profileType",
+        "language",
+        "area",
+        "auth_block",
+        "auth_block_until",
+        "auth_block_reason",
+      ].forEach((key) => localStorage.removeItem(key));
+
+      window.dispatchEvent(new CustomEvent("nx:identity-updated"));
+    } catch {
+      /* localStorage may be unavailable. */
+    }
+  }
+
+  async function handleChangePassword() {
+    const validationMessage = validatePasswordForm();
+    if (validationMessage) {
+      setPasswordMsg(validationMessage);
+      return;
+    }
+
+    setPasswordBusy(true);
+    setPasswordMsg("");
+
+    try {
+      await api.changePassword({ currentPassword, newPassword });
+      clearLocalAuthSession();
+      nav("/auth?mode=login&passwordChanged=1", { replace: true });
+    } catch (e: unknown) {
+      setPasswordMsg(getErrorMessage(e, "Could not change password."));
+    } finally {
+      setPasswordBusy(false);
+    }
+  }
+
   async function handleDeleteAccount() {
     setDelErr("");
 
@@ -100,11 +175,13 @@ export default function ProfilePrivacySecurityPage() {
         localStorage.removeItem("auth_block");
         localStorage.removeItem("auth_block_until");
         localStorage.removeItem("auth_block_reason");
-      } catch {}
+      } catch {
+        /* localStorage may be unavailable. */
+      }
 
       nav("/auth?mode=login&deleted=1", { replace: true });
-    } catch (e: any) {
-      setDelErr(e?.message || "Delete account failed");
+    } catch (e: unknown) {
+      setDelErr(getErrorMessage(e, "Delete account failed"));
     } finally {
       setDelBusy(false);
     }
@@ -123,8 +200,94 @@ export default function ProfilePrivacySecurityPage() {
     <div style={{ padding: 20, maxWidth: 820, margin: "0 auto" }}>
       <h1>Privacy & Security</h1>
 
-      {/* BLOCKED */}
+      {/* SECURITY */}
       <section style={{ marginTop: 30 }}>
+        <h2>Security</h2>
+
+        <div
+          style={{
+            marginTop: 10,
+            padding: 14,
+            borderRadius: 14,
+            border: "1px solid rgba(255,255,255,0.12)",
+            background: "rgba(255,255,255,0.04)",
+          }}
+        >
+          <div style={{ fontWeight: 900 }}>Change Password</div>
+          <div style={{ fontSize: 13, opacity: 0.78, marginTop: 6 }}>
+            Update your account password
+          </div>
+
+          <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
+            <PasswordField
+              label="Current Password"
+              value={currentPassword}
+              onChange={setCurrentPassword}
+              disabled={passwordBusy}
+              visible={showPasswords}
+              autoComplete="current-password"
+            />
+
+            <PasswordField
+              label="New Password"
+              value={newPassword}
+              onChange={setNewPassword}
+              disabled={passwordBusy}
+              visible={showPasswords}
+              autoComplete="new-password"
+            />
+
+            <PasswordField
+              label="Confirm New Password"
+              value={confirmNewPassword}
+              onChange={setConfirmNewPassword}
+              disabled={passwordBusy}
+              visible={showPasswords}
+              autoComplete="new-password"
+            />
+          </div>
+
+          <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={() => setShowPasswords((value) => !value)}
+              disabled={passwordBusy}
+              style={{
+                padding: "10px 12px",
+                borderRadius: 12,
+                fontWeight: 900,
+                background: "transparent",
+              }}
+            >
+              {showPasswords ? "Hide passwords" : "Show passwords"}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleChangePassword}
+              disabled={passwordBusy}
+              style={{
+                padding: "10px 14px",
+                borderRadius: 12,
+                fontWeight: 900,
+                cursor: passwordBusy ? "not-allowed" : "pointer",
+                opacity: passwordBusy ? 0.7 : 1,
+              }}
+            >
+              {passwordBusy ? "Saving..." : "Change Password"}
+            </button>
+          </div>
+
+          {passwordMsg ? (
+            <div style={{ marginTop: 10, fontWeight: 800, color: "rgba(255,205,150,1)" }}>
+              {passwordMsg}
+            </div>
+          ) : null}
+        </div>
+      </section>
+
+      {/* BLOCKED */}
+      <section style={{ marginTop: 40 }}>
         <h2>Blocked users</h2>
 
         {blocked.length === 0 ? (
@@ -285,5 +448,46 @@ function Avatar({ avatar }: { avatar?: string }) {
         />
       ) : null}
     </div>
+  );
+}
+
+function PasswordField({
+  label,
+  value,
+  onChange,
+  disabled,
+  visible,
+  autoComplete,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  disabled: boolean;
+  visible: boolean;
+  autoComplete: string;
+}) {
+  return (
+    <label style={{ display: "grid", gap: 6 }}>
+      <span style={{ fontSize: 12, fontWeight: 900, opacity: 0.82 }}>
+        {label}
+      </span>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        type={visible ? "text" : "password"}
+        autoComplete={autoComplete}
+        disabled={disabled}
+        style={{
+          width: "100%",
+          boxSizing: "border-box",
+          padding: "10px 12px",
+          borderRadius: 12,
+          border: "1px solid rgba(255,255,255,0.14)",
+          background: "rgba(0,0,0,0.25)",
+          color: "white",
+          outline: "none",
+        }}
+      />
+    </label>
   );
 }

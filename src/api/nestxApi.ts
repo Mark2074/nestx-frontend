@@ -645,6 +645,12 @@ export const api = {
       method: "DELETE",
     }),
 
+  changePassword: (payload: { currentPassword: string; newPassword: string }) =>
+    request<unknown>(`/auth/change-password`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
   getPostComments: (postId: string, page = 1, limit = 20) =>
     request<any>(`/posts/${postId}/comments?page=${page}&limit=${limit}`, {
       method: "GET",
