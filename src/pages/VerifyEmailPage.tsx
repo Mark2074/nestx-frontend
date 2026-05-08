@@ -1,15 +1,13 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { api } from "../api/nestxApi";
 
 const LOGO_SRC = "/legal/nestx-horizontal-dark.png";
 
 export default function VerifyEmailPage() {
-  const nav = useNavigate();
   const [sp] = useSearchParams();
   const token = sp.get("token") || "";
 
-  const [busy, setBusy] = useState(false);
   const [info, setInfo] = useState("");
   const [err, setErr] = useState("");
 
@@ -21,15 +19,11 @@ export default function VerifyEmailPage() {
         setErr("Missing token.");
         return;
       }
-      setBusy(true);
       try {
         await api.verifyEmailConfirm(token);
-        setInfo("Email verified. Redirecting to login...");
-        setTimeout(() => nav("/auth?mode=login"), 900);
+        setInfo("Email verified. You can now close this page and return to NestX.");
       } catch (e: any) {
         setErr(e?.message || "Verification failed");
-      } finally {
-        setBusy(false);
       }
     }
     run();
@@ -46,10 +40,6 @@ export default function VerifyEmailPage() {
         <div style={{ marginTop: 18, ...panelStyle }}>
           {err ? <div style={errBoxStyle}>{err}</div> : null}
           {info ? <div style={okBoxStyle}>{info}</div> : null}
-
-          <button type="button" onClick={() => nav("/auth?mode=login")} style={linkBtnStyle} disabled={busy}>
-            Back to login
-          </button>
         </div>
       </div>
     </div>
@@ -61,18 +51,6 @@ const panelStyle = {
   borderRadius: 16,
   padding: 16,
   background: "rgba(255,255,255,0.03)",
-} as const;
-
-const linkBtnStyle = {
-  marginTop: 6,
-  border: "none",
-  background: "transparent",
-  color: "white",
-  textDecoration: "underline",
-  cursor: "pointer",
-  padding: 0,
-  fontWeight: 800,
-  justifySelf: "start",
 } as const;
 
 const errBoxStyle = {
