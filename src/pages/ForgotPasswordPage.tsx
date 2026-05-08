@@ -1,12 +1,9 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { api } from "../api/nestxApi";
 
 const LOGO_SRC = "/legal/nestx-horizontal-dark.png";
 
 export default function ForgotPasswordPage() {
-  const nav = useNavigate();
-
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [info, setInfo] = useState("");
@@ -33,8 +30,8 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "stretch" }}>
-      <div style={{ width: "100%", maxWidth: 720, margin: "0 auto", padding: 22 }}>
+    <div style={pageStyle}>
+      <div style={contentStyle}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, paddingTop: 12 }}>
           <img src={LOGO_SRC} alt="NestX" style={{ height: 44, width: "auto" }} />
           <div style={{ fontWeight: 900, fontSize: 18, textAlign: "center" }}>Reset your password</div>
@@ -47,7 +44,7 @@ export default function ForgotPasswordPage() {
           {err ? <div style={errBoxStyle}>{err}</div> : null}
           {info ? <div style={okBoxStyle}>{info}</div> : null}
 
-          <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
+          <div style={formStyle}>
             <input
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -59,10 +56,6 @@ export default function ForgotPasswordPage() {
             <button onClick={onSubmit} disabled={busy} style={primaryBtnStyle(busy)}>
               {busy ? "Sending..." : "Send reset link"}
             </button>
-
-            <button type="button" onClick={() => nav("/auth?mode=login")} style={linkBtnStyle}>
-              Back to login
-            </button>
           </div>
         </div>
       </div>
@@ -70,15 +63,42 @@ export default function ForgotPasswordPage() {
   );
 }
 
+const pageStyle = {
+  minHeight: "100vh",
+  display: "flex",
+  alignItems: "stretch",
+  width: "100%",
+  boxSizing: "border-box",
+} as const;
+
+const contentStyle = {
+  width: "100%",
+  maxWidth: 720,
+  margin: "0 auto",
+  padding: 22,
+  boxSizing: "border-box",
+} as const;
+
 const panelStyle = {
+  width: "100%",
   border: "1px solid rgba(255,255,255,0.12)",
   borderRadius: 16,
   padding: 16,
   background: "rgba(255,255,255,0.03)",
+  boxSizing: "border-box",
+} as const;
+
+const formStyle = {
+  display: "grid",
+  gap: 10,
+  marginTop: 12,
+  width: "100%",
+  boxSizing: "border-box",
 } as const;
 
 const inputStyle = {
   width: "100%",
+  boxSizing: "border-box",
   padding: "10px 12px",
   borderRadius: 12,
   border: "1px solid rgba(255,255,255,0.14)",
@@ -90,24 +110,14 @@ const inputStyle = {
 function primaryBtnStyle(disabled: boolean) {
   return {
     padding: "10px 14px",
+    width: "100%",
+    boxSizing: "border-box",
     borderRadius: 12,
     fontWeight: 900,
     cursor: disabled ? "not-allowed" : "pointer",
     opacity: disabled ? 0.75 : 1,
   } as const;
 }
-
-const linkBtnStyle = {
-  marginTop: 6,
-  border: "none",
-  background: "transparent",
-  color: "white",
-  textDecoration: "underline",
-  cursor: "pointer",
-  padding: 0,
-  fontWeight: 800,
-  justifySelf: "start",
-} as const;
 
 const errBoxStyle = {
   border: "1px solid rgba(255,120,120,0.35)",
@@ -116,6 +126,7 @@ const errBoxStyle = {
   padding: 12,
   fontWeight: 800,
   marginBottom: 10,
+  boxSizing: "border-box",
 } as const;
 
 const okBoxStyle = {
@@ -125,4 +136,5 @@ const okBoxStyle = {
   padding: 12,
   fontWeight: 800,
   marginBottom: 10,
+  boxSizing: "border-box",
 } as const;
