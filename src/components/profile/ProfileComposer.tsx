@@ -3,6 +3,7 @@ export default function ProfileComposer({
   composerType,
   setComposerType,
   composerBusy,
+  composerSubmitDisabled,
   handleSubmitPost,
   resetComposer,
   setComposerOpen,
@@ -28,6 +29,7 @@ export default function ProfileComposer({
   setComposerType: React.Dispatch<React.SetStateAction<"text" | "poll">>;
 
   composerBusy: boolean;
+  composerSubmitDisabled?: boolean;
   handleSubmitPost: () => Promise<void>;
 
   resetComposer: () => void;
@@ -374,31 +376,34 @@ export default function ProfileComposer({
         }}
       >
         <button
+          type="button"
           onClick={() => {
             resetComposer();
             setComposerOpen(false);
           }}
-          disabled={composerBusy}
           style={{
             padding: "10px 14px",
             borderRadius: 12,
             fontWeight: 900,
-            cursor: composerBusy ? "not-allowed" : "pointer",
-            opacity: composerBusy ? 0.6 : 1,
+            cursor: "pointer",
+            opacity: 1,
           }}
         >
           Cancel
         </button>
 
         <button
+          type="button"
           onClick={handleSubmitPost}
-          disabled={composerBusy}
+          disabled={composerSubmitDisabled ?? composerBusy}
           style={{
             padding: "10px 14px",
             borderRadius: 12,
             fontWeight: 900,
-            cursor: composerBusy ? "not-allowed" : "pointer",
-            opacity: composerBusy ? 0.6 : 1,
+            cursor: (composerSubmitDisabled ?? composerBusy)
+              ? "not-allowed"
+              : "pointer",
+            opacity: (composerSubmitDisabled ?? composerBusy) ? 0.6 : 1,
           }}
         >
           {composerBusy ? "Publishing…" : "Publish"}

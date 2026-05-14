@@ -10,6 +10,7 @@ import DiscoverPage from "./pages/DiscoverPage.tsx";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage.tsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.tsx";
 import VerifyEmailPage from "./pages/VerifyEmailPage.tsx";
+import NestXAppsPage from "./pages/NestXAppsPage.tsx";
 import ProfileLayoutPage from "./pages/ProfileLayoutPage";
 import SearchPage from "./pages/SearchPage";
 import NotificationsPage from "./pages/NotificationsPage";
@@ -78,6 +79,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <Route path="/" element={<App />} />
 
         <Route path="/blocked" element={<BlockedPage />} />
+        <Route path="/apps" element={<NestXAppsPage />} />
 
         {/* AUTH */}
         <Route path="/auth" element={<AuthPage />} />

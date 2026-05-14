@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api, mapApiErrorMessage, getApiRetryAfterMs, formatRetryAfterLabel, persistLocalIdentity } from "../api/nestxApi";
 import type { MeProfile, FollowRelationship, RecentReportLiveItem } from "../api/nestxApi";
@@ -139,6 +139,7 @@ export default function ProfileCenterPage() {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [composerError, setComposerError] = useState<string>("");
   const [composerRetryUntil, setComposerRetryUntil] = useState<number | null>(null);
+  const composerRequestIdRef = useRef(0);
 
   useEffect(() => {
     if (!isMe) return;
@@ -177,12 +178,16 @@ export default function ProfileCenterPage() {
   }, []);
 
   function resetComposer() {
+    composerRequestIdRef.current += 1;
     setComposerType("text");
     setPostText("");
     setPollQuestion("");
     setPollOptions(["", ""]);
     setPollDays(1);
     setSelectedFiles([]);
+    setComposerError("");
+    setComposerRetryUntil(null);
+    setComposerBusy(false);
   }
 
   function addPollOption() {
@@ -205,7 +210,14 @@ export default function ProfileCenterPage() {
 
   async function handleSubmitPost() {
     if (composerBusy) return;
-    if (composerRetryUntil && Date.now() < composerRetryUntil) return;
+    if (composerRetryUntil && Date.now() < composerRetryUntil) {
+      setComposerError(
+        "You are posting too fast." +
+          formatRetryAfterLabel(composerRetryUntil - Date.now())
+      );
+      return;
+    }
+    const requestId = ++composerRequestIdRef.current;
     setComposerBusy(true);
     setComposerError("");
 
@@ -225,12 +237,15 @@ export default function ProfileCenterPage() {
           try {
             media = await api.uploadPostMedia(files);
           } catch (e: any) {
+            if (composerRequestIdRef.current !== requestId) return;
             setComposerError(e?.message || "Media upload failed");
             return;
           }
         }
 
+        if (composerRequestIdRef.current !== requestId) return;
         await api.createPost({ text: t, media });
+        if (composerRequestIdRef.current !== requestId) return;
         resetComposer();
         setComposerOpen(false);
         window.dispatchEvent(new Event("nx:posts-updated"));
@@ -275,10 +290,13 @@ export default function ProfileCenterPage() {
         },
       });
 
+      if (composerRequestIdRef.current !== requestId) return;
       resetComposer();
       setComposerOpen(false);
       window.dispatchEvent(new Event("nx:posts-updated"));
     } catch (e: any) {
+      if (composerRequestIdRef.current !== requestId) return;
+
       const retryAfterMs = getApiRetryAfterMs(e);
       if (retryAfterMs) {
         setComposerRetryUntil(Date.now() + retryAfterMs);
@@ -289,9 +307,24 @@ export default function ProfileCenterPage() {
           formatRetryAfterLabel(retryAfterMs)
       );
     } finally {
-      setComposerBusy(false);
+      if (composerRequestIdRef.current === requestId) {
+        setComposerBusy(false);
+      }
     }
   }
+
+  useEffect(() => {
+    if (!composerRetryUntil) return;
+
+    const delay = Math.max(0, composerRetryUntil - Date.now());
+    if (delay <= 0) {
+      setComposerRetryUntil(null);
+      return;
+    }
+
+    const timeout = window.setTimeout(() => setComposerRetryUntil(null), delay);
+    return () => window.clearTimeout(timeout);
+  }, [composerRetryUntil]);
   
   useEffect(() => {
     async function load() {
@@ -343,6 +376,10 @@ export default function ProfileCenterPage() {
     );
   }
 
+  const composerRetryActive = !!(
+    composerRetryUntil && Date.now() < composerRetryUntil
+  );
+
   return (
     <div
       style={{
@@ -376,7 +413,8 @@ export default function ProfileCenterPage() {
             composerOpen={composerOpen}
             composerType={composerType}
             setComposerType={setComposerType}
-            composerBusy={composerBusy || !!(composerRetryUntil && Date.now() < composerRetryUntil)}
+            composerBusy={composerBusy}
+            composerSubmitDisabled={composerBusy || composerRetryActive}
             handleSubmitPost={handleSubmitPost}
             resetComposer={resetComposer}
             setComposerOpen={setComposerOpen}

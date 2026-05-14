@@ -62,7 +62,22 @@ export default function RulesPage() {
         ))}
       </div>
 
-      <div style={{ marginTop: 22 }}>
+      <div style={{ marginTop: 22, display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <button
+          onClick={() => nav("/apps")}
+          style={{
+            padding: "10px 12px",
+            borderRadius: 12,
+            border: "1px solid rgba(255,255,255,0.14)",
+            background: "rgba(255,255,255,0.06)",
+            color: "white",
+            fontWeight: 900,
+            cursor: "pointer",
+          }}
+        >
+          NestX Apps
+        </button>
+
         <button
           onClick={() => nav("/app/bug-report")}
           style={{

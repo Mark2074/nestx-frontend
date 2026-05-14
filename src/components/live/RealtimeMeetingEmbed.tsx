@@ -35,6 +35,23 @@ export default function RealtimeMeetingEmbed({ isHost }: Props) {
             ? "Host preview/broadcast provider has been disabled during live system migration."
             : "Viewer live stream is temporarily unavailable while the media layer is being replaced."}
         </div>
+        <a
+          href="/apps"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            marginTop: 14,
+            padding: "10px 12px",
+            borderRadius: 12,
+            background: "white",
+            color: "#050505",
+            fontWeight: 900,
+            textDecoration: "none",
+          }}
+        >
+          NestX Apps
+        </a>
       </div>
     </div>
   );

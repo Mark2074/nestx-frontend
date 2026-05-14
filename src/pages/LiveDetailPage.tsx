@@ -745,6 +745,10 @@ export default function LiveDetailPage() {
             Back
           </button>
 
+          <button onClick={() => nav("/apps")} style={secondaryBtnStyle}>
+            NestX Apps
+          </button>
+
           <button
             onClick={() => void loadAccess(eventNativeScope)}
             style={secondaryBtnStyle}

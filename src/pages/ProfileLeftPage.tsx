@@ -18,6 +18,7 @@ const items: NavItem[] = [
   { label: "Tokens", path: "/app/tokens" },
   { label: "Profile", path: "/app/profile" }, // già dropdown
   { label: "Rules", path: "/app/rules" },
+  { label: "NestX Apps", path: "/apps" },
 ];
 
 type SidebarIdentity = {
