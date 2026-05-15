@@ -1036,7 +1036,32 @@ export default function PostCard({
                     return (
                       <div key={cid} style={{ border: "1px solid rgba(255,255,255,0.10)", borderRadius: 12, padding: 10 }}>
                         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                          <div style={{ width: 28, height: 28, borderRadius: 999, overflow: "hidden", background: "rgba(255,255,255,0.08)" }}>
+                          <div
+                            role={cAuthorId ? "button" : undefined}
+                            tabIndex={cAuthorId ? 0 : undefined}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (cAuthorId) navigate(`/app/profile/${cAuthorId}`);
+                            }}
+                            onKeyDown={(e) => {
+                              if (!cAuthorId) return;
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                navigate(`/app/profile/${cAuthorId}`);
+                              }
+                            }}
+                            title={cAuthorId ? "View profile" : undefined}
+                            style={{
+                              width: 28,
+                              height: 28,
+                              borderRadius: 999,
+                              overflow: "hidden",
+                              background: "rgba(255,255,255,0.08)",
+                              cursor: cAuthorId ? "pointer" : "default",
+                              flex: "0 0 auto",
+                            }}
+                          >
                             {cAvatar ? <img src={cAvatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : null}
                           </div>
                           <div

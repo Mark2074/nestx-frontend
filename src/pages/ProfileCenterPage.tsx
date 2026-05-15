@@ -692,9 +692,16 @@ function OtherProfileView({ userId }: { userId: string }) {
   }
 
   async function handleBlockToggle() {
-    if (!confirm("Block this user?")) return;
+    const isUnblocking = rel === "blocked_by_me";
+    if (!confirm(isUnblocking ? "Unblock this user?" : "Block this user?")) return;
 
     try {
+      if (isUnblocking) {
+        await api.unblockUser(userId);
+        setRel("none");
+        return;
+      }
+
       await api.blockUser(userId);
 
       // ✅ FIX: non restare su /profile/:id dopo block (evita fetch 403/404 → "Errore: error" e "Action failed")
