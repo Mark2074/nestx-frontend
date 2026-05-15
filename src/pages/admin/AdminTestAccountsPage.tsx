@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { panel } from "./adminUi";
 import {
   adminGrantTestTokens,
@@ -23,6 +24,7 @@ function userLabel(user: AdminTestAccountItem) {
 }
 
 export default function AdminTestAccountsPage() {
+  const nav = useNavigate();
   const [accounts, setAccounts] = useState<AdminTestAccountItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -183,13 +185,26 @@ export default function AdminTestAccountsPage() {
                   alignItems: "start",
                 }}
               >
-                <div>
+                <button
+                  type="button"
+                  onClick={() => nav(`/app/profile/${account._id}`)}
+                  style={{
+                    width: "100%",
+                    padding: 0,
+                    border: "none",
+                    background: "transparent",
+                    color: "inherit",
+                    textAlign: "left",
+                    cursor: "pointer",
+                  }}
+                  title="Open account profile"
+                >
                   <div style={{ fontWeight: 950 }}>{account.email || "No email"}</div>
                   <div style={{ marginTop: 4, opacity: 0.78, fontSize: 13 }}>
                     @{account.username || account.displayName || "unknown"} · {account.accountType || "user"}
                   </div>
                   <div style={{ marginTop: 6, opacity: 0.72, fontSize: 12 }}>{account._id}</div>
-                </div>
+                </button>
 
                 <Metric label="Balance" value={fmtNumber(account.tokenBalance)} />
                 <Metric label="Purchased" value={fmtNumber(account.tokenPurchased)} />
