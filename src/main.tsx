@@ -47,6 +47,7 @@ import AdminBugReportsPage from "./pages/admin/AdminBugReportsPage.tsx";
 import AdminSecurityLogPage from "./pages/admin/AdminSecurityLogPage.tsx";
 import AdminReportDetailPage from "./pages/admin/AdminReportDetailPage";
 import AdminDeletedAccountsPage from "./pages/admin/AdminDeletedAccountsPage.tsx";
+import AdminTestAccountsPage from "./pages/admin/AdminTestAccountsPage.tsx";
 import FedPage from "./pages/FedPage";
 import HostLiveConsolePage from "./pages/HostLiveConsolePage";
 import HostPanelPage from "./pages/HostPanelPage";
@@ -110,6 +111,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
 
           <Route path="new-growth" element={<AdminNewGrowthPage />} />
           <Route path="watchlist" element={<AdminWatchlistPage />} />
+          <Route path="test-accounts" element={<AdminTestAccountsPage />} />
           <Route path="blocked-users" element={<AdminBlockedUsersPage />} />
           <Route path="deleted-accounts" element={<AdminDeletedAccountsPage />} />
           <Route path="security-log" element={<AdminSecurityLogPage />} />

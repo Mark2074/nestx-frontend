@@ -18,6 +18,7 @@ const items: NavItem[] = [
 
   { label: "New / Growth", path: "/admin/new-growth" },
   { label: "Watchlist", path: "/admin/watchlist" },
+  { label: "Test Accounts", path: "/admin/test-accounts" },
 
   { label: "Blocked / Suspended", path: "/admin/blocked-users" },
   { label: "Deleted Accounts", path: "/admin/deleted-accounts", key: "deleted" },
