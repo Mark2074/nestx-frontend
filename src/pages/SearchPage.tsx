@@ -164,6 +164,31 @@ export default function SearchPage() {
     effectiveFilters.language,
   ]);
 
+  useEffect(() => {
+    function refreshVisibleSearch() {
+      if (document.visibilityState !== "visible") return;
+      if (!q.trim() && !canRunWithoutQ) return;
+      runSearch();
+    }
+
+    window.addEventListener("focus", refreshVisibleSearch);
+    document.addEventListener("visibilitychange", refreshVisibleSearch);
+
+    return () => {
+      window.removeEventListener("focus", refreshVisibleSearch);
+      document.removeEventListener("visibilitychange", refreshVisibleSearch);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    tab,
+    page,
+    q,
+    canRunWithoutQ,
+    effectiveFilters.profileType,
+    effectiveFilters.country,
+    effectiveFilters.language,
+  ]);
+
   const activeList = tab === "users" ? users : tab === "posts" ? posts : events;
 
   return (

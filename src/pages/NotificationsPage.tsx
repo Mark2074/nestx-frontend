@@ -74,7 +74,9 @@ function notificationText(n: NotificationItem): string {
 
   const t = normalizeType(n.type);
 
-  if (t === "social_follow_request" || t === "follow_request") return `${a} sent you a follow request`;
+  if (t === "social_follow_request" || t === "follow_request") {
+    return isFollowRequestCancelled(n) ? "Request cancelled" : `${a} sent you a follow request`;
+  }
   if (t === "social_new_follower") return `${a} started following you`;
   if (t === "social_follow_accepted") return `${a} accepted your follow request`;
 
@@ -170,6 +172,20 @@ function isNotificationDeletable(n: NotificationItem): boolean {
   return true;
 }
 
+function isFollowRequestCancelled(n: NotificationItem): boolean {
+  const data: any = (n as any).data || {};
+  return (
+    data.followRequestCancelled === true ||
+    data.actionable === false ||
+    String(n.message || "").toLowerCase().includes("cancelled")
+  );
+}
+
+function isFollowRequestAccepted(n: NotificationItem): boolean {
+  const data: any = (n as any).data || {};
+  return data.followRequestAccepted === true;
+}
+
 export default function NotificationsPage() {
   const nav = useNavigate();
 
@@ -246,11 +262,53 @@ export default function NotificationsPage() {
     setBusyId(n._id);
     try {
       await api.acceptFollowRequest(followerId);
-      // dopo accept: la notifica può sparire o diventare read -> qui la eliminiamo
-      await api.deleteNotification(n._id);
-      setItems((prev) => prev.filter((x) => x._id !== n._id));
-    } catch (e) {
+      const now = new Date().toISOString();
+      setItems((prev) =>
+        prev.map((x) =>
+          x._id === n._id
+            ? {
+                ...x,
+                isRead: true,
+                readAt: now,
+                data: { ...((x as any).data || {}), followRequestAccepted: true, actionable: false },
+              }
+            : x,
+        ),
+      );
+      await api.readNotification(n._id);
+    } catch (e: any) {
       console.error(e);
+      const code = String(e?.code || e?.data?.code || "");
+      const message = String(e?.message || e?.data?.message || "").toLowerCase();
+      const requestNotPending =
+        code === "FOLLOW_REQUEST_NOT_PENDING" ||
+        message.includes("no longer pending") ||
+        message.includes("pending follow request not found");
+
+      if (requestNotPending) {
+        const now = new Date().toISOString();
+        setItems((prev) =>
+          prev.map((x) =>
+            x._id === n._id
+              ? {
+                  ...x,
+                  isRead: true,
+                  readAt: now,
+                  message: "Follow request cancelled",
+                  data: {
+                    ...((x as any).data || {}),
+                    followRequestCancelled: true,
+                    followRequestAccepted: false,
+                    actionable: false,
+                  },
+                }
+              : x,
+          ),
+        );
+        try {
+          await api.readNotification(n._id);
+        } catch {}
+      }
     } finally {
       setBusyId(null);
       window.dispatchEvent(new Event("nx:notifications-updated"));
@@ -296,6 +354,8 @@ export default function NotificationsPage() {
             const isUnread = !n.isRead;
             const t = normalizeType(n.type);
             const isFollowRequest = t === "social_follow_request" || t === "follow_request";
+            const canAcceptFollowRequest =
+              isFollowRequest && !isFollowRequestCancelled(n) && !isFollowRequestAccepted(n);
             const isBusy = busyId === n._id;
             const aId = actorIdString(n);
             const aName = actorLabel(n);
@@ -398,7 +458,7 @@ export default function NotificationsPage() {
                   </div>
 
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" }}>
-                    {isFollowRequest ? (
+                    {canAcceptFollowRequest ? (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();

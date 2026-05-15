@@ -2092,6 +2092,46 @@ export const adminRefundNativePrivate = (eventId: string, reason?: string | null
     body: JSON.stringify({ ...(reason ? { reason } : {}) }),
   });
 
+export type AdminTestAccountItem = {
+  _id: string;
+  email?: string;
+  displayName?: string;
+  username?: string;
+  accountType?: string;
+  isInternalTest?: boolean;
+  eligibleForTestGrants?: boolean;
+  isVip?: boolean;
+  vipExpiresAt?: string | null;
+  tokenBalance?: number;
+  tokenPurchased?: number;
+  tokenEarnings?: number;
+  tokenRedeemable?: number;
+  tokenHeld?: number;
+};
+
+export const adminListTestAccounts = () =>
+  request<AdminTestAccountItem[]>(`/admin/economy/test-accounts`, {
+    method: "GET",
+  });
+
+export const adminGrantTestTokens = (
+  userId: string,
+  payload: { amountTokens: number; note?: string | null; opId?: string | null },
+) =>
+  request<any>(`/admin/economy/test-accounts/${userId}/grant-tokens`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+export const adminGrantTestVip = (
+  userId: string,
+  payload?: { days?: number; note?: string | null },
+) =>
+  request<any>(`/admin/economy/test-accounts/${userId}/grant-vip`, {
+    method: "POST",
+    body: JSON.stringify(payload || {}),
+  });
+
 // --------------------------------------------------
 // ADMIN — Showcase approval
 // --------------------------------------------------
