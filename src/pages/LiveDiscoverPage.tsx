@@ -122,6 +122,7 @@ export default function LiveDiscoverPage() {
 
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
+  const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
 
   const queryParams = useMemo(() => {
     const selectedApiCategories = selectedCategories.map(categoryValueToApiKey).filter(Boolean);
@@ -229,8 +230,49 @@ export default function LiveDiscoverPage() {
           </div>
         </div>
 
-        <div style={{ opacity: 0.76, fontSize: 13, fontWeight: 800 }}>
-          Category filters
+        <div style={{ position: "relative" }}>
+          <button
+            type="button"
+            onClick={() => setCategoryMenuOpen((v) => !v)}
+            style={categoryMenuButtonStyle}
+            aria-expanded={categoryMenuOpen}
+          >
+            Category filters{selectedCategories.length ? ` (${selectedCategories.length})` : ""}
+          </button>
+
+          {categoryMenuOpen ? (
+            <div style={categoryMenuStyle}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                <div style={{ fontWeight: 950, fontSize: 13 }}>Categories</div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedCategories([]);
+                    setPage(1);
+                  }}
+                  style={menuResetBtnStyle}
+                >
+                  Reset
+                </button>
+              </div>
+
+              <div style={{ marginTop: 8, display: "grid", gap: 4, maxHeight: 310, overflowY: "auto" }}>
+                {EVENT_CATEGORY_OPTIONS.map((item) => {
+                  const active = selectedCategories.includes(item.value);
+                  return (
+                    <label key={item.value} style={categoryOptionStyle(active)}>
+                      <input
+                        type="checkbox"
+                        checked={active}
+                        onChange={() => toggleCategory(item.value)}
+                      />
+                      <span>{item.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -358,21 +400,6 @@ export default function LiveDiscoverPage() {
           </div>
         ) : null}
 
-        <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {EVENT_CATEGORY_OPTIONS.map((item) => {
-            const active = selectedCategories.includes(item.value);
-            return (
-              <button
-                key={item.value}
-                type="button"
-                onClick={() => toggleCategory(item.value)}
-                style={categoryFilterStyle(active)}
-              >
-                {item.label}
-              </button>
-            );
-          })}
-        </div>
       </div>
 
       {/* Results */}
@@ -655,18 +682,52 @@ export default function LiveDiscoverPage() {
   );
 }
 
-const categoryFilterStyle = (active: boolean) =>
+const categoryMenuButtonStyle = {
+  padding: "10px 12px",
+  borderRadius: 12,
+  fontWeight: 900,
+  cursor: "pointer",
+  border: "1px solid rgba(255,255,255,0.14)",
+  background: "rgba(255,255,255,0.05)",
+  color: "white",
+} as const;
+
+const categoryMenuStyle = {
+  position: "absolute",
+  right: 0,
+  top: "calc(100% + 8px)",
+  zIndex: 20,
+  width: 280,
+  padding: 10,
+  borderRadius: 14,
+  border: "1px solid rgba(255,255,255,0.14)",
+  background: "rgba(18,18,18,0.98)",
+  boxShadow: "0 18px 40px rgba(0,0,0,0.35)",
+} as const;
+
+const categoryOptionStyle = (active: boolean) =>
   ({
-    padding: "7px 10px",
-    borderRadius: 999,
-    fontWeight: 900,
-    fontSize: 12,
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "8px 9px",
+    borderRadius: 10,
     cursor: "pointer",
-    border: "1px solid rgba(255,255,255,0.14)",
-    background: active ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.04)",
-    color: "white",
-    opacity: active ? 1 : 0.92,
+    fontWeight: 850,
+    fontSize: 13,
+    background: active ? "rgba(255,255,255,0.10)" : "transparent",
   } as const);
+
+const menuResetBtnStyle = {
+  padding: "5px 8px",
+  borderRadius: 9,
+  border: "1px solid rgba(255,255,255,0.12)",
+  background: "transparent",
+  color: "white",
+  cursor: "pointer",
+  fontWeight: 900,
+  fontSize: 12,
+} as const;
 
 const inputStyle = {
   flex: "1 1 280px",

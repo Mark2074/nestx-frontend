@@ -79,6 +79,7 @@ export default function PromotedPage() {
   const [items, setItems] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [selectedCategories, setSelectedCategories] = React.useState<string[]>([]);
+  const [categoryMenuOpen, setCategoryMenuOpen] = React.useState(false);
 
   React.useEffect(() => {
     let alive = true;
@@ -152,25 +153,43 @@ export default function PromotedPage() {
           <div style={{ opacity: 0.75, fontSize: 13 }}>All active promotions.</div>
         </div>
 
-        <button type="button" onClick={() => setSelectedCategories([])} style={clearBtnStyle}>
-          Reset
-        </button>
-      </div>
+        <div style={{ position: "relative" }}>
+          <button
+            type="button"
+            onClick={() => setCategoryMenuOpen((v) => !v)}
+            style={categoryMenuButtonStyle}
+            aria-expanded={categoryMenuOpen}
+          >
+            Category filters{selectedCategories.length ? ` (${selectedCategories.length})` : ""}
+          </button>
 
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
-        {EVENT_CATEGORY_OPTIONS.map((item) => {
-          const active = selectedCategories.includes(item.value);
-          return (
-            <button
-              key={item.value}
-              type="button"
-              onClick={() => toggleCategory(item.value)}
-              style={categoryFilterStyle(active)}
-            >
-              {item.label}
-            </button>
-          );
-        })}
+          {categoryMenuOpen ? (
+            <div style={categoryMenuStyle}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                <div style={{ fontWeight: 950, fontSize: 13 }}>Categories</div>
+                <button type="button" onClick={() => setSelectedCategories([])} style={menuResetBtnStyle}>
+                  Reset
+                </button>
+              </div>
+
+              <div style={{ marginTop: 8, display: "grid", gap: 4, maxHeight: 310, overflowY: "auto" }}>
+                {EVENT_CATEGORY_OPTIONS.map((item) => {
+                  const active = selectedCategories.includes(item.value);
+                  return (
+                    <label key={item.value} style={categoryOptionStyle(active)}>
+                      <input
+                        type="checkbox"
+                        checked={active}
+                        onChange={() => toggleCategory(item.value)}
+                      />
+                      <span>{item.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+        </div>
       </div>
 
       {loading ? <div style={{ opacity: 0.8, marginTop: 12 }}>Loading…</div> : null}
@@ -295,24 +314,49 @@ export default function PromotedPage() {
   );
 }
 
-const categoryFilterStyle = (active: boolean) =>
+const categoryMenuButtonStyle = {
+  padding: "10px 12px",
+  borderRadius: 12,
+  border: "1px solid rgba(255,255,255,0.14)",
+  background: "rgba(255,255,255,0.05)",
+  color: "white",
+  cursor: "pointer",
+  fontWeight: 900,
+} as const;
+
+const categoryMenuStyle = {
+  position: "absolute",
+  right: 0,
+  top: "calc(100% + 8px)",
+  zIndex: 20,
+  width: 280,
+  padding: 10,
+  borderRadius: 14,
+  border: "1px solid rgba(255,255,255,0.14)",
+  background: "rgba(18,18,18,0.98)",
+  boxShadow: "0 18px 40px rgba(0,0,0,0.35)",
+} as const;
+
+const categoryOptionStyle = (active: boolean) =>
   ({
-    padding: "7px 10px",
-    borderRadius: 999,
-    border: "1px solid rgba(255,255,255,0.14)",
-    background: active ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.03)",
-    color: "white",
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "8px 9px",
+    borderRadius: 10,
     cursor: "pointer",
-    fontWeight: 900,
-    fontSize: 12,
+    fontWeight: 850,
+    fontSize: 13,
+    background: active ? "rgba(255,255,255,0.10)" : "transparent",
   } as const);
 
-const clearBtnStyle = {
-  padding: "8px 10px",
-  borderRadius: 12,
+const menuResetBtnStyle = {
+  padding: "5px 8px",
+  borderRadius: 9,
   border: "1px solid rgba(255,255,255,0.12)",
   background: "transparent",
   color: "white",
   cursor: "pointer",
   fontWeight: 900,
+  fontSize: 12,
 } as const;
