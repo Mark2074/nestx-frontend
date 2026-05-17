@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/nestxApi";
 import { COUNTRIES } from "../constants/countries";
@@ -124,6 +124,7 @@ export default function LiveDiscoverPage() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
+  const categoryMenuRef = useRef<HTMLDivElement | null>(null);
 
   const queryParams = useMemo(() => {
     const selectedApiCategories = selectedCategories.map(categoryValueToApiKey).filter(Boolean);
@@ -218,6 +219,19 @@ export default function LiveDiscoverPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoRefresh, loading, queryParams]);
 
+  useEffect(() => {
+    if (!categoryMenuOpen) return;
+
+    const onPointerDown = (event: PointerEvent) => {
+      const menu = categoryMenuRef.current;
+      if (!menu || menu.contains(event.target as Node)) return;
+      setCategoryMenuOpen(false);
+    };
+
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [categoryMenuOpen]);
+
   const canPrev = page > 1;
   const canNext = page * limit < total;
   const visibleItems = useMemo(
@@ -235,7 +249,7 @@ export default function LiveDiscoverPage() {
           </div>
         </div>
 
-        <div style={{ position: "relative" }}>
+        <div ref={categoryMenuRef} style={{ position: "relative" }}>
           <button
             type="button"
             onClick={() => setCategoryMenuOpen((v) => !v)}

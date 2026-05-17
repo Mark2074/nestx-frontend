@@ -80,6 +80,7 @@ export default function PromotedPage() {
   const [loading, setLoading] = React.useState(true);
   const [selectedCategories, setSelectedCategories] = React.useState<string[]>([]);
   const [categoryMenuOpen, setCategoryMenuOpen] = React.useState(false);
+  const categoryMenuRef = React.useRef<HTMLDivElement | null>(null);
 
   React.useEffect(() => {
     let alive = true;
@@ -103,6 +104,19 @@ export default function PromotedPage() {
       alive = false;
     };
   }, []);
+
+  React.useEffect(() => {
+    if (!categoryMenuOpen) return;
+
+    const onPointerDown = (event: PointerEvent) => {
+      const menu = categoryMenuRef.current;
+      if (!menu || menu.contains(event.target as Node)) return;
+      setCategoryMenuOpen(false);
+    };
+
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [categoryMenuOpen]);
 
   const filtered = React.useMemo(() => {
     const base = (items || []).slice().sort(sortByEndsAtAscNullLast);
@@ -153,7 +167,7 @@ export default function PromotedPage() {
           <div style={{ opacity: 0.75, fontSize: 13 }}>All active promotions.</div>
         </div>
 
-        <div style={{ position: "relative" }}>
+        <div ref={categoryMenuRef} style={{ position: "relative" }}>
           <button
             type="button"
             onClick={() => setCategoryMenuOpen((v) => !v)}
