@@ -1,10 +1,12 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/nestxApi";
+import { shouldExcludeHotContent } from "../utils/appVariant";
 import {
   EVENT_CATEGORY_OPTIONS,
   categoryMatchesSelection,
   getEventDisplayCategory,
+  isNsfwCategory,
 } from "../utils/eventCategories";
 
 type PaymentFilter = "all" | "paid" | "free";
@@ -78,6 +80,7 @@ function sortByEndsAtAscNullLast(a: any, b: any) {
 
 export default function PromotedPage() {
   const nav = useNavigate();
+  const excludeHotContent = shouldExcludeHotContent();
   const [items, setItems] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [selectedCategories, setSelectedCategories] = React.useState<string[]>([]);
@@ -124,14 +127,19 @@ export default function PromotedPage() {
   const filtered = React.useMemo(() => {
     const base = (items || []).slice().sort(sortByEndsAtAscNullLast);
     return base.filter((it) => {
-      if (!categoryMatchesSelection(it, selectedCategories)) return false;
+      if (!categoryMatchesSelection(it, selectedCategories, { includeHot: !excludeHotContent })) return false;
 
       const isPaid = pickPriceLabel(it) === "PAID";
       if (paymentFilter === "paid") return isPaid;
       if (paymentFilter === "free") return !isPaid;
       return true;
     });
-  }, [items, selectedCategories, paymentFilter]);
+  }, [items, selectedCategories, paymentFilter, excludeHotContent]);
+
+  const categoryOptions = React.useMemo(
+    () => EVENT_CATEGORY_OPTIONS.filter((item) => !excludeHotContent || !isNsfwCategory(item.value)),
+    [excludeHotContent]
+  );
 
   const toggleCategory = (value: string) => {
     setSelectedCategories((prev) =>
@@ -209,7 +217,7 @@ export default function PromotedPage() {
                 </div>
 
                 <div style={{ marginTop: 8, display: "grid", gap: 4, maxHeight: 310, overflowY: "auto" }}>
-                  {EVENT_CATEGORY_OPTIONS.map((item) => {
+                  {categoryOptions.map((item) => {
                     const active = selectedCategories.includes(item.value);
                     return (
                       <label key={item.value} style={categoryOptionStyle(active)}>

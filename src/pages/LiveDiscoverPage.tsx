@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/nestxApi";
 import { COUNTRIES } from "../constants/countries";
+import { shouldExcludeHotContent } from "../utils/appVariant";
 import {
   EVENT_CATEGORY_OPTIONS,
   categoryMatchesSelection,
@@ -103,6 +104,7 @@ export default function LiveDiscoverPage() {
   const nav = useNavigate();
 
   const isVip = localStorage.getItem("isVip") === "1";
+  const excludeHotContent = shouldExcludeHotContent();
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [status, setStatus] = useState<"all" | "live" | "scheduled">("all");
@@ -129,7 +131,9 @@ export default function LiveDiscoverPage() {
   const categoryMenuRef = useRef<HTMLDivElement | null>(null);
 
   const queryParams = useMemo(() => {
-    const selectedApiCategories = selectedCategories.map(categoryValueToApiKey).filter(Boolean);
+    const selectedApiCategories = selectedCategories
+      .map(categoryValueToApiKey)
+      .filter((category) => category && (!excludeHotContent || category !== "nsfw"));
     const hasNsfw = selectedCategories.some(isNsfwCategory);
     const hasSfw = selectedApiCategories.some((cat) => cat !== "nsfw");
 
@@ -140,8 +144,11 @@ export default function LiveDiscoverPage() {
       limit,
     };
 
-    if (!selectedApiCategories.length) {
+    if (excludeHotContent) {
       params.contentScope = "NO_HOT";
+      if (selectedApiCategories.length) params.categories = selectedApiCategories;
+    } else if (!selectedApiCategories.length) {
+      // Web and full app include HOT by default. Store is handled above.
     } else if (hasNsfw && !hasSfw) {
       params.contentScope = "HOT";
     } else if (!hasNsfw && hasSfw) {
@@ -159,7 +166,12 @@ export default function LiveDiscoverPage() {
     }
 
     return params;
-  }, [q, status, page, limit, selectedCategories, profileType, country, language, isVip]);
+  }, [q, status, page, limit, selectedCategories, profileType, country, language, isVip, excludeHotContent]);
+
+  const categoryOptions = useMemo(
+    () => EVENT_CATEGORY_OPTIONS.filter((item) => !excludeHotContent || !isNsfwCategory(item.value)),
+    [excludeHotContent]
+  );
 
   function toggleCategory(value: string) {
     setPage(1);
@@ -239,14 +251,14 @@ export default function LiveDiscoverPage() {
   const visibleItems = useMemo(
     () =>
       items.filter((item) => {
-        if (!categoryMatchesSelection(item, selectedCategories)) return false;
+        if (!categoryMatchesSelection(item, selectedCategories, { includeHot: !excludeHotContent })) return false;
 
         const isPaid = getPriceTokens(item) > 0;
         if (paymentFilter === "paid") return isPaid;
         if (paymentFilter === "free") return !isPaid;
         return true;
       }),
-    [items, selectedCategories, paymentFilter]
+    [items, selectedCategories, paymentFilter, excludeHotContent]
   );
 
   return (
@@ -286,7 +298,7 @@ export default function LiveDiscoverPage() {
               </div>
 
               <div style={{ marginTop: 8, display: "grid", gap: 4, maxHeight: 310, overflowY: "auto" }}>
-                {EVENT_CATEGORY_OPTIONS.map((item) => {
+                {categoryOptions.map((item) => {
                   const active = selectedCategories.includes(item.value);
                   return (
                     <label key={item.value} style={categoryOptionStyle(active)}>

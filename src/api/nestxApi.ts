@@ -1,3 +1,5 @@
+import { getAppVariant } from "../utils/appVariant";
+
 export type ApiWrapped<T> = { status: "success" | "error"; data?: T; message?: string };
 
 type LiveScope = "public" | "private";
@@ -213,6 +215,7 @@ async function request<T>(path: string, opts: RequestInit = {}): Promise<T> {
     ...opts,
     headers: {
       "Content-Type": "application/json",
+      "X-NestX-App-Variant": getAppVariant(),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(opts.headers || {}),
     },
