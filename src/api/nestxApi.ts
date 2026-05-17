@@ -1646,14 +1646,63 @@ export const api = {
 
   // --- EVENT BANNER ---
   profileEventBanner: async (userId: string) => {
-    const res = await request<any>(`/profile/event-banner/${userId}`);
+    function normalizeProfileEventBanner(res: any) {
+      if (!res) return null;
+      if (res && res.event) return res.event;
+      if (res && res.banner) return res.banner;
+      if (res && res.data) return res.data;
 
-    if (!res) return null;
-    if (res && res.event) return res.event;
-    if (res && res.banner) return res.banner;
-    if (res && res.data) return res.data;
+      return res;
+    }
 
-    return res;
+    function profileEventBannerTime(event: any) {
+      const raw =
+        event?.startedAt ||
+        event?.startTime ||
+        event?.startAt ||
+        event?.updatedAt ||
+        event?.createdAt ||
+        0;
+
+      const ms = new Date(raw).getTime();
+      return Number.isFinite(ms) ? ms : 0;
+    }
+
+    function isClosedProfileEventBanner(event: any) {
+      const status = String(event?.status || event?.data?.status || "").trim().toLowerCase();
+      return status === "cancelled" || status === "canceled" || status === "finished" || status === "ended";
+    }
+
+    const queryVariants = [
+      "includeHot=1&includeNsfw=1&contentScope=ALL",
+      "contentScope=HOT",
+      "",
+    ];
+
+    const candidates: any[] = [];
+    const seenIds = new Set<string>();
+
+    for (const qs of queryVariants) {
+      try {
+        const suffix = qs ? `?${qs}` : "";
+        const res = await request<any>(`/profile/event-banner/${userId}${suffix}`);
+        const event = normalizeProfileEventBanner(res);
+        const id = String(event?._id || event?.id || event?.eventId || "").trim();
+        if (event && (!id || !seenIds.has(id))) {
+          if (id) seenIds.add(id);
+          candidates.push(event);
+        }
+      } catch {
+        // Keep compatibility with backends that do not understand newer query flags.
+      }
+    }
+
+    return (
+      candidates
+        .filter((event) => !isClosedProfileEventBanner(event))
+        .sort((a, b) => profileEventBannerTime(b) - profileEventBannerTime(a))[0] ||
+      null
+    );
   },
 
   // --- NOTIFICATIONS ---
