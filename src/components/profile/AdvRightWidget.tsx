@@ -1,7 +1,8 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../../api/nestxApi";
-import { getEventDisplayCategory, isHotEvent } from "../../utils/eventCategories";
+import { shouldExcludeHotContent } from "../../utils/appVariant";
+import { categoryMatchesSelection, getEventDisplayCategory, isHotEvent } from "../../utils/eventCategories";
 
 function str(v: any) {
   return String(v ?? "").trim();
@@ -63,6 +64,7 @@ function buildMetaLine(it: any) {
 
 export default function AdvRightWidget() {
   const nav = useNavigate();
+  const excludeHotContent = shouldExcludeHotContent();
   const [items, setItems] = React.useState<any[]>([]);
 
   React.useEffect(() => {
@@ -92,8 +94,11 @@ export default function AdvRightWidget() {
   }, []);
 
   const visible = React.useMemo(() => {
-    return Array.isArray(items) ? items : [];
-  }, [items]);
+    const arr = Array.isArray(items) ? items : [];
+    return arr.filter((item) =>
+      categoryMatchesSelection(item, [], { allowHotCategory: !excludeHotContent })
+    );
+  }, [items, excludeHotContent]);
 
   const go = async (it: any) => {
     const targetType = str(it?.targetType);
