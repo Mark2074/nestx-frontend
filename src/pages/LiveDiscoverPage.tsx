@@ -11,6 +11,7 @@ import {
 } from "../utils/eventCategories";
 
 type LiveItem = any;
+type PaymentFilter = "all" | "paid" | "free";
 
 const PROFILE_TYPE_OPTIONS = ["male", "female", "couple", "gay", "trans"] as const;
 
@@ -105,6 +106,7 @@ export default function LiveDiscoverPage() {
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [status, setStatus] = useState<"all" | "live" | "scheduled">("all");
+  const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>("all");
 
   const [q, setQ] = useState("");
   const [profileType, setProfileType] = useState<string>("");
@@ -235,8 +237,16 @@ export default function LiveDiscoverPage() {
   const canPrev = page > 1;
   const canNext = page * limit < total;
   const visibleItems = useMemo(
-    () => items.filter((item) => categoryMatchesSelection(item, selectedCategories)),
-    [items, selectedCategories]
+    () =>
+      items.filter((item) => {
+        if (!categoryMatchesSelection(item, selectedCategories)) return false;
+
+        const isPaid = getPriceTokens(item) > 0;
+        if (paymentFilter === "paid") return isPaid;
+        if (paymentFilter === "free") return !isPaid;
+        return true;
+      }),
+    [items, selectedCategories, paymentFilter]
   );
 
   return (
@@ -331,6 +341,20 @@ export default function LiveDiscoverPage() {
           </select>
 
           <select
+            value={paymentFilter}
+            onChange={(e) => {
+              setPage(1);
+              setPaymentFilter(e.target.value as PaymentFilter);
+            }}
+            style={selectStyle}
+            aria-label="Payment filter"
+          >
+            <option value="all">All prices</option>
+            <option value="paid">Paid</option>
+            <option value="free">Free</option>
+          </select>
+
+          <select
             value={profileType}
             onChange={(e) => {
               setPage(1);
@@ -392,6 +416,7 @@ export default function LiveDiscoverPage() {
               setCountry("");
               setLanguage("");
               setStatus("all");
+              setPaymentFilter("all");
               setPage(1);
             }}
             style={ghostBtnStyle}

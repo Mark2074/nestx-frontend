@@ -7,6 +7,8 @@ import {
   getEventDisplayCategory,
 } from "../utils/eventCategories";
 
+type PaymentFilter = "all" | "paid" | "free";
+
 function str(v: any) {
   return String(v ?? "").trim();
 }
@@ -79,6 +81,7 @@ export default function PromotedPage() {
   const [items, setItems] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [selectedCategories, setSelectedCategories] = React.useState<string[]>([]);
+  const [paymentFilter, setPaymentFilter] = React.useState<PaymentFilter>("all");
   const [categoryMenuOpen, setCategoryMenuOpen] = React.useState(false);
   const categoryMenuRef = React.useRef<HTMLDivElement | null>(null);
 
@@ -120,8 +123,15 @@ export default function PromotedPage() {
 
   const filtered = React.useMemo(() => {
     const base = (items || []).slice().sort(sortByEndsAtAscNullLast);
-    return base.filter((it) => categoryMatchesSelection(it, selectedCategories));
-  }, [items, selectedCategories]);
+    return base.filter((it) => {
+      if (!categoryMatchesSelection(it, selectedCategories)) return false;
+
+      const isPaid = pickPriceLabel(it) === "PAID";
+      if (paymentFilter === "paid") return isPaid;
+      if (paymentFilter === "free") return !isPaid;
+      return true;
+    });
+  }, [items, selectedCategories, paymentFilter]);
 
   const toggleCategory = (value: string) => {
     setSelectedCategories((prev) =>
@@ -167,42 +177,55 @@ export default function PromotedPage() {
           <div style={{ opacity: 0.75, fontSize: 13 }}>All active promotions.</div>
         </div>
 
-        <div ref={categoryMenuRef} style={{ position: "relative" }}>
-          <button
-            type="button"
-            onClick={() => setCategoryMenuOpen((v) => !v)}
-            style={categoryMenuButtonStyle}
-            aria-expanded={categoryMenuOpen}
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <select
+            value={paymentFilter}
+            onChange={(e) => setPaymentFilter(e.target.value as PaymentFilter)}
+            style={selectStyle}
+            aria-label="Payment filter"
           >
-            Category filters{selectedCategories.length ? ` (${selectedCategories.length})` : ""}
-          </button>
+            <option value="all">All prices</option>
+            <option value="paid">Paid</option>
+            <option value="free">Free</option>
+          </select>
 
-          {categoryMenuOpen ? (
-            <div style={categoryMenuStyle}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-                <div style={{ fontWeight: 950, fontSize: 13 }}>Categories</div>
-                <button type="button" onClick={() => setSelectedCategories([])} style={menuResetBtnStyle}>
-                  Reset
-                </button>
-              </div>
+          <div ref={categoryMenuRef} style={{ position: "relative" }}>
+            <button
+              type="button"
+              onClick={() => setCategoryMenuOpen((v) => !v)}
+              style={categoryMenuButtonStyle}
+              aria-expanded={categoryMenuOpen}
+            >
+              Category filters{selectedCategories.length ? ` (${selectedCategories.length})` : ""}
+            </button>
 
-              <div style={{ marginTop: 8, display: "grid", gap: 4, maxHeight: 310, overflowY: "auto" }}>
-                {EVENT_CATEGORY_OPTIONS.map((item) => {
-                  const active = selectedCategories.includes(item.value);
-                  return (
-                    <label key={item.value} style={categoryOptionStyle(active)}>
-                      <input
-                        type="checkbox"
-                        checked={active}
-                        onChange={() => toggleCategory(item.value)}
-                      />
-                      <span>{item.label}</span>
-                    </label>
-                  );
-                })}
+            {categoryMenuOpen ? (
+              <div style={categoryMenuStyle}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                  <div style={{ fontWeight: 950, fontSize: 13 }}>Categories</div>
+                  <button type="button" onClick={() => setSelectedCategories([])} style={menuResetBtnStyle}>
+                    Reset
+                  </button>
+                </div>
+
+                <div style={{ marginTop: 8, display: "grid", gap: 4, maxHeight: 310, overflowY: "auto" }}>
+                  {EVENT_CATEGORY_OPTIONS.map((item) => {
+                    const active = selectedCategories.includes(item.value);
+                    return (
+                      <label key={item.value} style={categoryOptionStyle(active)}>
+                        <input
+                          type="checkbox"
+                          checked={active}
+                          onChange={() => toggleCategory(item.value)}
+                        />
+                        <span>{item.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ) : null}
+            ) : null}
+          </div>
         </div>
       </div>
 
@@ -373,4 +396,15 @@ const menuResetBtnStyle = {
   cursor: "pointer",
   fontWeight: 900,
   fontSize: 12,
+} as const;
+
+const selectStyle = {
+  padding: "10px 12px",
+  borderRadius: 12,
+  border: "1px solid rgba(255,255,255,0.14)",
+  background: "rgba(20,20,20,0.65)",
+  color: "white",
+  outline: "none",
+  cursor: "pointer",
+  fontWeight: 900,
 } as const;
