@@ -4,6 +4,7 @@ import { api } from "../api/nestxApi";
 import { COUNTRIES } from "../constants/countries";
 import {
   EVENT_CATEGORY_OPTIONS,
+  categoryMatchesSelection,
   categoryValueToApiKey,
   getEventDisplayCategory,
   isNsfwCategory,
@@ -219,6 +220,10 @@ export default function LiveDiscoverPage() {
 
   const canPrev = page > 1;
   const canNext = page * limit < total;
+  const visibleItems = useMemo(
+    () => items.filter((item) => categoryMatchesSelection(item, selectedCategories)),
+    [items, selectedCategories]
+  );
 
   return (
     <div style={{ maxWidth: 980, margin: "0 auto", padding: 18 }}>
@@ -405,14 +410,14 @@ export default function LiveDiscoverPage() {
       {/* Results */}
       <div style={{ marginTop: 14 }}>
         <div style={{ opacity: 0.85, fontSize: 13, marginBottom: 10 }}>
-          Showing <b>{items.length}</b> items {total ? <>of <b>{total}</b></> : null}
+          Showing <b>{visibleItems.length}</b> items {total ? <>of <b>{total}</b></> : null}
         </div>
 
-        {loading && !items.length ? (
+        {loading && !visibleItems.length ? (
           <div style={{ opacity: 0.85, padding: 14 }}>Loading...</div>
         ) : null}
 
-        {!loading && !items.length ? (
+        {!loading && !visibleItems.length ? (
           <div style={{ opacity: 0.85, padding: 14 }}>
             No results.
           </div>
@@ -425,7 +430,7 @@ export default function LiveDiscoverPage() {
             gridTemplateColumns: "repeat(3, 1fr)",
           }}
         >
-          {items.map((it: any) => {
+          {visibleItems.map((it: any) => {
             const id = getEventId(it);
             const title = String(it?.title || "Live");
             const creatorName = getCreatorName(it);
