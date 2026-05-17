@@ -6,7 +6,7 @@ import { api, mapApiErrorMessage, getApiRetryAfterMs, formatRetryAfterLabel } fr
 type Scope = "HOT" | "NO_HOT";
 
 const EVENT_CATEGORIES = [
-  { value: "nsfw", label: "NSFW" },
+  { value: "NSFW", label: "NSFW" },
   { value: "technology_ai", label: "Technology & AI" },
   { value: "finance_investing", label: "Finance & Investing" },
   { value: "business", label: "Business & Entrepreneurship" },
@@ -56,7 +56,7 @@ export default function LiveCreatePage() {
   // ADV (event-banner) from Live setup only
   const [promote, setPromote] = useState(false);
 
-  const isHot = category === "nsfw";
+  const isHot = category === "NSFW";
   const isNoHot = !isHot;
   const contentScope: Scope = isHot ? "HOT" : "NO_HOT";
 
@@ -99,7 +99,7 @@ export default function LiveCreatePage() {
   }, []);
 
   function handleCategoryChange(nextCategory: string) {
-    const nextIsHot = nextCategory === "nsfw";
+    const nextIsHot = nextCategory === "NSFW";
     const currentIsHot = isHot;
 
     setCategory(nextCategory);
@@ -124,7 +124,7 @@ export default function LiveCreatePage() {
 
     const safeCategory = String(category || "").trim();
 
-    if (isNoHot && !safeCategory) {
+    if (!safeCategory) {
       throw new Error("Select a category for this event.");
     }
 
