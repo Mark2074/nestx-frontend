@@ -15,7 +15,7 @@ export default function RulesPage() {
       { label: "1) Platform Rules (Core Rules)", href: "/rules/en/platform-rules.html" },
       { label: "2) Account Types & Status", href: "/rules/en/accounts.html" },
       { label: "3) Tokens & Economy (Overview)", href: "/rules/en/tokens.html" },
-      { label: "4) Live, Events & CAM", href: "/rules/en/live-events.html" },
+      { label: "4) Live & Events", href: "/rules/en/live-events.html" },
       { label: "5) ADV & Promotion System", href: "/rules/en/adv.html" },
       { label: "6) Showcase / Vetrina", href: "/rules/en/showcase.html" },
       { label: "7) Verification & Authenticity", href: "/rules/en/verification.html" },

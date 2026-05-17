@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/nestxApi";
+import { getEventDisplayCategory } from "../utils/eventCategories";
 
 type LiveScope = "public" | "private";
 
@@ -757,7 +758,7 @@ export default function HostLiveConsolePage() {
               flexWrap: "wrap",
             }}
           >
-            <span style={pillStyle}>{(eventDetail?.contentScope || "—").toString()}</span>
+            <span style={pillStyle}>{getEventDisplayCategory(eventDetail) || "Event"}</span>
             <span style={pillStyle}>
               {isFinished || isCancelled ? "ENDED" : isLive ? "LIVE" : "WAITING"}
             </span>

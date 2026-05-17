@@ -2,45 +2,18 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/nestxApi";
 import { COUNTRIES } from "../constants/countries";
+import {
+  EVENT_CATEGORY_OPTIONS,
+  categoryValueToApiKey,
+  getEventDisplayCategory,
+  isNsfwCategory,
+} from "../utils/eventCategories";
 
 type LiveItem = any;
-
-type TabScope = "HOT" | "NO_HOT";
 
 const PROFILE_TYPE_OPTIONS = ["male", "female", "couple", "gay", "trans"] as const;
 
 const LANGUAGE_OPTIONS = ["it", "en", "fr", "de", "es", "pt", "ro", "pl"] as const;
-
-const CATEGORY_LABELS: Record<string, string> = {
-  nsfw: "NSFW",
-  technology_ai: "Technology & AI",
-  finance_investing: "Finance & Investing",
-  business: "Business & Entrepreneurship",
-  science: "Science & Research",
-  history_culture: "History & Culture",
-  psychology: "Psychology & Mind",
-  gaming: "Gaming",
-  live_shows: "Live Shows",
-  comedy: "Comedy",
-  storytelling: "Storytelling",
-  fitness: "Fitness & Health",
-  food: "Food & Cooking",
-  travel: "Travel",
-  daily_life: "Daily Life",
-  fashion: "Fashion & Style",
-  tutorials: "Tutorials & How-To",
-  art: "Art & Drawing",
-  design: "Design & Creative",
-  diy: "DIY & Makers",
-  coding: "Coding & Development",
-  qa_chat: "Q&A / Chat",
-  community: "Community Talk",
-  debate: "Opinions & Debate",
-  coaching: "Advice / Coaching",
-  news: "News & Commentary",
-  announcements: "Events & Announcements",
-  experimental: "Experimental",
-};
 
 function clamp(n: number, a: number, b: number) {
   return Math.max(a, Math.min(b, n));
@@ -124,28 +97,12 @@ function getMaxSeats(item: any): number | null {
   return n;
 }
 
-function getCategoryLabel(item: any): string {
-  const key = String(item?.category || item?.eventCategory || item?.data?.category || "")
-    .trim()
-    .toLowerCase();
-  if (!key || key === "general") return "";
-  return CATEGORY_LABELS[key] || titleCase(key.replace(/[_-]+/g, " "));
-}
-
-function titleCase(value: string): string {
-  return value
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
 export default function LiveDiscoverPage() {
   const nav = useNavigate();
 
   const isVip = localStorage.getItem("isVip") === "1";
 
-  const [tab, setTab] = useState<TabScope>("NO_HOT");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [status, setStatus] = useState<"all" | "live" | "scheduled">("all");
 
   const [q, setQ] = useState("");
@@ -167,13 +124,27 @@ export default function LiveDiscoverPage() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
 
   const queryParams = useMemo(() => {
+    const selectedApiCategories = selectedCategories.map(categoryValueToApiKey).filter(Boolean);
+    const hasNsfw = selectedCategories.some(isNsfwCategory);
+    const hasSfw = selectedApiCategories.some((cat) => cat !== "nsfw");
+
     const params: any = {
       q,
       status,
       page,
       limit,
-      contentScope: tab,
     };
+
+    if (!selectedApiCategories.length) {
+      params.contentScope = "NO_HOT";
+    } else if (hasNsfw && !hasSfw) {
+      params.contentScope = "HOT";
+    } else if (!hasNsfw && hasSfw) {
+      params.contentScope = "NO_HOT";
+      params.categories = selectedApiCategories;
+    } else {
+      params.categories = selectedApiCategories;
+    }
 
     if (profileType.trim()) params.profileType = profileType.trim().toLowerCase();
     if (country.trim()) params.country = country.trim().toLowerCase();
@@ -183,7 +154,14 @@ export default function LiveDiscoverPage() {
     }
 
     return params;
-  }, [q, status, page, limit, tab, profileType, country, language, isVip]);
+  }, [q, status, page, limit, selectedCategories, profileType, country, language, isVip]);
+
+  function toggleCategory(value: string) {
+    setPage(1);
+    setSelectedCategories((prev) =>
+      prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value]
+    );
+  }
 
   async function load() {
     setLoading(true);
@@ -211,7 +189,7 @@ export default function LiveDiscoverPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryParams]);
 
-  // auto-refresh (every 10s) only when tab is visible and not currently loading
+  // auto-refresh (every 10s) only when the page is visible and not currently loading
   useEffect(() => {
     if (!autoRefresh) return;
 
@@ -225,7 +203,7 @@ export default function LiveDiscoverPage() {
 
     const onVis = () => {
       if (document.visibilityState === "visible") {
-        // refresh immediately when user returns to the tab
+        // refresh immediately when user returns to the browser tab
         tick();
       }
     };
@@ -251,21 +229,8 @@ export default function LiveDiscoverPage() {
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <button
-            type="button"
-            onClick={() => setTab("HOT")}
-            style={tabBtnStyle(tab === "HOT")}
-          >
-            CAM (HOT)
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab("NO_HOT")}
-            style={tabBtnStyle(tab === "NO_HOT")}
-          >
-            EVENTS (NO_HOT)
-          </button>
+        <div style={{ opacity: 0.76, fontSize: 13, fontWeight: 800 }}>
+          Category filters
         </div>
       </div>
 
@@ -361,6 +326,7 @@ export default function LiveDiscoverPage() {
             type="button"
             onClick={() => {
               setQ("");
+              setSelectedCategories([]);
               setProfileType("");
               setCountry("");
               setLanguage("");
@@ -391,6 +357,22 @@ export default function LiveDiscoverPage() {
             {err}
           </div>
         ) : null}
+
+        <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {EVENT_CATEGORY_OPTIONS.map((item) => {
+            const active = selectedCategories.includes(item.value);
+            return (
+              <button
+                key={item.value}
+                type="button"
+                onClick={() => toggleCategory(item.value)}
+                style={categoryFilterStyle(active)}
+              >
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Results */}
@@ -425,8 +407,8 @@ export default function LiveDiscoverPage() {
             const st = getStatus(it);
             const price = getPriceTokens(it);
             const maxSeats = getMaxSeats(it);
-            const scope = String(it?.contentScope || it?.data?.contentScope || tab);
-            const categoryLabel = getCategoryLabel(it);
+            const scope = String(it?.contentScope || it?.data?.contentScope || "");
+            const categoryLabel = getEventDisplayCategory(it);
             const userProfileId = getCreatorProfileId(it);
 
             const rawDate =
@@ -673,11 +655,12 @@ export default function LiveDiscoverPage() {
   );
 }
 
-const tabBtnStyle = (active: boolean) =>
+const categoryFilterStyle = (active: boolean) =>
   ({
-    padding: "10px 12px",
-    borderRadius: 12,
+    padding: "7px 10px",
+    borderRadius: 999,
     fontWeight: 900,
+    fontSize: 12,
     cursor: "pointer",
     border: "1px solid rgba(255,255,255,0.14)",
     background: active ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.04)",

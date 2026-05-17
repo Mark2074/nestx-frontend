@@ -1,6 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../../api/nestxApi";
+import { getEventDisplayCategory, isHotEvent } from "../../utils/eventCategories";
 
 function str(v: any) {
   return String(v ?? "").trim();
@@ -40,19 +41,6 @@ function pickDescription(it: any) {
   return str(it?.text) || str(it?.description) || "";
 }
 
-function pickContentScope(it: any) {
-  const raw =
-    str(it?.contentScope) ||
-    str(it?.content) ||
-    str(it?.eventContentScope) ||
-    str(it?.meta?.contentScope) ||
-    "";
-  const v = raw.toLowerCase();
-  if (v === "hot") return "HOT";
-  if (v === "no_hot" || v === "nohot" || v === "non_hot" || v === "nonhot" || v === "neutral") return "NO_HOT";
-  return raw ? raw.toUpperCase() : "";
-}
-
 function pickPriceLabel(it: any) {
   const priceTokensRaw =
     it?.ticketPriceTokens ??
@@ -66,29 +54,11 @@ function pickPriceLabel(it: any) {
   return Number.isFinite(n) && n > 0 ? "PAID" : "FREE";
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  nsfw: "NSFW",
-};
-
-function pickCategoryLabel(it: any) {
-  const key = str(it?.category || it?.eventCategory || it?.meta?.category || it?.data?.category).toLowerCase();
-  if (!key || key === "general") return "";
-  return CATEGORY_LABELS[key] || titleCase(key.replace(/[_-]+/g, " "));
-}
-
-function titleCase(value: string) {
-  return value
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
 function buildMetaLine(it: any) {
-  const category = pickCategoryLabel(it);
-  const scope = pickContentScope(it) === "HOT" ? "NSFW" : "Event";
+  const category = getEventDisplayCategory(it);
+  const fallback = isHotEvent(it) ? "NSFW" : "Event";
   const price = pickPriceLabel(it);
-  return `${category || scope} - ${price}`;
+  return `${category || fallback} - ${price}`;
 }
 
 export default function AdvRightWidget() {
@@ -122,7 +92,7 @@ export default function AdvRightWidget() {
   }, []);
 
   const visible = React.useMemo(() => {
-    return Array.isArray(items) ? items : [];
+    return Array.isArray(items) ? items.filter((item) => !isHotEvent(item)) : [];
   }, [items]);
 
   const go = async (it: any) => {

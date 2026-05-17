@@ -1323,6 +1323,7 @@ export const api = {
     country?: string | null;
     language?: string | null;
     contentScope?: "HOT" | "NO_HOT" | null;
+    categories?: string[] | null;
   }) => {
     const q = String(params?.q || "").trim();
     const status = params?.status ?? "all";
@@ -1339,6 +1340,7 @@ export const api = {
     if (params?.country) sp.set("country", String(params.country));
     if (params?.language) sp.set("language", String(params.language));
     if (params?.contentScope) sp.set("contentScope", String(params.contentScope));
+    if (params?.categories?.length) sp.set("categories", params.categories.join(","));
 
     return request<LiveSearchResponse>(`/live-search/search?${sp.toString()}`, { method: "GET" });
   },

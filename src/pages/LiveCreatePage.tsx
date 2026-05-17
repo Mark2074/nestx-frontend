@@ -1,40 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, mapApiErrorMessage, getApiRetryAfterMs, formatRetryAfterLabel } from "../api/nestxApi";
+import { EVENT_CATEGORY_OPTIONS } from "../utils/eventCategories";
 
 // BE expects: HOT | NO_HOT
 type Scope = "HOT" | "NO_HOT";
 
-const EVENT_CATEGORIES = [
-  { value: "NSFW", label: "NSFW" },
-  { value: "technology_ai", label: "Technology & AI" },
-  { value: "finance_investing", label: "Finance & Investing" },
-  { value: "business", label: "Business & Entrepreneurship" },
-  { value: "science", label: "Science & Research" },
-  { value: "history_culture", label: "History & Culture" },
-  { value: "psychology", label: "Psychology & Mind" },
-  { value: "gaming", label: "Gaming" },
-  { value: "live_shows", label: "Live Shows" },
-  { value: "comedy", label: "Comedy" },
-  { value: "storytelling", label: "Storytelling" },
-  { value: "fitness", label: "Fitness & Health" },
-  { value: "food", label: "Food & Cooking" },
-  { value: "travel", label: "Travel" },
-  { value: "daily_life", label: "Daily Life" },
-  { value: "fashion", label: "Fashion & Style" },
-  { value: "tutorials", label: "Tutorials & How-To" },
-  { value: "art", label: "Art & Drawing" },
-  { value: "design", label: "Design & Creative" },
-  { value: "diy", label: "DIY & Makers" },
-  { value: "coding", label: "Coding & Development" },
-  { value: "qa_chat", label: "Q&A / Chat" },
-  { value: "community", label: "Community Talk" },
-  { value: "debate", label: "Opinions & Debate" },
-  { value: "coaching", label: "Advice / Coaching" },
-  { value: "news", label: "News & Commentary" },
-  { value: "announcements", label: "Events & Announcements" },
-  { value: "experimental", label: "Experimental" },
-] as const;
+const EVENT_CATEGORIES = EVENT_CATEGORY_OPTIONS;
 
 export default function LiveCreatePage() {
   const nav = useNavigate();

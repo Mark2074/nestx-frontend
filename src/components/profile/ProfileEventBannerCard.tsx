@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { getEventDisplayCategory } from "../../utils/eventCategories";
 
 function getEventId(item: any): string {
   return String(item?._id || item?.id || item?.eventId || "");
@@ -12,53 +13,6 @@ function getPriceTokens(item: any): number {
   const v = item?.ticketPriceTokens ?? item?.data?.ticketPriceTokens ?? item?.priceTokens ?? 0;
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
-}
-
-const CATEGORY_LABELS: Record<string, string> = {
-  nsfw: "NSFW",
-  technology_ai: "Technology & AI",
-  finance_investing: "Finance & Investing",
-  business: "Business & Entrepreneurship",
-  science: "Science & Research",
-  history_culture: "History & Culture",
-  psychology: "Psychology & Mind",
-  gaming: "Gaming",
-  live_shows: "Live Shows",
-  comedy: "Comedy",
-  storytelling: "Storytelling",
-  fitness: "Fitness & Health",
-  food: "Food & Cooking",
-  travel: "Travel",
-  daily_life: "Daily Life",
-  fashion: "Fashion & Style",
-  tutorials: "Tutorials & How-To",
-  art: "Art & Drawing",
-  design: "Design & Creative",
-  diy: "DIY & Makers",
-  coding: "Coding & Development",
-  qa_chat: "Q&A / Chat",
-  community: "Community Talk",
-  debate: "Opinions & Debate",
-  coaching: "Advice / Coaching",
-  news: "News & Commentary",
-  announcements: "Events & Announcements",
-  experimental: "Experimental",
-};
-
-function getCategoryLabel(item: any): string {
-  const key = String(item?.category || item?.eventCategory || item?.data?.category || "")
-    .trim()
-    .toLowerCase();
-  if (!key || key === "general") return "";
-  return CATEGORY_LABELS[key] || titleCase(key.replace(/[_-]+/g, " "));
-}
-
-function titleCase(value: string): string {
-  return value
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
 }
 
 export default function ProfileEventBannerCard({
@@ -93,7 +47,7 @@ export default function ProfileEventBannerCard({
   const status = getStatus(event);
   const isLive = status === "running" || status === "live";
 
-  const categoryLabel = getCategoryLabel(event);
+  const categoryLabel = getEventDisplayCategory(event);
 
   const price = getPriceTokens(event);
   const isFree = price <= 0;

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/nestxApi";
+import { getEventDisplayCategory } from "../utils/eventCategories";
 
 type AccessResponse = {
   canEnter: boolean;
@@ -30,51 +31,6 @@ type EventDetail = {
   accessScope?: "public" | "private";
 };
 
-const NO_HOT_CATEGORY_LABELS: Record<string, string> = {
-  nsfw: "NSFW",
-  technology_ai: "Technology & AI",
-  finance_investing: "Finance & Investing",
-  business: "Business & Entrepreneurship",
-  science: "Science & Research",
-  history_culture: "History & Culture",
-  psychology: "Psychology & Mind",
-  gaming: "Gaming",
-  live_shows: "Live Shows",
-  comedy: "Comedy",
-  storytelling: "Storytelling",
-  fitness: "Fitness & Health",
-  food: "Food & Cooking",
-  travel: "Travel",
-  daily_life: "Daily Life",
-  fashion: "Fashion & Style",
-  tutorials: "Tutorials & How-To",
-  art: "Art & Drawing",
-  design: "Design & Creative",
-  diy: "DIY & Makers",
-  coding: "Coding & Development",
-  qa_chat: "Q&A / Chat",
-  community: "Community Talk",
-  debate: "Opinions & Debate",
-  coaching: "Advice / Coaching",
-  news: "News & Commentary",
-  announcements: "Events & Announcements",
-  experimental: "Experimental",
-};
-
-function getCategoryLabel(value?: string | null): string {
-  const key = String(value || "").trim().toLowerCase();
-  if (!key || key === "general") return "";
-  return NO_HOT_CATEGORY_LABELS[key] || titleCase(key.replace(/[_-]+/g, " "));
-}
-
-function titleCase(value: string): string {
-  return value
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
 export default function LiveDetailPage() {
   const nav = useNavigate();
   const { id } = useParams();
@@ -87,6 +43,7 @@ export default function LiveDetailPage() {
   const [eventDetail, setEventDetail] = useState<EventDetail | null>(null);
   const [meta, setMeta] = useState<any>(null);
   const [eventNotFound, setEventNotFound] = useState(false);
+  const categoryLabel = getEventDisplayCategory(eventDetail);
 
   const [err, setErr] = useState<string>("");
 
@@ -874,10 +831,10 @@ export default function LiveDetailPage() {
               </div>
             ) : null}
 
-            {getCategoryLabel(eventDetail?.category) ? (
+            {categoryLabel ? (
               <div style={{ opacity: 0.82 }}>
                 <span style={{ fontWeight: 900 }}>Category:</span>{" "}
-                <span>{getCategoryLabel(eventDetail?.category)}</span>
+                <span>{categoryLabel}</span>
               </div>
             ) : null}
 
