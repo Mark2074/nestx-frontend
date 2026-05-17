@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, type NotificationItem } from "../api/nestxApi";
 
@@ -193,8 +193,6 @@ export default function NotificationsPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [items, setItems] = useState<NotificationItem[]>([]);
 
-  const unreadCount = useMemo(() => items.filter((x) => !x.isRead).length, [items]);
-
   async function load() {
     setLoading(true);
     try {
@@ -328,19 +326,19 @@ export default function NotificationsPage() {
 
         <button
           onClick={markAllRead}
-          disabled={loading || busyId === "__all__" || unreadCount === 0}
+          disabled={loading || busyId === "__all__"}
           style={{
             padding: "10px 12px",
             borderRadius: 12,
             fontWeight: 900,
-            cursor: unreadCount === 0 ? "not-allowed" : "pointer",
+            cursor: loading || busyId === "__all__" ? "not-allowed" : "pointer",
             border: "none",
             background: "rgba(255,255,255,0.06)",
             color: "rgba(255,255,255,0.92)",
-            opacity: unreadCount === 0 ? 0.5 : 1,
+            opacity: loading || busyId === "__all__" ? 0.6 : 1,
           }}
         >
-          Mark all as read
+          {busyId === "__all__" ? "Marking..." : "Mark all as read"}
         </button>
       </div>
 
