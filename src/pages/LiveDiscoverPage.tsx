@@ -148,7 +148,7 @@ export default function LiveDiscoverPage() {
       params.contentScope = "NO_HOT";
       if (selectedApiCategories.length) params.categories = selectedApiCategories;
     } else if (!selectedApiCategories.length) {
-      // Web and full app include HOT by default. Store is handled above.
+      params.contentScope = "NO_HOT";
     } else if (hasNsfw && !hasSfw) {
       params.contentScope = "HOT";
     } else if (!hasNsfw && hasSfw) {
@@ -251,7 +251,7 @@ export default function LiveDiscoverPage() {
   const visibleItems = useMemo(
     () =>
       items.filter((item) => {
-        if (!categoryMatchesSelection(item, selectedCategories, { includeHot: !excludeHotContent })) return false;
+        if (!categoryMatchesSelection(item, selectedCategories, { allowHotCategory: !excludeHotContent })) return false;
 
         const isPaid = getPriceTokens(item) > 0;
         if (paymentFilter === "paid") return isPaid;

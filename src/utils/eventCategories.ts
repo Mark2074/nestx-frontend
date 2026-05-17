@@ -84,15 +84,14 @@ export function categoryValueToApiKey(value: string): string {
 export function categoryMatchesSelection(
   item: any,
   selectedCategories: string[],
-  opts: { includeHot?: boolean } = {}
+  opts: { allowHotCategory?: boolean } = {}
 ): boolean {
   const selected = selectedCategories.map(categoryValueToApiKey).filter(Boolean);
   const hot = isHotEvent(item);
-  const includeHot = opts.includeHot ?? true;
+  const allowHotCategory = opts.allowHotCategory ?? true;
 
-  if (hot && !includeHot) return false;
-  if (!selected.length) return true;
-  if (hot) return selected.includes("nsfw");
+  if (!selected.length) return !hot;
+  if (hot) return allowHotCategory && selected.includes("nsfw");
 
   const key = normalizeCategoryKey(item?.category || item?.eventCategory || item?.meta?.category || item?.data?.category);
   return Boolean(key && selected.includes(key));

@@ -127,7 +127,7 @@ export default function PromotedPage() {
   const filtered = React.useMemo(() => {
     const base = (items || []).slice().sort(sortByEndsAtAscNullLast);
     return base.filter((it) => {
-      if (!categoryMatchesSelection(it, selectedCategories, { includeHot: !excludeHotContent })) return false;
+      if (!categoryMatchesSelection(it, selectedCategories, { allowHotCategory: !excludeHotContent })) return false;
 
       const isPaid = pickPriceLabel(it) === "PAID";
       if (paymentFilter === "paid") return isPaid;
