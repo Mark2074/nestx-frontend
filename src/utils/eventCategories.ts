@@ -1,4 +1,4 @@
-export const EVENT_CATEGORY_OPTIONS = [
+const EVENT_CATEGORY_DEFINITIONS = [
   { value: "announcements", label: "Events & Announcements" },
   { value: "art", label: "Art & Drawing" },
   { value: "business", label: "Business & Entrepreneurship" },
@@ -29,7 +29,11 @@ export const EVENT_CATEGORY_OPTIONS = [
   { value: "tutorials", label: "Tutorials & How-To" },
 ] as const;
 
-const CATEGORY_LABELS = EVENT_CATEGORY_OPTIONS.reduce<Record<string, string>>((acc, item) => {
+export const EVENT_CATEGORY_OPTIONS = [...EVENT_CATEGORY_DEFINITIONS].sort((a, b) =>
+  a.label.localeCompare(b.label)
+);
+
+const CATEGORY_LABELS = EVENT_CATEGORY_DEFINITIONS.reduce<Record<string, string>>((acc, item) => {
   acc[item.value.toLowerCase()] = item.label;
   return acc;
 }, {});
