@@ -505,9 +505,14 @@ function OtherProfileView({ userId }: { userId: string }) {
     return rel === "accepted";
   }, [p, rel, isBlocked, isMuted, isAdminViewer]);
   const canSeeOldLive = useMemo(() => {
+    if (!p) return false;
+    if (isBlocked) return false;
+    if (isMuted) return false;
+
     if (isAdminViewer) return true;
+    if (p.isPrivate === false) return true;
     return rel === "accepted";
-  }, [rel, isAdminViewer]);
+  }, [p, rel, isBlocked, isMuted, isAdminViewer]);
 
   function normalizeRelStatus(raw: any): FollowRelationship {
     const s = String(raw || "").toLowerCase();

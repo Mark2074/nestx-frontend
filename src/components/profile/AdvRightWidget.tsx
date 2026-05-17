@@ -92,7 +92,7 @@ export default function AdvRightWidget() {
   }, []);
 
   const visible = React.useMemo(() => {
-    return Array.isArray(items) ? items.filter((item) => !isHotEvent(item)) : [];
+    return Array.isArray(items) ? items : [];
   }, [items]);
 
   const go = async (it: any) => {
