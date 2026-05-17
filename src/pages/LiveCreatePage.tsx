@@ -49,9 +49,9 @@ export default function LiveCreatePage() {
 
   const [startTime, setStartTime] = useState("");
   const [durationMinutes, setDurationMinutes] = useState(60);
-  const [ticketPriceTokens, setTicketPriceTokens] = useState(10);
+  const [ticketPriceTokens, setTicketPriceTokens] = useState<number | "">("");
 
-  const [maxSeats, setMaxSeats] = useState<number | "">(10);
+  const [maxSeats, setMaxSeats] = useState<number | "">("");
 
   // ADV (event-banner) from Live setup only
   const [promote, setPromote] = useState(false);
@@ -65,6 +65,7 @@ export default function LiveCreatePage() {
 
   const isPrivateModel = isHot && effectiveAccessScope === "private";
   const shouldSendTicketFields = isNoHot || isPrivateModel;
+  const showTicketFields = shouldSendTicketFields;
   const canPromoteEvent = liveEnabled;
 
   const interactionMode: "broadcast" | "interactive" = "broadcast";
@@ -105,8 +106,8 @@ export default function LiveCreatePage() {
     if (nextIsHot === currentIsHot) return;
 
     setAccessScope("public");
-    setTicketPriceTokens(nextIsHot ? 0 : 10);
-    setMaxSeats(nextIsHot ? "" : 10);
+    setTicketPriceTokens("");
+    setMaxSeats("");
   }
 
   async function createEventOnce() {
@@ -125,6 +126,19 @@ export default function LiveCreatePage() {
 
     if (isNoHot && !safeCategory) {
       throw new Error("Select a category for this event.");
+    }
+
+    if (shouldSendTicketFields) {
+      const price = Number(ticketPriceTokens);
+      const seats = Number(maxSeats);
+
+      if (!Number.isFinite(price) || price <= 0) {
+        throw new Error("Ticket price must be greater than 0.");
+      }
+
+      if (!Number.isFinite(seats) || seats <= 0) {
+        throw new Error("Max seats must be greater than 0.");
+      }
     }
 
     const res = await api.createEvent({
@@ -400,8 +414,6 @@ export default function LiveCreatePage() {
                 type="button"
                 onClick={() => {
                   setAccessScope("private");
-                  if (Number(ticketPriceTokens) <= 0) setTicketPriceTokens(10);
-                  if (!Number(maxSeats)) setMaxSeats(10);
                 }}
                 style={{
                   ...modeBtnStyle,
@@ -414,7 +426,7 @@ export default function LiveCreatePage() {
         </div>
         ) : null}
 
-        {isPrivateModel ? (
+        {showTicketFields ? (
           <>
             <label style={labelStyle}>Ticket price (tokens)</label>
             <input
@@ -424,9 +436,10 @@ export default function LiveCreatePage() {
               }}
               type="number"
               value={ticketPriceTokens}
-              onChange={(e) => setTicketPriceTokens(Number(e.target.value))}
-              min={0}
+              onChange={(e) => setTicketPriceTokens(e.target.value === "" ? "" : Number(e.target.value))}
+              min={1}
               disabled={economyEnabled === false}
+              required
             />
 
             <label style={labelStyle}>Max seats</label>
@@ -437,9 +450,10 @@ export default function LiveCreatePage() {
               }}
               type="number"
               value={maxSeats}
-              onChange={(e) => setMaxSeats(Number(e.target.value))}
+              onChange={(e) => setMaxSeats(e.target.value === "" ? "" : Number(e.target.value))}
               min={1}
               disabled={economyEnabled === false}
+              required
             />
           </>
         ) : null}
