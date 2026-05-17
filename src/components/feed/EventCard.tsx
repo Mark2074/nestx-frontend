@@ -276,6 +276,7 @@ export default function EventCard({ item, variant = "scheduled" }: EventCardProp
           ) : null}
 
           <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap", opacity: 0.85, fontSize: 12 }}>
+            {categoryLabel ? badge(categoryLabel, "hot") : null}
             {liveOnLabel ? <div>Live on <b>{liveOnLabel}</b></div> : null}
           </div>
         </div>
