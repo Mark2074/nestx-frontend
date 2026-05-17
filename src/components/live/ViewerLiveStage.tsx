@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import Hls from "hls.js";
+import type Hls from "hls.js";
 
 type Props = {
   eventId: string;
@@ -176,6 +176,9 @@ export default function ViewerLiveStage({
         await video.play().catch(() => {});
         return;
       }
+
+      const { default: Hls } = await import("hls.js/light");
+      if (disposed) return;
 
       if (!Hls.isSupported()) {
         video.src = normalizedPlaybackUrl;

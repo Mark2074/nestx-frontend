@@ -11,6 +11,37 @@ const PROFILE_TYPE_OPTIONS = ["male", "female", "couple", "gay", "trans"] as con
 
 const LANGUAGE_OPTIONS = ["it", "en", "fr", "de", "es", "pt", "ro", "pl"] as const;
 
+const CATEGORY_LABELS: Record<string, string> = {
+  nsfw: "NSFW",
+  technology_ai: "Technology & AI",
+  finance_investing: "Finance & Investing",
+  business: "Business & Entrepreneurship",
+  science: "Science & Research",
+  history_culture: "History & Culture",
+  psychology: "Psychology & Mind",
+  gaming: "Gaming",
+  live_shows: "Live Shows",
+  comedy: "Comedy",
+  storytelling: "Storytelling",
+  fitness: "Fitness & Health",
+  food: "Food & Cooking",
+  travel: "Travel",
+  daily_life: "Daily Life",
+  fashion: "Fashion & Style",
+  tutorials: "Tutorials & How-To",
+  art: "Art & Drawing",
+  design: "Design & Creative",
+  diy: "DIY & Makers",
+  coding: "Coding & Development",
+  qa_chat: "Q&A / Chat",
+  community: "Community Talk",
+  debate: "Opinions & Debate",
+  coaching: "Advice / Coaching",
+  news: "News & Commentary",
+  announcements: "Events & Announcements",
+  experimental: "Experimental",
+};
+
 function clamp(n: number, a: number, b: number) {
   return Math.max(a, Math.min(b, n));
 }
@@ -91,6 +122,22 @@ function getMaxSeats(item: any): number | null {
   const n = Number(v);
   if (!Number.isFinite(n) || n <= 0) return null;
   return n;
+}
+
+function getCategoryLabel(item: any): string {
+  const key = String(item?.category || item?.eventCategory || item?.data?.category || "")
+    .trim()
+    .toLowerCase();
+  if (!key || key === "general") return "";
+  return CATEGORY_LABELS[key] || titleCase(key.replace(/[_-]+/g, " "));
+}
+
+function titleCase(value: string): string {
+  return value
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 export default function LiveDiscoverPage() {
@@ -379,6 +426,7 @@ export default function LiveDiscoverPage() {
             const price = getPriceTokens(it);
             const maxSeats = getMaxSeats(it);
             const scope = String(it?.contentScope || it?.data?.contentScope || tab);
+            const categoryLabel = getCategoryLabel(it);
             const userProfileId = getCreatorProfileId(it);
 
             const rawDate =
@@ -487,9 +535,11 @@ export default function LiveDiscoverPage() {
                       {st === "live" ? "LIVE" : "SCHEDULED"}
                     </span>
 
-                    <span style={scopeBadgeStyle(scope === "HOT" ? "HOT" : "NO_HOT")}>
-                      {scope === "HOT" ? "HOT" : "NO_HOT"}
-                    </span>
+                    {categoryLabel ? (
+                      <span style={categoryBadgeStyle}>
+                        {categoryLabel}
+                      </span>
+                    ) : null}
 
                     <span style={priceBadgeStyle(price === 0 ? "FREE" : "PAID")}>
                       {price === 0 ? "FREE" : "PAID"}
@@ -688,15 +738,15 @@ const badgeStyle = (kind: "LIVE" | "SCHEDULED") =>
     background: kind === "LIVE" ? "rgba(0,255,160,0.10)" : "rgba(255,255,255,0.06)",
   } as const);
 
-const scopeBadgeStyle = (kind: "HOT" | "NO_HOT") =>
-  ({
-    padding: "6px 10px",
-    borderRadius: 999,
-    fontWeight: 900,
-    fontSize: 12,
-    border: "1px solid rgba(255,255,255,0.14)",
-    background: kind === "HOT" ? "rgba(255,80,120,0.10)" : "rgba(120,255,200,0.10)",
-  } as const);
+const categoryBadgeStyle = {
+  padding: "6px 10px",
+  borderRadius: 999,
+  fontWeight: 900,
+  fontSize: 12,
+  border: "1px solid rgba(255,255,255,0.14)",
+  background: "rgba(255,255,255,0.08)",
+  textAlign: "center",
+} as const;
 
 const priceBadgeStyle = (kind: "FREE" | "PAID") =>
   ({

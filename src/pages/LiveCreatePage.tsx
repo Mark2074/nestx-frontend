@@ -5,7 +5,8 @@ import { api, mapApiErrorMessage, getApiRetryAfterMs, formatRetryAfterLabel } fr
 // BE expects: HOT | NO_HOT
 type Scope = "HOT" | "NO_HOT";
 
-const NO_HOT_CATEGORIES = [
+const EVENT_CATEGORIES = [
+  { value: "nsfw", label: "NSFW" },
   { value: "technology_ai", label: "Technology & AI" },
   { value: "finance_investing", label: "Finance & Investing" },
   { value: "business", label: "Business & Entrepreneurship" },
@@ -38,9 +39,6 @@ const NO_HOT_CATEGORIES = [
 export default function LiveCreatePage() {
   const nav = useNavigate();
 
-  const [step, setStep] = useState(1);
-  const [contentScope, setContentScope] = useState<Scope | null>(null);
-
   const [economyEnabled, setEconomyEnabled] = useState<boolean | null>(null);
   const liveEnabled = true;
 
@@ -51,25 +49,27 @@ export default function LiveCreatePage() {
 
   const [startTime, setStartTime] = useState("");
   const [durationMinutes, setDurationMinutes] = useState(60);
-  const [ticketPriceTokens, setTicketPriceTokens] = useState(0);
+  const [ticketPriceTokens, setTicketPriceTokens] = useState(10);
 
-  const [maxSeats, setMaxSeats] = useState<number | "">("");
+  const [maxSeats, setMaxSeats] = useState<number | "">(10);
 
   // ADV (event-banner) from Live setup only
   const [promote, setPromote] = useState(false);
 
-  const isNoHot = contentScope === "NO_HOT";
-  const isHot = contentScope === "HOT";
+  const isHot = category === "nsfw";
+  const isNoHot = !isHot;
+  const contentScope: Scope = isHot ? "HOT" : "NO_HOT";
 
   const effectiveAccessScope: "public" | "private" =
     isNoHot ? "private" : accessScope;
 
-  const isPrivateModel = effectiveAccessScope === "private";
-  const canPromoteEvent = liveEnabled && !!contentScope;
+  const isPrivateModel = isHot && effectiveAccessScope === "private";
+  const shouldSendTicketFields = isNoHot || isPrivateModel;
+  const canPromoteEvent = liveEnabled;
 
   const interactionMode: "broadcast" | "interactive" = "broadcast";
 
-  const isPaidModel = isPrivateModel;
+  const isPaidModel = shouldSendTicketFields;
 
   let blockingMessage = "";
   if (!liveEnabled) {
@@ -94,18 +94,19 @@ export default function LiveCreatePage() {
   }
 
   useEffect(() => {
-    if (step === 2) void loadEconomyFlag();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step]);
+    void loadEconomyFlag();
+  }, []);
 
-  function goBack() {
-    setStep(1);
-    setContentScope(null);
+  function handleCategoryChange(nextCategory: string) {
+    const nextIsHot = nextCategory === "nsfw";
+    const currentIsHot = isHot;
+
+    setCategory(nextCategory);
+    if (nextIsHot === currentIsHot) return;
+
     setAccessScope("public");
-    setTicketPriceTokens(0);
-    setMaxSeats("");
-    setCategory("");
-    setPromote(false);
+    setTicketPriceTokens(nextIsHot ? 0 : 10);
+    setMaxSeats(nextIsHot ? "" : 10);
   }
 
   async function createEventOnce() {
@@ -120,7 +121,7 @@ export default function LiveCreatePage() {
         ? (Number.isFinite(Number(durationMinutes)) ? Number(durationMinutes) : 0)
         : Number(durationMinutes);
 
-    const safeCategory = isNoHot ? String(category || "").trim() : "general";
+    const safeCategory = String(category || "").trim();
 
     if (isNoHot && !safeCategory) {
       throw new Error("Select a category for this event.");
@@ -132,8 +133,8 @@ export default function LiveCreatePage() {
       category: safeCategory,
       startTime: effectiveStartTime,
       durationMinutes: effectiveDuration,
-      ticketPriceTokens: isPrivateModel ? Number(ticketPriceTokens) : 0,
-      maxSeats: isPrivateModel ? Number(maxSeats) : null,
+      ticketPriceTokens: shouldSendTicketFields ? Number(ticketPriceTokens) : 0,
+      maxSeats: shouldSendTicketFields ? Number(maxSeats) : null,
       interactionMode,
       accessScope: effectiveAccessScope,
       contentScope, // "HOT" | "NO_HOT"
@@ -287,49 +288,10 @@ export default function LiveCreatePage() {
     }
   }
 
-  if (step === 1) {
-    return (
-      <div style={{ padding: 20, maxWidth: 820, margin: "0 auto" }}>
-        <h2>Select content type</h2>
-
-        <div style={{ display: "flex", gap: 16, marginTop: 20 }}>
-          <button
-            onClick={() => {
-              setContentScope("HOT");
-              setAccessScope("public");
-              setTicketPriceTokens(0);
-              setMaxSeats("");
-              setStep(2);
-            }}
-            style={scopeBtn("HOT")}
-          >
-            CAM (HOT)
-            <div style={{ fontSize: 13, opacity: 0.8 }}>Adult content</div>
-          </button>
-
-          <button
-            onClick={() => {
-              setContentScope("NO_HOT");
-              setAccessScope("private");
-              setCategory("");
-              if (Number(ticketPriceTokens) <= 0) setTicketPriceTokens(10);
-              if (!Number(maxSeats)) setMaxSeats(10);
-              setStep(2);
-            }}
-            style={scopeBtn("NO_HOT")}
-          >
-            EVENT (NO_HOT)
-            <div style={{ fontSize: 13, opacity: 0.8 }}>Non-adult content</div>
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div style={{ padding: 20, maxWidth: 820, margin: "0 auto" }}>
       <button
-        onClick={goBack}
+        onClick={() => nav("/app/live/discover")}
         style={{
           background: "transparent",
           border: "none",
@@ -343,9 +305,7 @@ export default function LiveCreatePage() {
       </button>
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-        <h2 style={{ margin: 0 }}>
-          Create {contentScope === "HOT" ? "HOT" : "NO_HOT"} event
-        </h2>
+        <h2 style={{ margin: 0 }}>Create Event</h2>
 
         {economyEnabled === false ? (
           <div
@@ -375,24 +335,20 @@ export default function LiveCreatePage() {
           onChange={(e) => setDescription(e.target.value)}
         />
 
-        {isNoHot ? (
-          <>
-            <label style={labelStyle}>Category</label>
-            <select
-              style={inputStyle}
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              required
-            >
-              <option value="">Select category</option>
-              {NO_HOT_CATEGORIES.map((item) => (
-                <option key={item.value} value={item.value}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-          </>
-        ) : null}
+        <label style={labelStyle}>Category</label>
+        <select
+          style={inputStyle}
+          value={category}
+          onChange={(e) => handleCategoryChange(e.target.value)}
+          required
+        >
+          <option value="">Select category</option>
+          {EVENT_CATEGORIES.map((item) => (
+            <option key={item.value} value={item.value}>
+              {item.label}
+            </option>
+          ))}
+        </select>
 
         <label style={labelStyle}>
           Start time{" "}
@@ -412,6 +368,7 @@ export default function LiveCreatePage() {
           min={0}
         />
 
+        {isHot ? (
         <div
           style={{
             marginTop: 6,
@@ -423,24 +380,6 @@ export default function LiveCreatePage() {
         >
           <div style={{ fontWeight: 900, marginBottom: 10 }}>Access type</div>
 
-          {isNoHot ? (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 12,
-                flexWrap: "wrap",
-              }}
-            >
-              <span style={{ fontWeight: 900 }}>PRIVATE</span>
-              <span style={{ opacity: 0.7, fontWeight: 700, fontSize: 12 }}>
-                Public not available for NO_HOT
-              </span>
-            </div>
-          ) : null}
-
-          {isHot ? (
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <button
                 type="button"
@@ -454,7 +393,7 @@ export default function LiveCreatePage() {
                   ...(accessScope === "public" ? modeBtnActiveStyle : modeBtnIdleStyle),
                 }}
               >
-                HOT Public
+                Public
               </button>
 
               <button
@@ -469,27 +408,27 @@ export default function LiveCreatePage() {
                   ...(accessScope === "private" ? modeBtnActiveStyle : modeBtnIdleStyle),
                 }}
               >
-                HOT Private
+                Private
               </button>
             </div>
-          ) : null}
         </div>
-
-        <label style={labelStyle}>Ticket price (tokens)</label>
-        <input
-          style={{
-            ...inputStyle,
-            opacity: economyEnabled === false || !isPrivateModel ? 0.6 : 1,
-          }}
-          type="number"
-          value={isPrivateModel ? ticketPriceTokens : 0}
-          onChange={(e) => setTicketPriceTokens(Number(e.target.value))}
-          min={0}
-          disabled={!isPrivateModel || (economyEnabled === false && contentScope === "HOT")}
-        />
+        ) : null}
 
         {isPrivateModel ? (
           <>
+            <label style={labelStyle}>Ticket price (tokens)</label>
+            <input
+              style={{
+                ...inputStyle,
+                opacity: economyEnabled === false ? 0.6 : 1,
+              }}
+              type="number"
+              value={ticketPriceTokens}
+              onChange={(e) => setTicketPriceTokens(Number(e.target.value))}
+              min={0}
+              disabled={economyEnabled === false}
+            />
+
             <label style={labelStyle}>Max seats</label>
             <input
               style={{
@@ -500,7 +439,7 @@ export default function LiveCreatePage() {
               value={maxSeats}
               onChange={(e) => setMaxSeats(Number(e.target.value))}
               min={1}
-              disabled={economyEnabled === false && contentScope === "HOT"}
+              disabled={economyEnabled === false}
             />
           </>
         ) : null}
@@ -571,19 +510,6 @@ export default function LiveCreatePage() {
       </div>
     </div>
   );
-}
-
-function scopeBtn(scope: Scope) {
-  return {
-    flex: 1,
-    padding: 20,
-    borderRadius: 16,
-    fontWeight: 900,
-    cursor: "pointer",
-    border: "1px solid rgba(255,255,255,0.14)",
-    background: scope === "HOT" ? "rgba(255,80,120,0.10)" : "rgba(120,255,200,0.10)",
-    color: "white",
-  } as const;
 }
 
 const labelStyle = {

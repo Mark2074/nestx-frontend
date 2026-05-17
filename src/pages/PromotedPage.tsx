@@ -94,6 +94,24 @@ function pickPriceLabel(it: any) {
   return Number.isFinite(n) && n > 0 ? "PAID" : "FREE";
 }
 
+const CATEGORY_LABELS: Record<string, string> = {
+  nsfw: "NSFW",
+};
+
+function pickCategoryLabel(it: any) {
+  const key = str(it?.category || it?.eventCategory || it?.meta?.category || it?.data?.category).toLowerCase();
+  if (!key || key === "general") return "";
+  return CATEGORY_LABELS[key] || titleCase(key.replace(/[_-]+/g, " "));
+}
+
+function titleCase(value: string) {
+  return value
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 function isNoHot(it: any) {
   const scope = pickContentScope(it);
   return scope === "NO_HOT" || scope === "NEUTRAL";
@@ -224,10 +242,10 @@ export default function PromotedPage() {
 
         <div style={{ display: "inline-flex", gap: 8 }}>
           <div style={tabBtn(tab === "HOT","HOT")} onClick={() => setTab("HOT")}>
-            HOT
+            NSFW
           </div>
           <div style={tabBtn(tab === "NO_HOT","NO_HOT")} onClick={() => setTab("NO_HOT")}>
-            NO_HOT
+            Events
           </div>
         </div>
       </div>
@@ -253,7 +271,8 @@ export default function PromotedPage() {
             const thumb = pickThumb(it);
             const username = pickUsername(it) || "Promoted";
             const description = pickDescription(it);
-            const metaLine = pickPriceLabel(it); // only FREE / PAID (tab already filters HOT/NO_HOT)
+            const categoryLabel = pickCategoryLabel(it);
+            const metaLine = [categoryLabel, pickPriceLabel(it)].filter(Boolean).join(" - ");
 
             const letter = upper(username).slice(0, 1) || "P";
 

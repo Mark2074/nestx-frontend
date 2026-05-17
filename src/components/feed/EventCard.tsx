@@ -8,6 +8,51 @@ type EventCardProps = {
   variant?: "scheduled" | "oldLive";
 };
 
+const CATEGORY_LABELS: Record<string, string> = {
+  nsfw: "NSFW",
+  technology_ai: "Technology & AI",
+  finance_investing: "Finance & Investing",
+  business: "Business & Entrepreneurship",
+  science: "Science & Research",
+  history_culture: "History & Culture",
+  psychology: "Psychology & Mind",
+  gaming: "Gaming",
+  live_shows: "Live Shows",
+  comedy: "Comedy",
+  storytelling: "Storytelling",
+  fitness: "Fitness & Health",
+  food: "Food & Cooking",
+  travel: "Travel",
+  daily_life: "Daily Life",
+  fashion: "Fashion & Style",
+  tutorials: "Tutorials & How-To",
+  art: "Art & Drawing",
+  design: "Design & Creative",
+  diy: "DIY & Makers",
+  coding: "Coding & Development",
+  qa_chat: "Q&A / Chat",
+  community: "Community Talk",
+  debate: "Opinions & Debate",
+  coaching: "Advice / Coaching",
+  news: "News & Commentary",
+  announcements: "Events & Announcements",
+  experimental: "Experimental",
+};
+
+function getCategoryLabel(value?: string | null): string {
+  const key = String(value || "").trim().toLowerCase();
+  if (!key || key === "general") return "";
+  return CATEGORY_LABELS[key] || titleCase(key.replace(/[_-]+/g, " "));
+}
+
+function titleCase(value: string): string {
+  return value
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 export default function EventCard({ item, variant = "scheduled" }: EventCardProps) {
   const nav = useNavigate();
 
@@ -82,8 +127,7 @@ export default function EventCard({ item, variant = "scheduled" }: EventCardProp
 
   // badges (scheduled)
   const isLive = status === "running" || status === "live";
-  const scopeRaw = String(ev?.contentScope || ev?.scope || "").toUpperCase();
-  const isHot = scopeRaw === "HOT" || ev?.isHot === true;
+  const categoryLabel = getCategoryLabel(ev?.category ?? ev?.eventCategory ?? ev?.data?.category);
 
   const price = Number(ev?.ticketPriceTokens ?? ev?.priceTokens ?? 0);
   const isFree = !Number.isFinite(price) || price <= 0;
@@ -404,7 +448,7 @@ export default function EventCard({ item, variant = "scheduled" }: EventCardProp
 
           <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
             {badge(isLive ? "EVENT LIVE" : "EVENT SCHEDULED", "live")}
-            {badge(isHot ? "HOT" : "NO_HOT", "hot")}
+            {categoryLabel ? badge(categoryLabel, "hot") : null}
             {badge(isFree ? "FREE" : "PAID", "free")}
           </div>
         </div>

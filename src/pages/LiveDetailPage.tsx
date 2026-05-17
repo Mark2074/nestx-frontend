@@ -31,6 +31,7 @@ type EventDetail = {
 };
 
 const NO_HOT_CATEGORY_LABELS: Record<string, string> = {
+  nsfw: "NSFW",
   technology_ai: "Technology & AI",
   finance_investing: "Finance & Investing",
   business: "Business & Entrepreneurship",
@@ -62,7 +63,16 @@ const NO_HOT_CATEGORY_LABELS: Record<string, string> = {
 
 function getCategoryLabel(value?: string | null): string {
   const key = String(value || "").trim().toLowerCase();
-  return NO_HOT_CATEGORY_LABELS[key] || "";
+  if (!key || key === "general") return "";
+  return NO_HOT_CATEGORY_LABELS[key] || titleCase(key.replace(/[_-]+/g, " "));
+}
+
+function titleCase(value: string): string {
+  return value
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 export default function LiveDetailPage() {
@@ -864,16 +874,10 @@ export default function LiveDetailPage() {
               </div>
             ) : null}
 
-            {/* content + access */}
-            <div style={{ opacity: 0.82 }}>
-              <span style={{ fontWeight: 900 }}>Content:</span>{" "}
-              <span>{meta?.scope || eventDetail?.contentScope || "—"}</span>
-            </div>
-
-            {eventDetail?.contentScope === "NO_HOT" && getCategoryLabel(eventDetail?.category) ? (
+            {getCategoryLabel(eventDetail?.category) ? (
               <div style={{ opacity: 0.82 }}>
                 <span style={{ fontWeight: 900 }}>Category:</span>{" "}
-                <span>{getCategoryLabel(eventDetail.category)}</span>
+                <span>{getCategoryLabel(eventDetail?.category)}</span>
               </div>
             ) : null}
 

@@ -392,7 +392,7 @@ export default function ProfileLeftPage() {
                   >
                     {[
                       { label: "Discover", onClick: () => nav("/app/live") },
-                      { label: "Create live", onClick: () => nav("/app/live/create") },
+                      { label: "Create Event", onClick: () => nav("/app/live/create") },
                     ].map((x) => (
                       <button
                         key={x.label}

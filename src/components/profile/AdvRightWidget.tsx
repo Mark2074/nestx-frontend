@@ -66,10 +66,29 @@ function pickPriceLabel(it: any) {
   return Number.isFinite(n) && n > 0 ? "PAID" : "FREE";
 }
 
+const CATEGORY_LABELS: Record<string, string> = {
+  nsfw: "NSFW",
+};
+
+function pickCategoryLabel(it: any) {
+  const key = str(it?.category || it?.eventCategory || it?.meta?.category || it?.data?.category).toLowerCase();
+  if (!key || key === "general") return "";
+  return CATEGORY_LABELS[key] || titleCase(key.replace(/[_-]+/g, " "));
+}
+
+function titleCase(value: string) {
+  return value
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 function buildMetaLine(it: any) {
-  const scope = pickContentScope(it) || "NO_HOT";
+  const category = pickCategoryLabel(it);
+  const scope = pickContentScope(it) === "HOT" ? "NSFW" : "Event";
   const price = pickPriceLabel(it);
-  return `${scope} · ${price}`;
+  return `${category || scope} - ${price}`;
 }
 
 export default function AdvRightWidget() {

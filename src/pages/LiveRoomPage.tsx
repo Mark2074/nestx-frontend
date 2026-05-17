@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   api,
@@ -6,7 +6,8 @@ import {
   getApiRetryAfterMs,
   formatRetryAfterLabel,
 } from "../api/nestxApi";
-import ViewerLiveStage from "../components/live/ViewerLiveStage";
+
+const ViewerLiveStage = lazy(() => import("../components/live/ViewerLiveStage"));
 
 type LiveScope = "public" | "private";
 type UiMode =
@@ -1608,28 +1609,30 @@ export default function LiveRoomPage() {
       >
         <div style={{ fontWeight: 900, marginBottom: 6 }}>Live</div>
 
-        <ViewerLiveStage
-          key={`${eventId}:${runtimeScope || "none"}:${viewerPlaybackUrl || "no-url"}:${shouldPausePublic ? "paused" : "active"}:${playerRefreshNonce}`}
-          hostGraceActive={hostGraceActive}
-          hostGraceExpiresAt={hostGraceExpiresAt}
-          eventId={eventId}
-          stageReady={roomReady && entered && !!runtimeScope}
-          stageErr=""
-          isHost={isHost}
-          shouldPausePublic={shouldPausePublic}
-          roomBlockCode={roomBlockCode}
-          uiMode={uiMode}
-          eventBaseScope={eventBaseScope}
-          runtimeScope={runtimeScope}
-          playbackUrl={viewerPlaybackUrl}
-          onBack={goBackToDetail}
-          onRetry={() => {
-            setRoomBlockCode("");
-            setErr("");
-            void loadAccess(requestedScope);
-          }}
-          navToLive={() => nav("/app/live")}
-        />
+        <Suspense fallback={<div style={{ opacity: 0.8, padding: 12 }}>Loading live player...</div>}>
+          <ViewerLiveStage
+            key={`${eventId}:${runtimeScope || "none"}:${viewerPlaybackUrl || "no-url"}:${shouldPausePublic ? "paused" : "active"}:${playerRefreshNonce}`}
+            hostGraceActive={hostGraceActive}
+            hostGraceExpiresAt={hostGraceExpiresAt}
+            eventId={eventId}
+            stageReady={roomReady && entered && !!runtimeScope}
+            stageErr=""
+            isHost={isHost}
+            shouldPausePublic={shouldPausePublic}
+            roomBlockCode={roomBlockCode}
+            uiMode={uiMode}
+            eventBaseScope={eventBaseScope}
+            runtimeScope={runtimeScope}
+            playbackUrl={viewerPlaybackUrl}
+            onBack={goBackToDetail}
+            onRetry={() => {
+              setRoomBlockCode("");
+              setErr("");
+              void loadAccess(requestedScope);
+            }}
+            navToLive={() => nav("/app/live")}
+          />
+        </Suspense>
 
         {isHost && isLive ? (
           <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
