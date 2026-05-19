@@ -1,7 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/nestxApi";
-import { shouldExcludeHotContent } from "../utils/appVariant";
+import { shouldBlockHotAdv } from "../utils/appVariant";
 import {
   EVENT_CATEGORY_OPTIONS,
   categoryMatchesSelection,
@@ -80,7 +80,7 @@ function sortByEndsAtAscNullLast(a: any, b: any) {
 
 export default function PromotedPage() {
   const nav = useNavigate();
-  const excludeHotContent = shouldExcludeHotContent();
+  const excludeHotContent = shouldBlockHotAdv();
   const [items, setItems] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [selectedCategories, setSelectedCategories] = React.useState<string[]>([]);

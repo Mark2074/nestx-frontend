@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/nestxApi";
 import { COUNTRIES } from "../constants/countries";
-import { shouldExcludeHotContent } from "../utils/appVariant";
+import { shouldBlockHotContent } from "../utils/appVariant";
 import {
   EVENT_CATEGORY_OPTIONS,
   categoryMatchesSelection,
@@ -104,7 +104,7 @@ export default function LiveDiscoverPage() {
   const nav = useNavigate();
 
   const isVip = localStorage.getItem("isVip") === "1";
-  const excludeHotContent = shouldExcludeHotContent();
+  const excludeHotContent = shouldBlockHotContent();
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [status, setStatus] = useState<"all" | "live" | "scheduled">("all");

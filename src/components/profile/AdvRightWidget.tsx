@@ -1,7 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../../api/nestxApi";
-import { shouldExcludeHotContent } from "../../utils/appVariant";
+import { shouldBlockHotAdv } from "../../utils/appVariant";
 import { categoryMatchesSelection, getEventDisplayCategory, isHotEvent } from "../../utils/eventCategories";
 
 function str(v: any) {
@@ -64,7 +64,7 @@ function buildMetaLine(it: any) {
 
 export default function AdvRightWidget() {
   const nav = useNavigate();
-  const excludeHotContent = shouldExcludeHotContent();
+  const excludeHotContent = shouldBlockHotAdv();
   const [items, setItems] = React.useState<any[]>([]);
 
   React.useEffect(() => {
