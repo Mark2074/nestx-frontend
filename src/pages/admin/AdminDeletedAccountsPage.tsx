@@ -19,6 +19,8 @@ function formatDate(s?: string) {
 export default function AdminDeletedAccountsPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string>("");
+  const [success, setSuccess] = useState<string>("");
+  const [busyId, setBusyId] = useState<string | null>(null);
   const [rows, setRows] = useState<DeletedUserRow[]>([]);
 
   async function load() {
@@ -44,6 +46,29 @@ export default function AdminDeletedAccountsPage() {
       setRows([]);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function purgeUser(row: DeletedUserRow) {
+    if (!row.readyToPurge || busyId) return;
+
+    const label = row.displayName ? `${row.displayName} (${row.userId})` : row.userId;
+    const confirmed = window.confirm(
+      `Permanently purge deleted account ${label}?\n\nThis action cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setErr("");
+    setSuccess("");
+    setBusyId(row.userId);
+    try {
+      await api.adminPurgeDeletedUser(row.userId);
+      setSuccess("Account permanently purged.");
+      await load();
+    } catch (e: any) {
+      setErr(e?.message || "Failed to purge account");
+    } finally {
+      setBusyId(null);
     }
   }
 
@@ -83,6 +108,12 @@ export default function AdminDeletedAccountsPage() {
       {err ? (
         <div style={{ marginTop: 14, padding: 12, borderRadius: 12, background: "rgba(255,120,120,0.12)", border: "1px solid rgba(255,120,120,0.25)" }}>
           <b style={{ color: "rgba(255,160,160,1)" }}>{err}</b>
+        </div>
+      ) : null}
+
+      {success ? (
+        <div style={{ marginTop: 14, padding: 12, borderRadius: 12, background: "rgba(120,255,160,0.10)", border: "1px solid rgba(120,255,160,0.22)" }}>
+          <b style={{ color: "rgba(150,255,180,1)" }}>{success}</b>
         </div>
       ) : null}
 
@@ -156,20 +187,20 @@ export default function AdminDeletedAccountsPage() {
 
                   <div style={{ textAlign: "right" }}>
                     <button
-                      disabled={!r.readyToPurge}
-                      onClick={() => window.alert("Purge endpoint not wired yet. (We add it next)")}
+                      disabled={!r.readyToPurge || busyId === r.userId}
+                      onClick={() => purgeUser(r)}
                       style={{
                         padding: "8px 12px",
                         borderRadius: 12,
                         fontWeight: 900,
                         border: "1px solid rgba(255,120,120,0.35)",
-                        background: r.readyToPurge ? "rgba(255,120,120,0.16)" : "rgba(255,255,255,0.05)",
+                        background: r.readyToPurge && busyId !== r.userId ? "rgba(255,120,120,0.16)" : "rgba(255,255,255,0.05)",
                         color: "white",
-                        cursor: r.readyToPurge ? "pointer" : "not-allowed",
-                        opacity: r.readyToPurge ? 1 : 0.55,
+                        cursor: r.readyToPurge && busyId !== r.userId ? "pointer" : "not-allowed",
+                        opacity: r.readyToPurge && busyId !== r.userId ? 1 : 0.55,
                       }}
                     >
-                      Purge
+                      {busyId === r.userId ? "Purging..." : "Purge"}
                     </button>
                   </div>
                 </div>

@@ -1801,6 +1801,11 @@ export const api = {
 
   adminDeletedUsersList: () =>
   request<{ status: "ok"; users: any[] }>(`/admin/deleted-users`, { method: "GET" }),
+
+  adminPurgeDeletedUser: (userId: string) =>
+    request<{ status: "ok" }>(`/admin/users/${encodeURIComponent(userId)}/purge`, {
+      method: "DELETE",
+    }),
   
   // -------------------------
   // ADMIN — Pending Queue
@@ -2265,3 +2270,8 @@ export type AdminDeletedUserItem = {
 
 export const adminDeletedUsersList = () =>
   request<any>(`/admin/deleted-users`, { method: "GET" });
+
+export const adminPurgeDeletedUser = (userId: string) =>
+  request<{ status: "ok" }>(`/admin/users/${encodeURIComponent(userId)}/purge`, {
+    method: "DELETE",
+  });
