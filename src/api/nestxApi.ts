@@ -489,6 +489,90 @@ export type FollowRelationship =
   | "blocked_by_me"
   | "blocked_me";
 
+export type ConnectionMode = "followers" | "following";
+export type ConnectionUser = {
+  _id?: string;
+  id?: string;
+  username?: string;
+  displayName?: string;
+  avatar?: string;
+  [key: string]: unknown;
+};
+
+function hasActiveSuspension(user: ConnectionUser) {
+  if (user?.isSuspended !== true && !user?.suspendedAt) return false;
+
+  if (!user?.suspendedUntil) return true;
+
+  const until = new Date(String(user.suspendedUntil)).getTime();
+  return !Number.isFinite(until) || until > Date.now();
+}
+
+function isConnectionUser(value: unknown): value is ConnectionUser {
+  return !!value && typeof value === "object";
+}
+
+function isHiddenConnectionUser(user: ConnectionUser) {
+  const status = String(
+    user?.status ||
+      user?.accountStatus ||
+      user?.relationship ||
+      user?.followStatus ||
+      "",
+  ).toLowerCase();
+
+  return Boolean(
+    user?.deletedAt ||
+    user?.isDeleted === true ||
+    user?.deletionStatus === "deleted" ||
+    user?.isBanned === true ||
+    user?.bannedAt ||
+    hasActiveSuspension(user) ||
+    user?.isBlocked === true ||
+    user?.blocked === true ||
+    user?.blockedByMe === true ||
+    user?.hasBlockedMe === true ||
+    status === "deleted" ||
+    status === "banned" ||
+    status === "suspended" ||
+    status === "blocked" ||
+    status === "blocked_by_me" ||
+    status === "blocked_me"
+  );
+}
+
+export function getVisibleConnectionUsers(res: unknown) {
+  const payload = isConnectionUser(res) ? res : {};
+  const data = isConnectionUser(payload.data) ? payload.data : {};
+  const users = Array.isArray(data.users)
+    ? data.users
+    : Array.isArray(payload.users)
+      ? payload.users
+      : [];
+
+  return users.filter(
+    (user): user is ConnectionUser =>
+      isConnectionUser(user) && !isHiddenConnectionUser(user),
+  );
+}
+
+async function fetchVisibleConnectionUsers(userId: string, mode: ConnectionMode) {
+  const res = await request<unknown>(`/follow/${userId}/${mode}`);
+  return getVisibleConnectionUsers(res);
+}
+
+async function fetchVisibleConnectionCounts(userId: string) {
+  const [followers, following] = await Promise.all([
+    fetchVisibleConnectionUsers(userId, "followers"),
+    fetchVisibleConnectionUsers(userId, "following"),
+  ]);
+
+  return {
+    followerCount: followers.length,
+    followingCount: following.length,
+  };
+}
+
 function unwrapList(res: any): any[] {
   if (Array.isArray(res)) return res;
   if (res && Array.isArray(res.items)) return res.items;
@@ -1260,6 +1344,14 @@ export const api = {
       tokenInfoAcceptedVersion: me?.tokenInfoAcceptedVersion ?? null,
     };
 
+    if (out._id) {
+      try {
+        Object.assign(out, await fetchVisibleConnectionCounts(out._id));
+      } catch {
+        // Keep profile payload counts if the connections endpoint is unavailable.
+      }
+    }
+
     return out;
   },
 
@@ -1422,8 +1514,20 @@ export const api = {
       followingCount: prof?.followingCount,
     };
 
+    try {
+      Object.assign(out, await fetchVisibleConnectionCounts(out._id));
+    } catch {
+      // Keep profile payload counts if the connections endpoint is unavailable.
+    }
+
     return out;
   },
+
+  connectionUsers: (userId: string, mode: ConnectionMode) =>
+    fetchVisibleConnectionUsers(userId, mode),
+
+  connectionCounts: (userId: string) =>
+    fetchVisibleConnectionCounts(userId),
 
   followRelationship: async (userId: string) => {
     const res = await request<any>(`/follow/relationship/${userId}`);

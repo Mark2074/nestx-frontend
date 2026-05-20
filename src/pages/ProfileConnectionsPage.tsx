@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { api } from "../api/nestxApi";
 
 type UserItem = {
   _id: string;
@@ -7,27 +8,6 @@ type UserItem = {
   displayName?: string;
   avatar?: string;
 };
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
-
-function authFetch(url: string, options: RequestInit = {}) {
-  const token = localStorage.getItem("token");
-
-  return fetch(API_BASE + url, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers || {}),
-    },
-  }).then(async (res) => {
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.message || "Request failed");
-    }
-    return res.json();
-  });
-}
 
 export default function ProfileConnectionsPage() {
   const nav = useNavigate();
@@ -53,7 +33,7 @@ export default function ProfileConnectionsPage() {
     if (qTab === "followers") return "followers";
     if (qTab === "following") return "following";
 
-    const st: any = (location as any).state || {};
+    const st = (location.state || {}) as { tab?: string };
     if (st?.tab === "followers") return "followers";
     if (st?.tab === "following") return "following";
 
@@ -71,29 +51,30 @@ export default function ProfileConnectionsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search]);
 
-  useEffect(() => {
+  const loadAll = useCallback(async () => {
     if (!myId) return;
-    loadAll();
-  }, [myId]);
 
-  async function loadAll() {
     try {
       setLoading(true);
 
-      const [followingRes, followersRes] = await Promise.all([
-        authFetch(`/follow/${myId}/following`),
-        authFetch(`/follow/${myId}/followers`),
+      const [followingUsers, followerUsers] = await Promise.all([
+        api.connectionUsers(myId, "following"),
+        api.connectionUsers(myId, "followers"),
       ]);
 
-      setFollowing(followingRes.data?.users || []);
-      setFollowers(followersRes.data?.users || []);
+      setFollowing(followingUsers as UserItem[]);
+      setFollowers(followerUsers as UserItem[]);
     } finally {
       setLoading(false);
     }
-  }
+  }, [myId]);
+
+  useEffect(() => {
+    loadAll();
+  }, [loadAll]);
 
   async function handleUnfollow(userId: string) {
-    await authFetch(`/follow/${userId}`, { method: "DELETE" });
+    await api.unfollowUser(userId);
     setFollowing((prev) => prev.filter((u) => u._id !== userId));
   }
 
