@@ -8,6 +8,7 @@ export default function EmailVerifyBanner({ me }: { me: MeProfile | null }) {
 
   // debounce anti spam: 15s
   const [cooldownUntil, setCooldownUntil] = useState<number>(0);
+  const authMode = useMemo(() => new URLSearchParams(window.location.search).get("mode"), []);
 
   useEffect(() => {
     setInfo("");
@@ -17,7 +18,6 @@ export default function EmailVerifyBanner({ me }: { me: MeProfile | null }) {
 
   // ✅ Deterministic gate: NEVER show this banner during /auth?mode=register
   const isAuthPath = window.location.pathname.startsWith("/auth");
-  const authMode = useMemo(() => new URLSearchParams(window.location.search).get("mode"), []);
   if (isAuthPath && authMode === "register") return null;
 
   const isEmailVerified = Boolean((me as any).emailVerifiedAt);

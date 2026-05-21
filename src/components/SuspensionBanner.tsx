@@ -2,17 +2,31 @@ import { useEffect, useMemo, useState } from "react";
 import type { MeProfile } from "../api/nestxApi";
 
 export default function SuspensionBanner({ me }: { me: MeProfile | null }) {
-  const [info, setInfo] = useState("");
+  const [infoState, setInfoState] = useState<{ userId: string | null; message: string }>({
+    userId: null,
+    message: "",
+  });
+  const [nowMs, setNowMs] = useState<number | null>(null);
+  const authMode = useMemo(() => new URLSearchParams(window.location.search).get("mode"), []);
 
   useEffect(() => {
-    setInfo("");
-  }, [me?._id]);
+    const initialTimer = window.setTimeout(() => {
+      setNowMs(Date.now());
+    }, 0);
+    const timer = window.setInterval(() => {
+      setNowMs(Date.now());
+    }, 30000);
+
+    return () => {
+      window.clearTimeout(initialTimer);
+      window.clearInterval(timer);
+    };
+  }, []);
 
   if (!me) return null;
 
   // NEVER show this banner during /auth (login/register)
   const isAuthPath = window.location.pathname.startsWith("/auth");
-  const authMode = useMemo(() => new URLSearchParams(window.location.search).get("mode"), []);
   if (isAuthPath && authMode === "register") return null;
   if (isAuthPath && authMode === "login") return null;
   if (isAuthPath) return null;
@@ -24,12 +38,13 @@ export default function SuspensionBanner({ me }: { me: MeProfile | null }) {
 
   // If no valid until, don't gate (avoid soft-lock by malformed data)
   if (!isSuspended || !untilMs) return null;
+  if (nowMs == null) return null;
 
-  const now = Date.now();
-  const stillActive = now < untilMs;
+  const stillActive = nowMs < untilMs;
   if (!stillActive) return null;
 
   const reason = ((me as any).suspendReason || "").trim() || null;
+  const info = infoState.userId === me._id ? infoState.message : "";
 
   const untilLabel = new Date(untilMs).toLocaleString();
 
@@ -72,8 +87,10 @@ export default function SuspensionBanner({ me }: { me: MeProfile | null }) {
           try {
             // force re-login experience (client-side)
             localStorage.removeItem("token");
-          } catch {}
-          setInfo("Please sign in again.");
+          } catch (err) {
+            console.warn("Unable to clear auth token before login redirect.", err);
+          }
+          setInfoState({ userId: me._id, message: "Please sign in again." });
           window.location.href = "/auth?mode=login";
         }}
         style={{

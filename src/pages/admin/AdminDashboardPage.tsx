@@ -74,12 +74,14 @@ export default function AdminDashboardPage() {
               }
             : null
         );
-      } catch {
+      } catch (err) {
         if (!alive) return;
+        console.warn("Failed to load admin dashboard metrics.", err);
         setMetrics(null);
       } finally {
-        if (!alive) return;
-        setMetricsLoading(false);
+        if (alive) {
+          setMetricsLoading(false);
+        }
       }
     })();
 
@@ -96,12 +98,14 @@ export default function AdminDashboardPage() {
         const res = await api.adminGetPending({ category: "all", sort: "priority", limit: 200 });
         if (!alive) return;
         setPendingItems(res?.items || []);
-      } catch {
+      } catch (err) {
         if (!alive) return;
+        console.warn("Failed to load pending admin items.", err);
         setPendingItems([]);
       } finally {
-        if (!alive) return;
-        setPendingLoading(false);
+        if (alive) {
+          setPendingLoading(false);
+        }
       }
     })();
     return () => {
@@ -117,12 +121,14 @@ export default function AdminDashboardPage() {
         const res = await adminGetGrowthSummary();
         if (!alive) return;
         setGrowth(res);
-      } catch {
+      } catch (err) {
         if (!alive) return;
+        console.warn("Failed to load admin growth summary.", err);
         setGrowth(null);
       } finally {
-        if (!alive) return;
-        setGrowthLoading(false);
+        if (alive) {
+          setGrowthLoading(false);
+        }
       }
     })();
     return () => { alive = false; };
@@ -136,12 +142,14 @@ export default function AdminDashboardPage() {
         const res = await adminGetBlockedUsers();
         if (!alive) return;
         setBlocked(res?.users || []);
-      } catch {
+      } catch (err) {
         if (!alive) return;
+        console.warn("Failed to load admin blocked users.", err);
         setBlocked([]);
       } finally {
-        if (!alive) return;
-        setBlockedLoading(false);
+        if (alive) {
+          setBlockedLoading(false);
+        }
       }
     })();
     return () => { alive = false; };

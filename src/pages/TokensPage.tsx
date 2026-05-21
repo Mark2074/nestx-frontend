@@ -63,8 +63,9 @@ export default function TokensPage() {
         if (!alive) return;
         setError(err?.message || "Failed to load tokens.");
       } finally {
-        if (!alive) return;
-        setLoading(false);
+        if (alive) {
+          setLoading(false);
+        }
       }
     }
 
@@ -269,6 +270,46 @@ export default function TokensPage() {
             </div>
           </div>
 
+          {/* Payouts */}
+          <div style={cardStyle}>
+            <h2 style={h2Style}>Payouts</h2>
+            <div style={{ fontSize: 13, opacity: 0.85, marginBottom: 10 }}>
+              Withdraw your earnings if you are eligible.
+            </div>
+
+            {!economyEnabled && (
+              <div style={{ fontSize: 13, opacity: 0.85, marginBottom: 10 }}>
+                Payouts are disabled during testing.
+              </div>
+            )}
+
+            {elig && !elig.ok && (
+              <div style={{ fontSize: 13, opacity: 0.9, marginBottom: 10 }}>
+                To withdraw Redeemable tokens, you must complete Creator onboarding and be approved.{" "}
+                <Link to="/app/rules/become-creator" style={{ textDecoration: "underline" }}>
+                  Become a creator
+                </Link>
+              </div>
+            )}
+
+            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <button
+                style={btnStyle(!canRequestPayout)}
+                disabled={!canRequestPayout}
+                onClick={() => {
+                  if (!canRequestPayout) return;
+                  alert("Request payout — Coming soon");
+                  // in 1B reale: api.requestPayout(...)
+                }}
+              >
+                Request payout
+              </button>
+              <div style={{ fontSize: 12, opacity: 0.75 }}>
+                Available for payout: {availableToWithdraw} tokens
+              </div>
+            </div>
+          </div>
+
           {/* Buy tokens */}
           <div style={cardStyle}>
             <h2 style={h2Style}>Buy tokens</h2>
@@ -354,45 +395,6 @@ export default function TokensPage() {
             )}
           </div>
 
-          {/* Payouts */}
-          <div style={cardStyle}>
-            <h2 style={h2Style}>Payouts</h2>
-            <div style={{ fontSize: 13, opacity: 0.85, marginBottom: 10 }}>
-              Withdraw your earnings if you are eligible.
-            </div>
-
-            {!economyEnabled && (
-              <div style={{ fontSize: 13, opacity: 0.85, marginBottom: 10 }}>
-                Payouts are disabled during testing.
-              </div>
-            )}
-
-            {elig && !elig.ok && (
-              <div style={{ fontSize: 13, opacity: 0.9, marginBottom: 10 }}>
-                To withdraw Redeemable tokens, you must complete Creator onboarding and be approved.{" "}
-                <Link to="/app/rules/become-creator" style={{ textDecoration: "underline" }}>
-                  Become a creator
-                </Link>
-              </div>
-            )}
-
-            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-              <button
-                style={btnStyle(!canRequestPayout)}
-                disabled={!canRequestPayout}
-                onClick={() => {
-                  if (!canRequestPayout) return;
-                  alert("Request payout — Coming soon");
-                  // in 1B reale: api.requestPayout(...)
-                }}
-              >
-                Request payout
-              </button>
-              <div style={{ fontSize: 12, opacity: 0.75 }}>
-                Available for payout: {availableToWithdraw} tokens
-              </div>
-            </div>
-          </div>
         </>
       )}
     </div>
