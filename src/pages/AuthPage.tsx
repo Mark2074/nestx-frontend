@@ -9,35 +9,8 @@ type Step = 1 | 2;
 type Mode = "login" | "register";
 
 const LOGO_SRC = "/legal/nestx-horizontal-dark.png";
-const ACCOUNT_DELETION_URL = "https://legal.nestx.live/account-deletion.html";
-const CHILD_SAFETY_URL = "https://legal.nestx.live/child-safety.html";
-
-const LEGAL_INFO = [
-  {
-    title: "Account Deletion",
-    href: ACCOUNT_DELETION_URL,
-    buttonLabel: "Open account deletion page",
-    summary: [
-      "Users can permanently delete their NestX account directly from the application settings or profile section.",
-      "When an account deletion request is submitted, the account enters a pending deletion state for up to 30 days.",
-      "Deleted data includes profile information, posts and uploaded content associated with the account, followers and following relationships, and personal account preferences and settings.",
-      "Security logs, moderation and abuse-prevention records, and technical records required for legal compliance and fraud prevention may be retained temporarily.",
-      "For privacy-related requests, contact privacy@nestx.live.",
-    ],
-  },
-  {
-    title: "Child Safety Standards",
-    href: CHILD_SAFETY_URL,
-    buttonLabel: "Open child safety page",
-    summary: [
-      "NestX is intended for users aged 18 and over.",
-      "NestX has a zero-tolerance policy for child sexual abuse material, sexual exploitation of minors, grooming, or any content involving minors in sexual or exploitative contexts.",
-      "Users can report accounts, posts, media, or other content that may violate safety rules. Reports are reviewed and may result in content removal, account restrictions, account suspension, or escalation where required.",
-      "Content suspected to involve minors, exploitation, abuse, or illegal activity may be removed or restricted. Accounts involved in such activity may be suspended or permanently removed.",
-      "Child safety and abuse prevention contact: safety@nestx.live.",
-    ],
-  },
-] as const;
+const ACCOUNT_DELETION_URL = "https://legal.nestx.live/rules/en/account-deletion.html";
+const CHILD_SAFETY_URL = "https://legal.nestx.live/rules/en/child-safety.html";
 
 const PROFILE_TYPES = [
   { value: "male", label: "Male" },
@@ -527,33 +500,12 @@ export default function AuthPage() {
           )}
         </div>
 
-        <section style={legalSectionStyle}>
-          <h2 style={legalTitleStyle}>Rules, Privacy and Terms</h2>
-          <div style={legalGridStyle}>
-            {LEGAL_INFO.map((entry) => (
-              <article key={entry.href} style={legalCardStyle}>
-                <h3 style={legalCardTitleStyle}>{entry.title}</h3>
-                <div style={{ display: "grid", gap: 8 }}>
-                  {entry.summary.map((text) => (
-                    <p key={text} style={legalCopyStyle}>
-                      {text}
-                    </p>
-                  ))}
-                </div>
-                <a href={entry.href} target="_blank" rel="noreferrer" style={legalOpenLinkStyle}>
-                  {entry.buttonLabel}
-                </a>
-              </article>
-            ))}
-          </div>
-        </section>
-
         {/* Footer */}
         <div style={{ marginTop: 18, display: "flex", justifyContent: "center", gap: 18, flexWrap: "wrap", fontSize: 13, opacity: 0.85 }}>
           <a href="/rules/en/terms.html" target="_blank" rel="noreferrer" style={linkStyle}>Terms</a>
           <a href="/rules/en/privacy.html" target="_blank" rel="noreferrer" style={linkStyle}>Privacy</a>
           <a href={ACCOUNT_DELETION_URL} target="_blank" rel="noreferrer" style={linkStyle}>Account Deletion</a>
-          <a href={CHILD_SAFETY_URL} target="_blank" rel="noreferrer" style={linkStyle}>Child Safety</a>
+          <a href={CHILD_SAFETY_URL} target="_blank" rel="noreferrer" style={linkStyle}>Child Safety Standards</a>
         </div>
       </div>
     </div>
@@ -697,54 +649,3 @@ const step2GridStyle: React.CSSProperties = {
   alignItems: "start",
   marginTop: 12,
 };
-
-const legalSectionStyle = {
-  width: "100%",
-  maxWidth: 760,
-  margin: "18px auto 0",
-} as const;
-
-const legalTitleStyle = {
-  margin: "0 0 10px",
-  fontSize: 18,
-  textAlign: "left",
-} as const;
-
-const legalGridStyle = {
-  display: "grid",
-  gridTemplateColumns: "minmax(0, 1fr)",
-  gap: 12,
-} as const;
-
-const legalCardStyle = {
-  padding: 16,
-  borderRadius: 16,
-  border: "1px solid rgba(255,255,255,.12)",
-  background: "rgba(255,255,255,.05)",
-  color: "rgba(255,255,255,.92)",
-} as const;
-
-const legalCardTitleStyle = {
-  margin: "0 0 8px",
-  fontSize: 16,
-} as const;
-
-const legalCopyStyle = {
-  margin: 0,
-  opacity: 0.82,
-  lineHeight: 1.55,
-  fontSize: 13,
-} as const;
-
-const legalOpenLinkStyle = {
-  display: "block",
-  marginTop: 14,
-  padding: "10px 12px",
-  borderRadius: 12,
-  border: "1px solid rgba(255,255,255,0.14)",
-  background: "rgba(255,255,255,0.08)",
-  color: "white",
-  fontWeight: 900,
-  textDecoration: "none",
-  textAlign: "center",
-} as const;
