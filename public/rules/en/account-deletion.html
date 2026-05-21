@@ -1,38 +1,184 @@
-<h1>NestX Account Deletion</h1>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>NestX - Account Deletion</title>
+  <style>
+    :root{
+      color-scheme: dark;
+      --bg:#0b0b0f;
+      --card:rgba(255,255,255,.06);
+      --border:rgba(255,255,255,.12);
+      --text:rgba(255,255,255,.92);
+      --muted:rgba(255,255,255,.72);
+      --soft:rgba(255,255,255,.56);
+      --link:rgba(190,199,255,.96);
+      --accent:rgba(99,102,241,.82);
+    }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      min-height:100vh;
+      font-family:ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background:
+        radial-gradient(900px 520px at 18% -12%, rgba(99,102,241,.18), transparent 62%),
+        radial-gradient(760px 460px at 100% 0%, rgba(20,184,166,.10), transparent 58%),
+        var(--bg);
+      color:var(--text);
+      line-height:1.65;
+    }
+    .wrap{
+      width:100%;
+      max-width:920px;
+      margin:0 auto;
+      padding:32px 18px 56px;
+    }
+    .brand{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      margin-bottom:22px;
+    }
+    .brand img{
+      width:auto;
+      height:52px;
+      max-width:220px;
+      object-fit:contain;
+    }
+    main{
+      max-width:760px;
+      margin:0 auto;
+      padding:30px;
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:16px;
+      box-shadow:0 18px 45px rgba(0,0,0,.30);
+    }
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      padding:6px 10px;
+      border:1px solid var(--border);
+      border-radius:999px;
+      background:rgba(255,255,255,.04);
+      color:rgba(255,255,255,.84);
+      font-size:12px;
+      font-weight:800;
+      line-height:1;
+    }
+    h1{
+      margin:12px 0 10px;
+      font-size:clamp(28px, 4vw, 40px);
+      line-height:1.12;
+      letter-spacing:0;
+    }
+    h2{
+      margin:28px 0 10px;
+      font-size:18px;
+      line-height:1.3;
+    }
+    p{
+      margin:12px 0;
+      color:var(--muted);
+    }
+    ul{
+      margin:10px 0 0 20px;
+      padding:0;
+      color:var(--muted);
+    }
+    li{ margin:7px 0; }
+    a{ color:var(--link); }
+    .meta{
+      color:var(--soft);
+      font-size:13px;
+      margin-top:6px;
+    }
+    .rule{
+      height:1px;
+      margin:22px 0;
+      background:rgba(255,255,255,.10);
+    }
+    .contact{
+      margin-top:14px;
+      padding:14px 16px;
+      border:1px solid rgba(255,255,255,.10);
+      border-left:3px solid var(--accent);
+      border-radius:12px;
+      background:rgba(255,255,255,.045);
+      color:var(--muted);
+    }
+    .contact a{
+      font-weight:800;
+      text-decoration:none;
+    }
+    footer{
+      max-width:760px;
+      margin:18px auto 0;
+      color:var(--soft);
+      font-size:13px;
+      text-align:center;
+    }
+    @media (max-width:640px){
+      .wrap{ padding:24px 14px 44px; }
+      .brand{ justify-content:flex-start; margin-bottom:16px; }
+      .brand img{ height:42px; max-width:180px; }
+      main{ padding:22px 18px; border-radius:14px; }
+      h2{ margin-top:24px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand">
+      <img src="/legal/nestx-horizontal-dark.png" alt="NestX" />
+    </div>
 
-<p>
-Users can permanently delete their NestX account directly from the application settings/profile section.
-</p>
+    <main>
+      <div class="badge">NestX legal</div>
+      <h1>Account Deletion</h1>
+      <div class="meta">Information for NestX users about deleting an account and related data handling.</div>
 
-<p>
-When an account deletion request is submitted, the account enters a pending deletion state for up to 30 days.
-</p>
+      <div class="rule"></div>
 
-<h2>Data deleted</h2>
+      <p>
+        Users can permanently delete their NestX account directly from the application settings or profile section.
+      </p>
 
-<ul>
-  <li>Profile information</li>
-  <li>Posts and uploaded content associated with the account</li>
-  <li>Followers/following relationships</li>
-  <li>Personal account preferences and settings</li>
-</ul>
+      <p>
+        When an account deletion request is submitted, the account enters a pending deletion state for up to 30 days.
+      </p>
 
-<h2>Data that may be retained temporarily</h2>
+      <h2>Data Deleted</h2>
+      <ul>
+        <li>Profile information</li>
+        <li>Posts and uploaded content associated with the account</li>
+        <li>Followers and following relationships</li>
+        <li>Personal account preferences and settings</li>
+      </ul>
 
-<ul>
-  <li>Security logs</li>
-  <li>Moderation and abuse-prevention records</li>
-  <li>Technical records required for legal compliance and fraud prevention</li>
-</ul>
+      <h2>Data That May Be Retained Temporarily</h2>
+      <ul>
+        <li>Security logs</li>
+        <li>Moderation and abuse-prevention records</li>
+        <li>Technical records required for legal compliance and fraud prevention</li>
+      </ul>
 
-<p>
-Certain information may be retained for a limited period where required for legal obligations, platform security, fraud prevention, abuse investigations, or enforcement of platform rules.
-</p>
+      <p>
+        Certain information may be retained for a limited period where required for legal obligations,
+        platform security, fraud prevention, abuse investigations, or enforcement of platform rules.
+      </p>
 
-<p>
-For privacy-related requests, contact:
-</p>
+      <h2>Privacy Contact</h2>
+      <div class="contact">
+        For privacy-related requests, contact
+        <a href="mailto:privacy@nestx.live">privacy@nestx.live</a>.
+      </div>
+    </main>
 
-<p>
-privacy@nestx.live
-</p>
+    <footer>
+      NestX - Account deletion information
+    </footer>
+  </div>
+</body>
+</html>
