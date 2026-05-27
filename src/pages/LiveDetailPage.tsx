@@ -227,14 +227,15 @@ export default function LiveDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
 
-  const eventStatus = String(
-    eventDetail?.status || meta?.status || ""
-  )
+  const officialEventStatus = String(eventDetail?.status || "")
+    .trim()
+    .toLowerCase();
+  const eventStatus = String(officialEventStatus || meta?.status || "")
     .trim()
     .toLowerCase();
 
-  const isCancelledEvent = eventStatus === "cancelled";
-  const isFinishedEvent = eventStatus === "finished";
+  const isCancelledEvent = officialEventStatus === "cancelled" || officialEventStatus === "canceled";
+  const isFinishedEvent = officialEventStatus === "finished";
   const isLiveEvent = eventStatus === "live";
   const isScheduledEvent = eventStatus === "scheduled";
 
@@ -443,11 +444,14 @@ export default function LiveDetailPage() {
       case "PRIVATE_ROOM_MISSING":
         return "Private session not available.";
       case "EVENT_FINISHED":
-        return "This live has ended.";
+      case "EVENT_ENDED":
+        return isFinishedEvent || isCancelledEvent
+          ? "This live has ended."
+          : "Host reconnecting. Please wait.";
       default:
         return "Buy a ticket to access this event.";
     }
-  }, [access]);
+  }, [access, isCancelledEvent, isFinishedEvent]);
 
   const roomScopeToEnter: "public" | "private" =
     access?.authorizedScope === "private"
