@@ -570,9 +570,9 @@ export default function LiveDiscoverPage() {
                   style={{
                     cursor: id ? "pointer" : "default",
                     display: "grid",
-                    gridTemplateColumns: "172px 1fr",
+                    gridTemplateColumns: "129px 1fr",
                     alignItems: "stretch",
-                    minHeight: 172,
+                    minHeight: 129,
                     borderBottom: "1px solid rgba(255,255,255,0.10)",
                   }}
                   title={id ? "Open live" : ""}
@@ -580,8 +580,8 @@ export default function LiveDiscoverPage() {
                   {/* Cover */}
                   <div
                     style={{
-                      width: 172,
-                      height: 172,
+                      width: 129,
+                      height: 129,
                       background: "rgba(255,255,255,0.06)",
                       borderRight: "1px solid rgba(255,255,255,0.10)",
                       position: "relative",
@@ -660,8 +660,6 @@ export default function LiveDiscoverPage() {
                     {st === "live" && viewers != null ? (
                       <span style={infoBadgeStyle}>{viewers} viewers</span>
                     ) : null}
-
-                    {st !== "live" && when ? <span style={infoBadgeStyle}>{when}</span> : null}
 
                     {price > 0 ? <span style={priceBadgeStyle("PAID")}>{price} tokens</span> : null}
                   </div>
@@ -853,23 +851,19 @@ const detailsBlockStyle = {
 
 const badgeStyle = (kind: "LIVE" | "SCHEDULED") =>
   ({
-    padding: "4px 7px",
-    borderRadius: 999,
+    padding: "1px 0",
     fontWeight: 900,
     fontSize: 11,
-    lineHeight: 1.1,
-    border: "1px solid rgba(255,255,255,0.14)",
+    lineHeight: 1.2,
     background: "rgba(0,0,0,0)",
     color: kind === "LIVE" ? "rgb(74,222,128)" : "white",
   } as const);
 
 const categoryBadgeStyle = {
-  padding: "4px 7px",
-  borderRadius: 999,
+  padding: "1px 0",
   fontWeight: 900,
   fontSize: 11,
-  lineHeight: 1.1,
-  border: "1px solid rgba(255,255,255,0.14)",
+  lineHeight: 1.2,
   background: "rgba(0,0,0,0)",
   textAlign: "left",
   maxWidth: "100%",
@@ -880,24 +874,20 @@ const categoryBadgeStyle = {
 
 const priceBadgeStyle = (kind: "FREE" | "PAID") =>
   ({
-    padding: "4px 7px",
-    borderRadius: 999,
+    padding: "1px 0",
     fontWeight: 900,
     fontSize: 11,
-    lineHeight: 1.1,
-    border: "1px solid rgba(255,255,255,0.14)",
-    background: kind === "FREE" ? "rgba(0,0,0,0)" : "rgba(255,200,120,0.12)",
+    lineHeight: 1.2,
+    background: "rgba(0,0,0,0)",
     color: kind === "FREE" ? "rgb(147,197,253)" : "rgb(251,191,36)",
     alignSelf: "flex-start",
   } as const);
 
 const infoBadgeStyle = {
-  padding: "4px 7px",
-  borderRadius: 999,
+  padding: "1px 0",
   fontWeight: 900,
   fontSize: 11,
-  lineHeight: 1.1,
-  border: "1px solid rgba(255,255,255,0.14)",
+  lineHeight: 1.2,
   background: "rgba(0,0,0,0)",
   maxWidth: "100%",
   whiteSpace: "nowrap",
