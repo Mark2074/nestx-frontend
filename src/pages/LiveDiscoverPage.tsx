@@ -674,7 +674,7 @@ export default function LiveDiscoverPage() {
                 >
                   <div
                     style={{
-                      fontSize: 14,
+                      fontSize: 13,
                       fontWeight: 900,
                       whiteSpace: "nowrap",
                       overflow: "hidden",
@@ -688,7 +688,7 @@ export default function LiveDiscoverPage() {
                     <div
                       style={{
                         marginTop: 4,
-                        fontSize: 12,
+                        fontSize: 11,
                         opacity: 0.74,
                         lineHeight: 1.3,
                         whiteSpace: "nowrap",
@@ -837,7 +837,7 @@ const creatorOverlayButtonStyle = (enabled: string) =>
     color: "white",
     padding: "4px 8px",
     cursor: enabled ? "pointer" : "default",
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: 900,
     lineHeight: 1.15,
     whiteSpace: "nowrap",
@@ -853,7 +853,7 @@ const badgeStyle = (kind: "LIVE" | "SCHEDULED") =>
   ({
     padding: "1px 0",
     fontWeight: 900,
-    fontSize: 11,
+    fontSize: 10,
     lineHeight: 1.2,
     background: "rgba(0,0,0,0)",
     color: kind === "LIVE" ? "rgb(74,222,128)" : "white",
@@ -862,7 +862,7 @@ const badgeStyle = (kind: "LIVE" | "SCHEDULED") =>
 const categoryBadgeStyle = {
   padding: "1px 0",
   fontWeight: 900,
-  fontSize: 11,
+  fontSize: 10,
   lineHeight: 1.2,
   background: "rgba(0,0,0,0)",
   textAlign: "left",
@@ -876,7 +876,7 @@ const priceBadgeStyle = (kind: "FREE" | "PAID") =>
   ({
     padding: "1px 0",
     fontWeight: 900,
-    fontSize: 11,
+    fontSize: 10,
     lineHeight: 1.2,
     background: "rgba(0,0,0,0)",
     color: kind === "FREE" ? "rgb(147,197,253)" : "rgb(251,191,36)",
@@ -886,7 +886,7 @@ const priceBadgeStyle = (kind: "FREE" | "PAID") =>
 const infoBadgeStyle = {
   padding: "1px 0",
   fontWeight: 900,
-  fontSize: 11,
+  fontSize: 10,
   lineHeight: 1.2,
   background: "rgba(0,0,0,0)",
   maxWidth: "100%",
