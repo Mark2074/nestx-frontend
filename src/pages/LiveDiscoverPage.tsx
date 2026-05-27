@@ -613,6 +613,7 @@ export default function LiveDiscoverPage() {
 
                     <button
                       type="button"
+                      title={userProfileId ? "Open profile" : ""}
                       onClick={(e) => {
                         e.stopPropagation();
                         if (!userProfileId) return;
@@ -867,9 +868,10 @@ const categoryBadgeStyle = {
   background: "rgba(0,0,0,0)",
   textAlign: "left",
   maxWidth: "100%",
-  whiteSpace: "nowrap",
+  display: "-webkit-box",
+  WebkitLineClamp: 2,
+  WebkitBoxOrient: "vertical",
   overflow: "hidden",
-  textOverflow: "ellipsis",
 } as const;
 
 const priceBadgeStyle = (kind: "FREE" | "PAID") =>
