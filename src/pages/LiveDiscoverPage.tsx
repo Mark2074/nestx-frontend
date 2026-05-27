@@ -100,6 +100,29 @@ function getMaxSeats(item: any): number | null {
   return n;
 }
 
+function getSeatsRemaining(item: LiveItem): number | null {
+  const remaining = item?.seatsRemaining ?? item?.data?.seatsRemaining;
+  const remainingNumber = Number(remaining);
+  if (Number.isFinite(remainingNumber) && remainingNumber >= 0) return remainingNumber;
+
+  const max = getMaxSeats(item);
+  const sold = Number(item?.ticketsSoldCount ?? item?.seatsSold ?? item?.data?.ticketsSoldCount ?? 0);
+  if (!max) return null;
+  return Math.max(0, max - (Number.isFinite(sold) ? sold : 0));
+}
+
+function getViewerCount(item: LiveItem): number | null {
+  const value =
+    item?.viewerCount ??
+    item?.viewersNow ??
+    item?.currentViewersCount ??
+    item?.currentViewers ??
+    item?.data?.viewerCount ??
+    item?.data?.viewersNow;
+  const count = Number(value);
+  return Number.isFinite(count) ? count : null;
+}
+
 export default function LiveDiscoverPage() {
   const nav = useNavigate();
 
@@ -490,6 +513,8 @@ export default function LiveDiscoverPage() {
             const st = getStatus(it);
             const price = getPriceTokens(it);
             const maxSeats = getMaxSeats(it);
+            const remainingSeats = getSeatsRemaining(it);
+            const viewers = getViewerCount(it);
             const scope = String(it?.contentScope || it?.data?.contentScope || "");
             const categoryLabel = getEventDisplayCategory(it);
             const userProfileId = getCreatorProfileId(it);
@@ -502,6 +527,30 @@ export default function LiveDiscoverPage() {
               it?.updatedAt;
 
             const when = formatMaybeDate(rawDate);
+            const openLiveDetail = () => {
+              if (!id) return;
+
+              try {
+                sessionStorage.setItem(
+                  `nx_live_meta_${id}`,
+                  JSON.stringify({
+                    id,
+                    title,
+                    creatorName,
+                    avatarUrl,
+                    coverUrl,
+                    status: st,
+                    scope,
+                    price,
+                    when,
+                  })
+                );
+              } catch {
+                // Session metadata is an optimization for the detail page.
+              }
+
+              nav(`/app/live/${id}`);
+            };
 
             return (
               <div
@@ -515,54 +564,33 @@ export default function LiveDiscoverPage() {
               >
                 {/* TOP: clickable -> details */}
                 <div
-                  onClick={() => {
-                    if (!id) return;
-
-                    try {
-                      sessionStorage.setItem(
-                        `nx_live_meta_${id}`,
-                        JSON.stringify({
-                          id,
-                          title,
-                          creatorName,
-                          avatarUrl,
-                          coverUrl,
-                          status: st,
-                          scope,
-                          price,
-                          when,
-                        })
-                      );
-                    } catch {}
-
-                    nav(`/app/live/${id}`);
-                  }}
+                  onClick={openLiveDetail}
                   role="button"
                   tabIndex={0}
                   style={{
                     cursor: id ? "pointer" : "default",
                     display: "grid",
-                    gridTemplateColumns: "1fr 92px",
+                    gridTemplateColumns: "172px 1fr",
                     alignItems: "stretch",
-                    minHeight: 140,
+                    minHeight: 172,
                     borderBottom: "1px solid rgba(255,255,255,0.10)",
                   }}
                   title={id ? "Open live" : ""}
                 >
-                  {/* Avatar square (fills left) */}
+                  {/* Cover */}
                   <div
                     style={{
-                      aspectRatio: "1 / 1",
-                      width: "100%",
+                      width: 172,
+                      height: 172,
                       background: "rgba(255,255,255,0.06)",
                       borderRight: "1px solid rgba(255,255,255,0.10)",
                       position: "relative",
                       overflow: "hidden",
                     }}
                   >
-                    {avatarUrl ? (
+                    {coverUrl || avatarUrl ? (
                       <img
-                        src={avatarUrl}
+                        src={coverUrl || avatarUrl}
                         alt=""
                         style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                       />
@@ -582,6 +610,18 @@ export default function LiveDiscoverPage() {
                         {(creatorName || "U").slice(0, 1).toUpperCase()}
                       </div>
                     )}
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!userProfileId) return;
+                        nav(`/app/profile/${userProfileId}`);
+                      }}
+                      style={creatorOverlayButtonStyle(userProfileId)}
+                    >
+                      @{creatorName}
+                    </button>
                   </div>
 
                   {/* Badges column (right) */}
@@ -589,11 +629,12 @@ export default function LiveDiscoverPage() {
                     style={{
                       display: "flex",
                       flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 10,
-                      padding: 10,
+                      alignItems: "flex-start",
+                      justifyContent: "flex-start",
+                      gap: 5,
+                      padding: 8,
                       background: "rgba(0,0,0,0.12)",
+                      minWidth: 0,
                     }}
                   >
                     <span style={badgeStyle(st === "live" ? "LIVE" : "SCHEDULED")}>
@@ -601,7 +642,7 @@ export default function LiveDiscoverPage() {
                     </span>
 
                     {categoryLabel ? (
-                      <span style={categoryBadgeStyle}>
+                      <span style={categoryBadgeStyle} title={categoryLabel}>
                         {categoryLabel}
                       </span>
                     ) : null}
@@ -610,99 +651,57 @@ export default function LiveDiscoverPage() {
                       {price === 0 ? "FREE" : "PAID"}
                     </span>
 
-                    {st !== "live" && price > 0 && maxSeats ? (
-                      <span
-                        style={{
-                          padding: "6px 10px",
-                          borderRadius: 999,
-                          fontWeight: 900,
-                          fontSize: 12,
-                          border: "1px solid rgba(255,255,255,0.14)",
-                          background: "rgba(255,255,255,0.06)",
-                          opacity: 0.95,
-                        }}
-                        title="Max seats"
-                      >
-                        {maxSeats} seats
-                      </span>
+                    {remainingSeats != null ? (
+                      <span style={infoBadgeStyle}>{remainingSeats} left</span>
+                    ) : st !== "live" && maxSeats ? (
+                      <span style={infoBadgeStyle}>{maxSeats} seats</span>
                     ) : null}
+
+                    {st === "live" && viewers != null ? (
+                      <span style={infoBadgeStyle}>{viewers} viewers</span>
+                    ) : null}
+
+                    {st !== "live" && when ? <span style={infoBadgeStyle}>{when}</span> : null}
+
+                    {price > 0 ? <span style={priceBadgeStyle("PAID")}>{price} tokens</span> : null}
                   </div>
                 </div>
 
-                {/* Bottom compact section */}
-                  <div style={{ padding: "10px 12px 12px 12px" }}>
-                    {/* Top row: name + title */}
+                <div
+                  onClick={openLiveDetail}
+                  role="button"
+                  tabIndex={0}
+                  style={{ ...detailsBlockStyle, cursor: id ? "pointer" : "default" }}
+                  title={id ? "Open live" : ""}
+                >
+                  <div
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 900,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {title}
+                  </div>
+
+                  {it?.description ? (
                     <div
                       style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: 8,
-                        minWidth: 0,
+                        marginTop: 4,
+                        fontSize: 12,
+                        opacity: 0.74,
+                        lineHeight: 1.3,
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
                       }}
                     >
-                      {/* Creator */}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (!userProfileId) return;
-                          nav(`/app/profile/${userProfileId}`);
-                        }}
-                        style={{
-                          border: "none",
-                          background: "transparent",
-                          padding: 0,
-                          cursor: userProfileId ? "pointer" : "default",
-                          color: "inherit",
-                          fontWeight: 900,
-                          fontSize: 13,
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          flex: "1 1 auto",
-                          textAlign: "left",
-                        }}
-                      >
-                        {creatorName}
-                      </button>
-
-                      {/* Title */}
-                      <div
-                        style={{
-                          fontSize: 13,
-                          fontWeight: 700,
-                          opacity: 0.85,
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          flex: "0 0 auto",
-                          maxWidth: "55%",
-                          textAlign: "right",
-                        }}
-                      >
-                        {title}
-                      </div>
+                      {it.description}
                     </div>
-
-                    {/* Description compact */}
-                    {it?.description ? (
-                      <div
-                        style={{
-                          marginTop: 6,
-                          fontSize: 12,
-                          opacity: 0.75,
-                          lineHeight: 1.3,
-                          display: "-webkit-box",
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: "vertical",
-                          overflow: "hidden",
-                        }}
-                      >
-                        {it.description}
-                      </div>
-                    ) : null}
-                  </div>
+                  ) : null}
+                </div>
               </div>
             );
           })}
@@ -828,32 +827,80 @@ const ghostBtnStyle = {
   border: "1px solid rgba(255,255,255,0.10)",
 } as const;
 
+const creatorOverlayButtonStyle = (enabled: string) =>
+  ({
+    position: "absolute",
+    top: 10,
+    left: 10,
+    maxWidth: "calc(100% - 20px)",
+    border: "none",
+    borderRadius: 999,
+    background: "rgba(0,0,0,0.46)",
+    color: "white",
+    padding: "4px 8px",
+    cursor: enabled ? "pointer" : "default",
+    fontSize: 12,
+    fontWeight: 900,
+    lineHeight: 1.15,
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  } as const);
+
+const detailsBlockStyle = {
+  padding: "10px 12px 12px 12px",
+} as const;
+
 const badgeStyle = (kind: "LIVE" | "SCHEDULED") =>
   ({
-    padding: "6px 10px",
+    padding: "4px 7px",
     borderRadius: 999,
     fontWeight: 900,
-    fontSize: 12,
+    fontSize: 11,
+    lineHeight: 1.1,
     border: "1px solid rgba(255,255,255,0.14)",
-    background: kind === "LIVE" ? "rgba(0,255,160,0.10)" : "rgba(255,255,255,0.06)",
+    background: "rgba(0,0,0,0)",
+    color: kind === "LIVE" ? "rgb(74,222,128)" : "white",
   } as const);
 
 const categoryBadgeStyle = {
-  padding: "6px 10px",
+  padding: "4px 7px",
   borderRadius: 999,
   fontWeight: 900,
-  fontSize: 12,
+  fontSize: 11,
+  lineHeight: 1.1,
   border: "1px solid rgba(255,255,255,0.14)",
-  background: "rgba(255,255,255,0.08)",
-  textAlign: "center",
+  background: "rgba(0,0,0,0)",
+  textAlign: "left",
+  maxWidth: "100%",
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
 } as const;
 
 const priceBadgeStyle = (kind: "FREE" | "PAID") =>
   ({
-    padding: "6px 10px",
+    padding: "4px 7px",
     borderRadius: 999,
     fontWeight: 900,
-    fontSize: 12,
+    fontSize: 11,
+    lineHeight: 1.1,
     border: "1px solid rgba(255,255,255,0.14)",
-    background: kind === "FREE" ? "rgba(120,180,255,0.10)" : "rgba(255,200,120,0.10)",
+    background: kind === "FREE" ? "rgba(0,0,0,0)" : "rgba(255,200,120,0.12)",
+    color: kind === "FREE" ? "rgb(147,197,253)" : "rgb(251,191,36)",
+    alignSelf: "flex-start",
   } as const);
+
+const infoBadgeStyle = {
+  padding: "4px 7px",
+  borderRadius: 999,
+  fontWeight: 900,
+  fontSize: 11,
+  lineHeight: 1.1,
+  border: "1px solid rgba(255,255,255,0.14)",
+  background: "rgba(0,0,0,0)",
+  maxWidth: "100%",
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+} as const;
