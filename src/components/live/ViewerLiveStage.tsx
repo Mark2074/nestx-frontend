@@ -29,6 +29,51 @@ type PlayerState =
 
 const STREAM_RETRY_MS = 5000;
 
+function logViewerVideoDiag(
+  label: string,
+  video: HTMLVideoElement | null,
+  extra: Record<string, unknown> = {}
+) {
+  try {
+    console.log(
+      `NESTX_LIVE_WEB_DIAG ${label}:`,
+      JSON.stringify({
+        videoWidth: video?.videoWidth ?? null,
+        videoHeight: video?.videoHeight ?? null,
+        clientWidth: video?.clientWidth ?? null,
+        clientHeight: video?.clientHeight ?? null,
+        readyState: video?.readyState ?? null,
+        networkState: video?.networkState ?? null,
+        currentSrc: video?.currentSrc || null,
+        ...extra,
+      })
+    );
+  } catch {
+    // Diagnostics should never affect playback.
+  }
+}
+
+function getHlsLevelDiag(hls: Hls | null, levelIndex?: number | null) {
+  const hlsAny = hls as any;
+  const levels = Array.isArray(hlsAny?.levels) ? hlsAny.levels : [];
+  const index =
+    typeof levelIndex === "number" && levelIndex >= 0
+      ? levelIndex
+      : typeof hlsAny?.currentLevel === "number"
+      ? hlsAny.currentLevel
+      : null;
+  const level = typeof index === "number" ? levels[index] : null;
+  const rawUrl = level?.url ?? level?.uri ?? level?.details?.url ?? null;
+
+  return {
+    levelIndex: index,
+    levelWidth: level?.width ?? null,
+    levelHeight: level?.height ?? null,
+    levelBitrate: level?.bitrate ?? level?.averageBitrate ?? null,
+    levelUrl: Array.isArray(rawUrl) ? rawUrl.join(",") : rawUrl,
+  };
+}
+
 export default function ViewerLiveStage({
   stageReady,
   stageErr,
@@ -48,8 +93,11 @@ export default function ViewerLiveStage({
   const attachedPlaybackUrlRef = useRef<string | null>(null);
   const retryCountRef = useRef(0);
   const retryTimerRef = useRef<number | null>(null);
+  const audioPreferenceRef = useRef<"sound" | "muted">("muted");
 
   const [playerState, setPlayerState] = useState<PlayerState>("idle");
+  const [audioMuted, setAudioMuted] = useState(true);
+  const [audioBlocked, setAudioBlocked] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
 
   useEffect(() => {
@@ -113,6 +161,10 @@ export default function ViewerLiveStage({
 
     let disposed = false;
 
+    const syncAudioState = () => {
+      setAudioMuted(video.muted || video.volume === 0);
+    };
+
     const clearRetryTimer = () => {
       if (retryTimerRef.current !== null) {
         window.clearTimeout(retryTimerRef.current);
@@ -133,6 +185,33 @@ export default function ViewerLiveStage({
       } catch {
         // ignore
       }
+    };
+
+    const playWithPreferredAudio = async () => {
+      if (disposed) return;
+
+      if (audioPreferenceRef.current === "sound") {
+        video.muted = false;
+        video.volume = 1;
+        syncAudioState();
+
+        try {
+          await video.play();
+          setAudioBlocked(false);
+          return;
+        } catch {
+          video.muted = true;
+          syncAudioState();
+          setAudioBlocked(true);
+          await video.play().catch(() => {});
+          return;
+        }
+      }
+
+      video.muted = true;
+      syncAudioState();
+      setAudioBlocked(false);
+      await video.play().catch(() => {});
     };
 
     const markStreamUnavailable = () => {
@@ -157,13 +236,15 @@ export default function ViewerLiveStage({
       video.autoplay = true;
       video.playsInline = true;
       video.preload = "auto";
-      video.muted = true;
+      video.muted = audioPreferenceRef.current !== "sound";
+      if (audioPreferenceRef.current === "sound") video.volume = 1;
+      syncAudioState();
 
       const samePlaybackAlreadyAttached =
         attachedPlaybackUrlRef.current === normalizedPlaybackUrl;
 
       if (samePlaybackAlreadyAttached) {
-        await video.play().catch(() => {});
+        await playWithPreferredAudio();
         return;
       }
 
@@ -173,7 +254,7 @@ export default function ViewerLiveStage({
       if (isSafariNative && video.canPlayType("application/vnd.apple.mpegurl")) {
         video.src = normalizedPlaybackUrl;
         video.load();
-        await video.play().catch(() => {});
+        await playWithPreferredAudio();
         return;
       }
 
@@ -183,7 +264,7 @@ export default function ViewerLiveStage({
       if (!Hls.isSupported()) {
         video.src = normalizedPlaybackUrl;
         video.load();
-        await video.play().catch(() => {});
+        await playWithPreferredAudio();
         return;
       }
 
@@ -204,9 +285,44 @@ export default function ViewerLiveStage({
 
       hlsRef.current = hls;
 
-      hls.on(Hls.Events.MANIFEST_PARSED, async () => {
+      hls.on(Hls.Events.MANIFEST_PARSED, async (_event, data) => {
         if (disposed) return;
-        await video.play().catch(() => {});
+        const levels = Array.isArray((data as any)?.levels) ? (data as any).levels : [];
+        logViewerVideoDiag("hls_manifest_parsed", video, {
+          playbackUrl: normalizedPlaybackUrl,
+          levels: levels.map((level: any, index: number) => ({
+            levelIndex: index,
+            width: level?.width ?? null,
+            height: level?.height ?? null,
+            bitrate: level?.bitrate ?? level?.averageBitrate ?? null,
+            url: Array.isArray(level?.url) ? level.url.join(",") : level?.url ?? level?.uri ?? null,
+          })),
+        });
+        await playWithPreferredAudio();
+      });
+
+      hls.on(Hls.Events.LEVEL_SWITCHED, (_event, data) => {
+        if (disposed) return;
+        if (hlsRef.current !== hls) return;
+
+        logViewerVideoDiag("hls_level_switched", video, {
+          playbackUrl: normalizedPlaybackUrl,
+          ...getHlsLevelDiag(hls, (data as any)?.level),
+        });
+      });
+
+      hls.on(Hls.Events.LEVEL_LOADED, (_event, data) => {
+        if (disposed) return;
+        if (hlsRef.current !== hls) return;
+
+        const details = (data as any)?.details;
+        logViewerVideoDiag("hls_level_loaded", video, {
+          playbackUrl: normalizedPlaybackUrl,
+          ...getHlsLevelDiag(hls, (data as any)?.level),
+          detailsUrl: details?.url ?? null,
+          live: details?.live ?? null,
+          targetduration: details?.targetduration ?? null,
+        });
       });
 
       hls.on(Hls.Events.ERROR, (_event, data) => {
@@ -217,7 +333,7 @@ export default function ViewerLiveStage({
         const fatal = Boolean(data?.fatal);
 
         if (details === "bufferStalledError") {
-          void video.play().catch(() => {});
+          void playWithPreferredAudio();
           return;
         }
 
@@ -244,6 +360,10 @@ export default function ViewerLiveStage({
 
     const onPlaying = () => {
       hasPlayedOnce = true;
+      logViewerVideoDiag("video_playing", video, {
+        playbackUrl: normalizedPlaybackUrl,
+      });
+      syncAudioState();
       lastTime = video.currentTime;
       stuckCount = 0;
       retryCountRef.current = 0;
@@ -252,7 +372,14 @@ export default function ViewerLiveStage({
     };
 
     const onWaiting = () => {
-      if (video.paused) void video.play().catch(() => {});
+      if (video.paused) void playWithPreferredAudio();
+    };
+
+    const onVolumeChange = () => {
+      const isMutedNow = video.muted || video.volume === 0;
+      audioPreferenceRef.current = isMutedNow ? "muted" : "sound";
+      setAudioBlocked(false);
+      setAudioMuted(isMutedNow);
     };
 
     const onStalled = () => {
@@ -263,10 +390,32 @@ export default function ViewerLiveStage({
       markStreamUnavailable();
     };
 
+    const onLoadedMetadata = () => {
+      logViewerVideoDiag("video_loadedmetadata", video, {
+        playbackUrl: normalizedPlaybackUrl,
+      });
+    };
+
+    const onLoadedData = () => {
+      logViewerVideoDiag("video_loadeddata", video, {
+        playbackUrl: normalizedPlaybackUrl,
+      });
+    };
+
+    const onResize = () => {
+      logViewerVideoDiag("video_resize", video, {
+        playbackUrl: normalizedPlaybackUrl,
+      });
+    };
+
     video.addEventListener("playing", onPlaying);
     video.addEventListener("waiting", onWaiting);
     video.addEventListener("stalled", onStalled);
     video.addEventListener("error", onVideoError);
+    video.addEventListener("volumechange", onVolumeChange);
+    video.addEventListener("loadedmetadata", onLoadedMetadata);
+    video.addEventListener("loadeddata", onLoadedData);
+    video.addEventListener("resize", onResize);
 
     void bootPlayer();
     monitorInterval = window.setInterval(() => {
@@ -287,7 +436,7 @@ export default function ViewerLiveStage({
 
       if (stuckCount >= 12) {
         stuckCount = 0;
-        void video.play().catch(() => {});
+        void playWithPreferredAudio();
       }
     }, 1000);
 
@@ -299,6 +448,10 @@ export default function ViewerLiveStage({
       video.removeEventListener("waiting", onWaiting);
       video.removeEventListener("stalled", onStalled);
       video.removeEventListener("error", onVideoError);
+      video.removeEventListener("volumechange", onVolumeChange);
+      video.removeEventListener("loadedmetadata", onLoadedMetadata);
+      video.removeEventListener("loadeddata", onLoadedData);
+      video.removeEventListener("resize", onResize);
       if (monitorInterval !== null) {
         window.clearInterval(monitorInterval);
       }
@@ -337,10 +490,44 @@ export default function ViewerLiveStage({
     canShowVideo &&
     (showHostGraceOverlay || playerState === "failed");
 
+  const enableAudio = async () => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    audioPreferenceRef.current = "sound";
+    video.muted = false;
+    video.volume = 1;
+    setAudioMuted(false);
+    setAudioBlocked(false);
+
+    try {
+      await video.play();
+    } catch {
+      video.muted = true;
+      setAudioMuted(true);
+      setAudioBlocked(true);
+    }
+  };
+
+  const toggleAudio = () => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (video.muted || video.volume === 0) {
+      void enableAudio();
+      return;
+    }
+
+    audioPreferenceRef.current = "muted";
+    video.muted = true;
+    setAudioMuted(true);
+    setAudioBlocked(false);
+  };
+
   return (
     <div style={stageBoxStyle(isHost, shouldPausePublic)}>
       {canShowVideo ? (
-        <video ref={videoRef} controls autoPlay playsInline style={videoStyle} />
+        <video ref={videoRef} controls autoPlay playsInline muted={audioMuted} style={videoStyle} />
       ) : isHost ? (
         <InfoBox
           title="Live is running."
@@ -400,6 +587,29 @@ export default function ViewerLiveStage({
             ) : null}
           </div>
         </div>
+      ) : null}
+
+      {canShowVideo ? (
+        <>
+          <button
+            onClick={toggleAudio}
+            style={audioButtonStyle(audioMuted)}
+            type="button"
+            aria-pressed={!audioMuted}
+          >
+            {audioMuted ? "Audio off" : "Audio on"}
+          </button>
+
+          {audioBlocked ? (
+            <button
+              onClick={enableAudio}
+              style={audioPromptStyle}
+              type="button"
+            >
+              Tap to enable audio
+            </button>
+          ) : null}
+        </>
       ) : null}
 
       {shouldPausePublic ? (
@@ -528,4 +738,36 @@ const secondaryBtnStyle = {
   background: "transparent",
   color: "white",
   border: "1px solid rgba(255,255,255,0.14)",
+} as const;
+
+const audioButtonStyle = (muted: boolean) =>
+  ({
+    position: "absolute",
+    right: 18,
+    top: 18,
+    zIndex: 20,
+    padding: "8px 11px",
+    borderRadius: 12,
+    fontWeight: 900,
+    fontSize: 13,
+    cursor: "pointer",
+    background: muted ? "rgba(220,38,38,0.88)" : "rgba(16,185,129,0.88)",
+    color: "white",
+    border: "1px solid rgba(255,255,255,0.18)",
+    boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
+  }) as const;
+
+const audioPromptStyle = {
+  position: "absolute",
+  inset: 0,
+  zIndex: 18,
+  display: "grid",
+  placeItems: "center",
+  padding: 16,
+  background: "rgba(0,0,0,0.42)",
+  color: "white",
+  border: 0,
+  fontWeight: 1000,
+  fontSize: 18,
+  cursor: "pointer",
 } as const;
