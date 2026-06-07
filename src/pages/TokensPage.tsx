@@ -83,10 +83,13 @@ export default function TokensPage() {
   }, [economyEnabled]);
 
   const availableToWithdraw = Number(available?.availableToWithdrawTokens || 0);
+  const payoutReady = Boolean(economyEnabled) && Boolean(elig?.ok);
+  const payoutStatusCode = !economyEnabled
+    ? "ECONOMY_DISABLED"
+    : String(elig?.code || "Not ready");
 
   const canRequestPayout =
-    Boolean(economyEnabled) &&
-    Boolean(elig?.ok) &&
+    payoutReady &&
     availableToWithdraw > 0;
 
   function formatTxKind(kindRaw: string) {
@@ -277,20 +280,20 @@ export default function TokensPage() {
               Withdraw your earnings if you are eligible.
             </div>
 
-            {!economyEnabled && (
-              <div style={{ fontSize: 13, opacity: 0.85, marginBottom: 10 }}>
-                Payouts are disabled during testing.
-              </div>
-            )}
-
-            {elig && !elig.ok && (
+            {!payoutReady ? (
               <div style={{ fontSize: 13, opacity: 0.9, marginBottom: 10 }}>
-                To withdraw Redeemable tokens, you must complete Creator onboarding and be approved.{" "}
-                <Link to="/app/rules/become-creator" style={{ textDecoration: "underline" }}>
-                  Become a creator
-                </Link>
+                <div style={{ fontWeight: 800, marginBottom: 4 }}>Payout not available yet</div>
+                <div>
+                  Redeemable tokens are shown in your wallet balance. Payout will be available after creator verification and payout setup.
+                </div>
+                <div style={{ marginTop: 6, opacity: 0.75 }}>{payoutStatusCode}</div>
+                <div style={{ marginTop: 6 }}>
+                  <Link to="/app/rules/become-creator" style={{ textDecoration: "underline" }}>
+                    Become a creator
+                  </Link>
+                </div>
               </div>
-            )}
+            ) : null}
 
             <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
               <button
@@ -304,9 +307,11 @@ export default function TokensPage() {
               >
                 Request payout
               </button>
-              <div style={{ fontSize: 12, opacity: 0.75 }}>
-                Available for payout: {availableToWithdraw} tokens
-              </div>
+              {payoutReady ? (
+                <div style={{ fontSize: 12, opacity: 0.75 }}>
+                  Available for payout: {availableToWithdraw} tokens
+                </div>
+              ) : null}
             </div>
           </div>
 
