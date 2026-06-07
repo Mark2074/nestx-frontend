@@ -44,6 +44,8 @@ export default function ChatPage() {
   const [dmRetryUntil, setDmRetryUntil] = useState<number | null>(null);
   const [threadErrUntil, setThreadErrUntil] = useState<number | null>(null);
   const [activeThreadLastMessageId, setActiveThreadLastMessageId] = useState<string>("");
+  const [deleteConfirmPeerId, setDeleteConfirmPeerId] = useState("");
+  const [deletingConversation, setDeletingConversation] = useState(false);
 
   const listRef = useRef<HTMLDivElement | null>(null);
   const loadThreadSeqRef = useRef(0);
@@ -438,6 +440,34 @@ export default function ChatPage() {
     }
   }
 
+  async function handleDeleteConversation() {
+    const peerId = String(deleteConfirmPeerId || "").trim();
+    if (!peerId || deletingConversation) return;
+
+    setDeletingConversation(true);
+    try {
+      await api.deleteConversation(peerId);
+
+      setConvs((prev) =>
+        prev.filter((c) => String(getPeerIdFromConv(c, meId)) !== String(peerId))
+      );
+
+      if (String(selectedPeerId) === String(peerId)) {
+        selectedPeerRef.current = "";
+        setSelectedPeerId("");
+        setMessages([]);
+        setActiveThreadLastMessageId("");
+        nav("/app/chat", { replace: true });
+      }
+
+      setDeleteConfirmPeerId("");
+    } catch (e) {
+      showThreadError(mapApiErrorMessage(e, "Delete failed"), 5000);
+    } finally {
+      setDeletingConversation(false);
+    }
+  }
+
   const convRows = useMemo(() => {
     if (!meId) return [];
     return convs
@@ -535,13 +565,27 @@ export default function ChatPage() {
                     String(selectedPeerId).slice(-6)}
                   </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => nav(`/app/profile/${selectedPeerId}`)}
-                  style={{ ...btnStyle, background: "transparent" }}
-                >
-                  Open profile
-                </button>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <button
+                    type="button"
+                    onClick={() => setDeleteConfirmPeerId(selectedPeerId)}
+                    style={{
+                      ...btnStyle,
+                      background: "rgba(220,38,38,0.12)",
+                      borderColor: "rgba(248,113,113,0.35)",
+                      color: "#fecaca",
+                    }}
+                  >
+                    Delete conversation
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => nav(`/app/profile/${selectedPeerId}`)}
+                    style={{ ...btnStyle, background: "transparent" }}
+                  >
+                    Open profile
+                  </button>
+                </div>
               </div>
 
               {threadErr ? <div style={{ marginTop: 10, color: "salmon", fontWeight: 900 }}>{threadErr}</div> : null}
@@ -671,6 +715,66 @@ export default function ChatPage() {
           )}
         </div>
       </div>
+
+      {deleteConfirmPeerId ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-conversation-title"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            display: "grid",
+            placeItems: "center",
+            padding: 20,
+            background: "rgba(0,0,0,0.62)",
+          }}
+        >
+          <div
+            style={{
+              width: "min(420px, 100%)",
+              border: "1px solid rgba(255,255,255,0.14)",
+              borderRadius: 16,
+              background: "#111",
+              color: "white",
+              padding: 18,
+              boxShadow: "0 20px 70px rgba(0,0,0,0.45)",
+            }}
+          >
+            <div id="delete-conversation-title" style={{ fontWeight: 900, fontSize: 18 }}>
+              Delete conversation?
+            </div>
+            <div style={{ marginTop: 10, opacity: 0.82, lineHeight: 1.45 }}>
+              This conversation will be removed from your inbox. Messages will not be deleted for the other user.
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 18 }}>
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmPeerId("")}
+                disabled={deletingConversation}
+                style={{ ...btnStyle, background: "transparent" }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleDeleteConversation()}
+                disabled={deletingConversation}
+                style={{
+                  ...btnStyle,
+                  background: "rgba(220,38,38,0.22)",
+                  borderColor: "rgba(248,113,113,0.45)",
+                  color: "#fecaca",
+                  opacity: deletingConversation ? 0.65 : 1,
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

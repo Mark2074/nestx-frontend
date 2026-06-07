@@ -1701,6 +1701,11 @@ export const api = {
       method: "GET",
     }),
 
+  deleteConversation: (otherUserId: string) =>
+    request<unknown>(`/messages/conversations/${encodeURIComponent(otherUserId)}`, {
+      method: "DELETE",
+    }),
+
   // compat: createPost("text") oppure createPost({ text, poll, media, ... })
   createPost: (payloadOrText: any) => {
     const body =
