@@ -195,7 +195,9 @@ export default function ProfileHeaderMy({
           style={{
             position: "relative",
             width: "100%",
-            aspectRatio: "3 / 1",
+            aspectRatio: "5 / 2",
+            minHeight: 180,
+            maxHeight: 360,
             background: "rgba(255,255,255,0.06)",
             overflow: "hidden",
             cursor: "pointer",

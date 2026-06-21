@@ -895,7 +895,16 @@ function OtherProfileView({ userId }: { userId: string }) {
         }}
       >
         {/* Cover */}
-        <div style={{ height: 160, background: "rgba(255,255,255,0.06)" }}>
+        <div
+          style={{
+            width: "100%",
+            aspectRatio: "5 / 2",
+            minHeight: 180,
+            maxHeight: 360,
+            background: "rgba(255,255,255,0.06)",
+            overflow: "hidden",
+          }}
+        >
           {cover ? (
             <img
               src={cover}
