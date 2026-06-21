@@ -183,7 +183,7 @@ export default function ProfileHeaderMy({
         style={{
           border: "1px solid rgba(255,255,255,0.12)",
           borderRadius: 16,
-          overflow: "hidden",
+          overflow: "visible",
           background: "rgba(255,255,255,0.03)",
         }}
       >
@@ -200,6 +200,7 @@ export default function ProfileHeaderMy({
             maxHeight: 360,
             background: "rgba(255,255,255,0.06)",
             overflow: "hidden",
+            borderRadius: "15px 15px 0 0",
             cursor: "pointer",
           }}
         >
@@ -264,7 +265,7 @@ export default function ProfileHeaderMy({
         </div>
 
         {/* Avatar + info */}
-        <div style={{ padding: 16 }}>
+        <div style={{ padding: 16, position: "relative" }}>
           <div
             style={{
               display: "flex",
@@ -285,6 +286,8 @@ export default function ProfileHeaderMy({
                 border: "1px solid rgba(255,255,255,0.12)",
                 marginTop: -48,
                 cursor: "pointer",
+                position: "relative",
+                zIndex: 2,
               }}
             >
               <input

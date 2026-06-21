@@ -890,7 +890,7 @@ function OtherProfileView({ userId }: { userId: string }) {
         style={{
           border: "1px solid rgba(255,255,255,0.12)",
           borderRadius: 16,
-          overflow: "hidden",
+          overflow: "visible",
           background: "rgba(255,255,255,0.03)",
         }}
       >
@@ -903,6 +903,7 @@ function OtherProfileView({ userId }: { userId: string }) {
             maxHeight: 360,
             background: "rgba(255,255,255,0.06)",
             overflow: "hidden",
+            borderRadius: "15px 15px 0 0",
           }}
         >
           {cover ? (
@@ -915,7 +916,7 @@ function OtherProfileView({ userId }: { userId: string }) {
         </div>
 
         {/* Avatar + info */}
-        <div style={{ padding: 16 }}>
+        <div style={{ padding: 16, position: "relative" }}>
           <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
             <div
               style={{
@@ -926,6 +927,8 @@ function OtherProfileView({ userId }: { userId: string }) {
                 background: "rgba(255,255,255,0.08)",
                 border: "1px solid rgba(255,255,255,0.12)",
                 marginTop: -48,
+                position: "relative",
+                zIndex: 2,
               }}
             >
               {avatar ? (
