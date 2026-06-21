@@ -79,6 +79,7 @@ export default function ProfileHeaderMy({
   const coverInputRef = useRef<HTMLInputElement | null>(null);
 
   const [verifOpen, setVerifOpen] = useState(false);
+  const [coverBusy, setCoverBusy] = useState(false);
 
   const navigate = useNavigate();
 
@@ -144,6 +145,31 @@ export default function ProfileHeaderMy({
     };
   }
 
+  async function removeCover() {
+    if (!cover || coverBusy) return;
+    if (!window.confirm("Remove your profile cover?")) return;
+
+    setCoverBusy(true);
+    try {
+      const res = await fetch(`${API_BASE}/profile/cover`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
+        },
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.message || "Cover removal failed");
+
+      const next = { ...me, coverImage: null };
+      setMe(next);
+      persistLocalIdentity(next);
+    } catch (err: any) {
+      alert(err?.message || "Cover removal failed");
+    } finally {
+      setCoverBusy(false);
+    }
+  }
+
   const followerCount = me.followerCount ?? 0;
   const followingCount = me.followingCount ?? 0;
 
@@ -163,8 +189,11 @@ export default function ProfileHeaderMy({
       >
         {/* Cover */}
         <div
-          onClick={() => coverInputRef.current?.click()}
+          onClick={() => {
+            if (!coverBusy) coverInputRef.current?.click();
+          }}
           style={{
+            position: "relative",
             width: "100%",
             aspectRatio: "3 / 1",
             background: "rgba(255,255,255,0.06)",
@@ -182,6 +211,7 @@ export default function ProfileHeaderMy({
               e.currentTarget.value = "";
               if (!file) return;
 
+              setCoverBusy(true);
               try {
                 const url = await uploadImage(file, "cover");
                 if (!url) throw new Error("Upload returned empty url");
@@ -193,6 +223,8 @@ export default function ProfileHeaderMy({
                 persistLocalIdentity(next);
               } catch (err: any) {
                 alert(err?.message || "Cover upload failed");
+              } finally {
+                setCoverBusy(false);
               }
             }}
           />
@@ -202,6 +234,30 @@ export default function ProfileHeaderMy({
               alt="cover"
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
             />
+          ) : null}
+          {cover ? (
+            <button
+              type="button"
+              disabled={coverBusy}
+              onClick={(e) => {
+                e.stopPropagation();
+                void removeCover();
+              }}
+              style={{
+                position: "absolute",
+                right: 12,
+                bottom: 12,
+                padding: "8px 12px",
+                borderRadius: 10,
+                border: "1px solid rgba(255,255,255,0.35)",
+                background: "rgba(0,0,0,0.72)",
+                color: "#fff",
+                fontWeight: 800,
+                cursor: coverBusy ? "default" : "pointer",
+              }}
+            >
+              {coverBusy ? "Please wait..." : "Remove cover"}
+            </button>
           ) : null}
         </div>
 
