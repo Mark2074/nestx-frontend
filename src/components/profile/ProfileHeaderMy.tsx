@@ -160,7 +160,7 @@ export default function ProfileHeaderMy({
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json?.message || "Cover removal failed");
 
-      const next = { ...me, coverImage: null };
+      const next = { ...me, coverImage: undefined };
       setMe(next);
       persistLocalIdentity(next);
     } catch (err: any) {
