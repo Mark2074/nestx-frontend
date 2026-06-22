@@ -491,6 +491,29 @@ export type FollowRelationship =
   | "blocked_by_me"
   | "blocked_me";
 
+function getProfileAdditionalLanguages(profile: unknown): string[] {
+  if (!profile || typeof profile !== "object") return [];
+
+  const record = profile as Record<string, unknown>;
+  const value =
+    record.additionalLanguages ??
+    record.extraLanguages ??
+    record.languages;
+
+  return Array.isArray(value)
+    ? value.filter((language): language is string => typeof language === "string")
+    : [];
+}
+
+function withProfileAdditionalLanguages<T>(profile: T): T {
+  if (!profile || typeof profile !== "object") return profile;
+
+  return {
+    ...profile,
+    additionalLanguages: getProfileAdditionalLanguages(profile),
+  };
+}
+
 export type ConnectionMode = "followers" | "following";
 export type ConnectionUser = {
   _id?: string;
@@ -1273,11 +1296,14 @@ export const api = {
       body: JSON.stringify({ email }),
     }),
 
-  profileUpdate: (payload: any) =>
-  request<any>(`/profile/update`, {
-    method: "PUT",
-    body: JSON.stringify(payload),
-  }),
+  profileUpdate: async (payload: any) => {
+    const profile = await request<any>(`/profile/update`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+
+    return withProfileAdditionalLanguages(profile);
+  },
 
   meProfile: async () => {
     const res = await request<any>(`/profile/me`);
@@ -1297,6 +1323,7 @@ export const api = {
       bio: me?.bio,
       area: me?.area,
       language: me?.language,
+      additionalLanguages: getProfileAdditionalLanguages(me),
       profileType: me?.profileType,
 
       isVip: Boolean(me?.isVip),
@@ -1311,7 +1338,7 @@ export const api = {
 
       interestsVip: me?.interestsVip ?? [],
       interests: me?.interests ?? [],
-      languages: me?.languages ?? [],
+      languages: getProfileAdditionalLanguages(me),
       hasSeenTokenInfo: Boolean(me?.hasSeenTokenInfo),
 
       followerCount:
@@ -1505,7 +1532,7 @@ export const api = {
       bio: prof?.bio,
       area: prof?.area,
       language: prof?.language,
-      additionalLanguages: prof?.additionalLanguages,
+      additionalLanguages: getProfileAdditionalLanguages(prof),
       profileType: prof?.profileType,
       isVip: prof?.isVip,
       isVerified: Boolean(prof?.verifiedUser || prof?.isVerified),
