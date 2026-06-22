@@ -10,6 +10,7 @@ import ProfileHeaderMy from "../components/profile/ProfileHeaderMy";
 import ProfileComposer from "../components/profile/ProfileComposer";
 import ProfileTabsMy from "../components/profile/ProfileTabsMy";
 import ProfileEditorCard from "../components/profile/ProfileEditorCard";
+import { formatProfileLanguage } from "../utils/profileLanguage";
 
 type PublicProfile = {
   _id: string;
@@ -24,6 +25,7 @@ type PublicProfile = {
 
   profileType?: string;
   language?: string;
+  additionalLanguages?: string[] | null;
   area?: string;
 
   followerCount?: number;
@@ -1063,7 +1065,11 @@ function OtherProfileView({ userId }: { userId: string }) {
 
               <div style={{ marginTop: 6, opacity: 0.85, display: "flex", gap: 12, flexWrap: "wrap" }}>
                 {p.profileType ? <span>Tipo: {p.profileType}</span> : null}
-                {p.language ? <span>Lingua: {p.language}</span> : null}
+                {p.language ? (
+                  <span>
+                    Lingua: {formatProfileLanguage(p.language, p.additionalLanguages)}
+                  </span>
+                ) : null}
                 {p.area ? <span>Area: {p.area}</span> : null}
               </div>
 

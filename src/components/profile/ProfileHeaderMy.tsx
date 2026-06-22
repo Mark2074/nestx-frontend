@@ -4,6 +4,7 @@ import EmailVerifyBanner from "../EmailVerifyBanner";
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import SuspensionBanner from "../SuspensionBanner";
+import { formatProfileLanguage } from "../../utils/profileLanguage";
 
 function PillBadge({ children }: { children: string }) {
   return (
@@ -397,7 +398,11 @@ export default function ProfileHeaderMy({
                 }}
               >
                 {me.profileType ? <span>Type: {me.profileType}</span> : null}
-                {me.language ? <span>Language: {me.language}</span> : null}
+                {me.language ? (
+                  <span>
+                    Language: {formatProfileLanguage(me.language, me.additionalLanguages)}
+                  </span>
+                ) : null}
                 {me.area ? (
                   <span>
                     Area: {me.area.charAt(0).toUpperCase() + me.area.slice(1)}

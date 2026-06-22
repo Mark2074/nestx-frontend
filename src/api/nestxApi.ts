@@ -404,6 +404,7 @@ export type MeProfile = {
   bio?: string;
   area?: string;
   language?: string;
+  additionalLanguages?: string[] | null;
 
   profileType?: string;
 
@@ -457,6 +458,7 @@ export type PublicProfile = {
   bio?: string;
   area?: string;
   language?: string;
+  additionalLanguages?: string[] | null;
 
   profileType?: string;
 
@@ -1503,6 +1505,7 @@ export const api = {
       bio: prof?.bio,
       area: prof?.area,
       language: prof?.language,
+      additionalLanguages: prof?.additionalLanguages,
       profileType: prof?.profileType,
       isVip: prof?.isVip,
       isVerified: Boolean(prof?.verifiedUser || prof?.isVerified),
