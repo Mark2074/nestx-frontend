@@ -337,6 +337,11 @@ export default function ProfileHeaderMy({
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0, flex: "1 1 260px" }}>
                   <h2 style={{ margin: 0, lineHeight: 1.15, wordBreak: "break-word" }}>{name}</h2>
+                  {me.username ? (
+                    <div style={{ opacity: 0.85, wordBreak: "break-word" }}>
+                      @{me.username}
+                    </div>
+                  ) : null}
 
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                     {me.isVip ? <PillBadge>VIP</PillBadge> : null}

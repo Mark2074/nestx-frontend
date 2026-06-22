@@ -944,7 +944,12 @@ function OtherProfileView({ userId }: { userId: string }) {
 
             <div style={{ flex: 1 }}>
               <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                <h2 style={{ margin: 0 }}>{name}</h2>
+                <div>
+                  <h2 style={{ margin: 0 }}>{name}</h2>
+                  {p.username ? (
+                    <div style={{ marginTop: 2, opacity: 0.85 }}>@{p.username}</div>
+                  ) : null}
+                </div>
 
                 {p.isVip ? <PillBadge>VIP</PillBadge> : null}
                 {(p.isVerified || (p as any)?.verifiedUser) ? (

@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
-import { api } from "../../api/nestxApi";
+import { api, persistLocalIdentity } from "../../api/nestxApi";
 import type { MeProfile } from "../../api/nestxApi";
 import { COUNTRIES } from "../../constants/countries";
+import {
+  getProfileUsernameSaveError,
+  validateProfileUsername,
+} from "../../utils/profileUsername";
 
 type Props = {
   me: MeProfile;
@@ -29,6 +33,7 @@ export default function ProfileEditorCard({ me, setMe, onClose }: Props) {
   // STATE
   // =========================
   const [displayName, setDisplayName] = useState("");
+  const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
   const [area, setArea] = useState("");
   const [profileType, setProfileType] = useState("");
@@ -47,6 +52,7 @@ export default function ProfileEditorCard({ me, setMe, onClose }: Props) {
     if (!me) return;
 
     setDisplayName(me.displayName || "");
+    setUsername(me.username || "");
     setBio(me.bio || "");
     const normalizedArea = String(me.area || "").trim().toLowerCase();
     setArea(COUNTRY_OPTIONS.includes(normalizedArea) ? normalizedArea : "");
@@ -65,6 +71,13 @@ export default function ProfileEditorCard({ me, setMe, onClose }: Props) {
 
     const a = area.trim();
     const lang = language.trim().toLowerCase();
+    const usernameValidation = validateProfileUsername(username);
+    const normalizedUsername = usernameValidation.username;
+
+    if (!usernameValidation.ok) {
+      setErr(usernameValidation.message);
+      return;
+    }
 
     if (!a) {
       setErr("Area is required.");
@@ -118,6 +131,7 @@ export default function ProfileEditorCard({ me, setMe, onClose }: Props) {
 
     const payload: any = {
       displayName: displayName.trim(),
+      username: normalizedUsername || null,
       bio: bio.slice(0, 500),
       area: a.toLowerCase(),
       profileType: normalizedProfileType,
@@ -135,11 +149,15 @@ export default function ProfileEditorCard({ me, setMe, onClose }: Props) {
         (res as any)?.data ??
         res;
 
-      if (next) setMe(next as MeProfile);
+      if (next) {
+        const nextProfile = next as MeProfile;
+        setMe(nextProfile);
+        persistLocalIdentity(nextProfile);
+      }
       setOk("Profile saved.");
       onClose();
     } catch (e: any) {
-      setErr(e?.message || "Save failed.");
+      setErr(getProfileUsernameSaveError(e));
     } finally {
       setSaving(false);
     }
@@ -172,7 +190,7 @@ export default function ProfileEditorCard({ me, setMe, onClose }: Props) {
         </div>
       ) : null}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
         <div>
           <div style={{ fontSize: 12, opacity: 0.85, marginBottom: 6 }}>
             Display name
@@ -184,6 +202,29 @@ export default function ProfileEditorCard({ me, setMe, onClose }: Props) {
           />
         </div>
 
+        <div>
+          <div style={{ fontSize: 12, opacity: 0.85, marginBottom: 6 }}>
+            Username
+          </div>
+          <input
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="Optional username"
+            autoCapitalize="none"
+            maxLength={31}
+            style={{ width: "100%", padding: "10px 12px", borderRadius: 12, boxSizing: "border-box" }}
+          />
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+          gap: 10,
+          marginTop: 10,
+        }}
+      >
         <div>
           <div style={{ fontSize: 12, opacity: 0.85, marginBottom: 6 }}>
             Profile type
