@@ -63,7 +63,7 @@ export default function FedRightWidget({ me }: { me: MeProfile | null }) {
         }}
         title="Open FED"
       >
-        FED <span style={{ opacity: 0.6, fontWeight: 800 }}>›</span>
+        Explore <span style={{ opacity: 0.6, fontWeight: 800 }}>›</span>
       </div>
 
       <div
