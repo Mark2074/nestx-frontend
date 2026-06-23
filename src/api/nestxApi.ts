@@ -1553,6 +1553,15 @@ export const api = {
     return out;
   },
 
+  publicProfileByUsername: async (username: string) => {
+    const normalized = String(username || "").trim().toLowerCase();
+    const res = await request<any>(
+      `/profile/username/${encodeURIComponent(normalized)}`
+    );
+
+    return res?.profile || res?.data?.profile || res?.data || res;
+  },
+
   connectionUsers: (userId: string, mode: ConnectionMode) =>
     fetchVisibleConnectionUsers(userId, mode),
 

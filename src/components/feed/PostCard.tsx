@@ -1,6 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { api, mapApiErrorMessage, getApiRetryAfterMs, formatRetryAfterLabel } from "../../api/nestxApi";
+import MentionText from "../social/MentionText";
 
 type PostCardProps = {
   item: any;
@@ -578,7 +579,9 @@ export default function PostCard({
       ) : (
         <>
           {post.text ? (
-            <p style={{ margin: "8px 0", whiteSpace: "pre-wrap" }}>{post.text}</p>
+            <p style={{ margin: "8px 0", whiteSpace: "pre-wrap" }}>
+              <MentionText text={String(post.text)} />
+            </p>
           ) : null}
 
           {/* Media */}
@@ -1147,7 +1150,7 @@ export default function PostCard({
 
                             {c?.text ? (
                               <div style={{ marginTop: 6, whiteSpace: "pre-wrap" }}>
-                                {c.text}
+                                <MentionText text={String(c.text)} />
                               </div>
                             ) : null}
                           </>
