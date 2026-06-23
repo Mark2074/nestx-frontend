@@ -50,7 +50,7 @@ export default function FedPage() {
           gap: 12,
         }}
       >
-        <h1 style={{ margin: 0 }}>FED</h1>
+        <h1 style={{ margin: 0 }}>Explore</h1>
         <div style={{ opacity: 0.75, fontSize: 13 }}>Suggested posts</div>
       </div>
 
