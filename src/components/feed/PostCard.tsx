@@ -71,6 +71,7 @@ export default function PostCard({
   const [commentReportReasonCode, setCommentReportReasonCode] = React.useState("other");
   const [commentReportNote, setCommentReportNote] = React.useState("");
   const [commentReportBusy, setCommentReportBusy] = React.useState(false);
+  const [activeMediaIndex, setActiveMediaIndex] = React.useState(0);
 
   // media[] (new) + legacy fallback
   const mediaItems: Array<{ type: "image" | "video"; url: string }> = React.useMemo(() => {
@@ -127,6 +128,10 @@ export default function PostCard({
     setMyVoteIndex(initialVote);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [post]);
+
+  React.useEffect(() => {
+    setActiveMediaIndex(0);
+  }, [postId, mediaItems.length]);
 
   const pollEndsAt = pollLocal?.endsAt ? new Date(pollLocal.endsAt) : null;
   const pollIsClosed =
@@ -507,6 +512,37 @@ export default function PostCard({
     } catch {}
   };
 
+  const openMediaItem = (m: { type: "image" | "video"; url: string }) => {
+    if (shouldOpenPostDetail) {
+      if (allowInlineMediaViewer) {
+        setViewer({ url: m.url, type: m.type === "video" ? "video" : "image" });
+        return;
+      }
+
+      openPostDetail();
+      return;
+    }
+
+    if (m.type === "image") {
+      setViewer({ url: m.url, type: "image" });
+      return;
+    }
+
+    if (m.type === "video" && mediaItems.length > 1) {
+      setViewer({ url: m.url, type: "video" });
+    }
+  };
+
+  const goToMedia = (direction: -1 | 1) => {
+    if (mediaItems.length <= 1) return;
+    setActiveMediaIndex((idx) => {
+      const next = idx + direction;
+      if (next < 0) return mediaItems.length - 1;
+      if (next >= mediaItems.length) return 0;
+      return next;
+    });
+  };
+
   return (
     <div
       onClick={openPostDetail}
@@ -593,122 +629,180 @@ export default function PostCard({
           ) : null}
 
           {/* Media */}
-          {mediaItems.length ? (
+          {mediaItems.length === 1 ? (
             <div
+              onContextMenu={stopCtx}
               style={{
                 marginTop: 10,
-                display: "flex",
-                gap: 10,
-                flexWrap: "wrap",
-                justifyContent: mediaItems.length === 1 ? "center" : "flex-start",
+                width: "100%",
+                aspectRatio: "16 / 10",
+                maxHeight: 560,
+                borderRadius: 14,
                 overflow: "hidden",
-                paddingBottom: 0,
-                alignItems: "stretch",
+                border: "1px solid rgba(255,255,255,0.12)",
+                background: "rgba(0,0,0,0.25)",
+                position: "relative",
+                cursor: mediaItems[0].type === "video" ? "default" : "pointer",
+                userSelect: "none",
+              }}
+              title="Open"
+              onClick={(e) => {
+                e.stopPropagation();
+                openMediaItem(mediaItems[0]);
               }}
             >
-              {mediaItems.map((m, idx) => (
-                <div
-                  key={`${m.url}-${idx}`}
+              {mediaItems[0].type === "video" ? (
+                <VideoTile url={mediaItems[0].url} onTogglePlay={togglePlay} />
+              ) : (
+                <img
+                  src={mediaItems[0].url}
+                  alt=""
+                  loading="lazy"
+                  draggable={false}
                   onContextMenu={stopCtx}
                   style={{
-                    width: mediaItems.length === 1 ? "100%" : undefined,
-                    height: mediaItems.length === 1 ? "auto" : 260,
-                    aspectRatio: mediaItems.length === 1 ? "16 / 10" : "4 / 5",
-                    maxHeight: mediaItems.length === 1 ? 560 : undefined,
-                    borderRadius: 14,
-                    overflow: "hidden",
-                    border: "1px solid rgba(255,255,255,0.12)",
-                    background: "rgba(0,0,0,0.25)",
-                    position: "relative",
-                    cursor: m.type === "video" && mediaItems.length === 1 ? "default" : "pointer",
-                    userSelect: "none",
-                    flex:
-                      mediaItems.length === 1
-                        ? "1 1 100%"
-                        : mediaItems.length === 2
-                        ? "1 1 calc(50% - 5px)"
-                        : "1 1 calc(33.333% - 7px)",
-                    minWidth: mediaItems.length === 1 ? "100%" : 180,
-                    maxWidth: "100%",
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "contain",
+                    display: "block",
+                    background: "rgba(0,0,0,0.35)",
                   }}
-                  title="Open"
-                  onClick={() => {
-                    if (shouldOpenPostDetail) {
-                      if (allowInlineMediaViewer) {
-                        setViewer({ url: m.url, type: m.type === "video" ? "video" : "image" });
-                        return;
-                      }
+                />
+              )}
+            </div>
+          ) : mediaItems.length > 1 ? (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              onContextMenu={stopCtx}
+              style={{
+                marginTop: 10,
+                width: "100%",
+                height: 360,
+                maxHeight: "58vh",
+                minHeight: 260,
+                borderRadius: 14,
+                overflow: "hidden",
+                border: "1px solid rgba(255,255,255,0.12)",
+                background: "rgba(0,0,0,0.35)",
+                position: "relative",
+                userSelect: "none",
+              }}
+            >
+              {(() => {
+                const activeItem =
+                  mediaItems[Math.min(activeMediaIndex, mediaItems.length - 1)] ||
+                  mediaItems[0];
 
-                      openPostDetail();
-                      return;
-                    }
-
-                    if (m.type === "image") return;
-                    if (m.type === "video" && mediaItems.length === 1) return;
-                    if (m.type === "video") setViewer({ url: m.url, type: "video" });
-                  }}
-                >
-                  {m.type === "video" ? (
-                    mediaItems.length === 1 ? (
-                      <VideoTile url={m.url} onTogglePlay={togglePlay} />
-                    ) : (
-                      <VideoPreviewTile
-                        url={m.url}
-                        onOpen={() => {
-                          if (shouldOpenPostDetail) {
-                            if (allowInlineMediaViewer) {
-                              setViewer({ url: m.url, type: "video" });
-                              return;
-                            }
-
-                            openPostDetail();
-                            return;
-                          }
-
-                          setViewer({ url: m.url, type: "video" });
-                        }}
-                        stopCtx={stopCtx}
-                      />
-                    )
-                  ) : (
-                    <div
-                      onClick={(e) => {
-                        e.stopPropagation();
-
-                        if (shouldOpenPostDetail) {
-                          if (allowInlineMediaViewer) {
-                            setViewer({ url: m.url, type: "image" });
-                            return;
-                          }
-
-                          openPostDetail();
-                          return;
-                        }
-
-                        setViewer({ url: m.url, type: "image" });
-                      }}
+                return activeItem.type === "video" ? (
+                  <VideoPreviewTile
+                    url={activeItem.url}
+                    onOpen={() => openMediaItem(activeItem)}
+                    stopCtx={stopCtx}
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openMediaItem(activeItem);
+                    }}
+                    onContextMenu={stopCtx}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      border: "none",
+                      padding: 0,
+                      background: "rgba(0,0,0,0.35)",
+                      cursor: "pointer",
+                    }}
+                    title="Open"
+                  >
+                    <img
+                      src={activeItem.url}
+                      alt=""
+                      loading="lazy"
+                      draggable={false}
                       onContextMenu={stopCtx}
-                      style={{ display: "block", width: "100%", height: "100%" }}
-                      title="Open"
-                    >
-                      <img
-                        src={m.url}
-                        alt=""
-                        loading="lazy"
-                        draggable={false}
-                        onContextMenu={stopCtx}
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "contain",
-                          display: "block",
-                          background: "rgba(0,0,0,0.35)",
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
-              ))}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "contain",
+                        display: "block",
+                      }}
+                    />
+                  </button>
+                );
+              })()}
+
+              <button
+                type="button"
+                aria-label="Previous media"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  goToMedia(-1);
+                }}
+                style={carouselButtonStyle("left")}
+              >
+                ‹
+              </button>
+
+              <button
+                type="button"
+                aria-label="Next media"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  goToMedia(1);
+                }}
+                style={carouselButtonStyle("right")}
+              >
+                ›
+              </button>
+
+              <div
+                style={{
+                  position: "absolute",
+                  top: 10,
+                  right: 10,
+                  borderRadius: 999,
+                  background: "rgba(0,0,0,0.68)",
+                  color: "white",
+                  padding: "5px 10px",
+                  fontSize: 12,
+                  fontWeight: 900,
+                  pointerEvents: "none",
+                }}
+              >
+                {Math.min(activeMediaIndex, mediaItems.length - 1) + 1}/{mediaItems.length}
+              </div>
+
+              <div
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  right: 0,
+                  bottom: 10,
+                  display: "flex",
+                  justifyContent: "center",
+                  gap: 6,
+                  pointerEvents: "none",
+                }}
+              >
+                {mediaItems.map((m, idx) => (
+                  <span
+                    key={`${m.url}-dot-${idx}`}
+                    style={{
+                      width: idx === activeMediaIndex ? 18 : 7,
+                      height: 7,
+                      borderRadius: 999,
+                      background:
+                        idx === activeMediaIndex
+                          ? "rgba(255,255,255,0.95)"
+                          : "rgba(255,255,255,0.42)",
+                      boxShadow: "0 1px 4px rgba(0,0,0,0.45)",
+                    }}
+                  />
+                ))}
+              </div>
             </div>
           ) : null}
         </>
@@ -1394,6 +1488,30 @@ export default function PostCard({
       ) : null}
     </div>
   );
+}
+
+function carouselButtonStyle(side: "left" | "right"): React.CSSProperties {
+  return {
+    position: "absolute",
+    top: "50%",
+    [side]: 10,
+    transform: "translateY(-50%)",
+    width: 38,
+    height: 38,
+    borderRadius: 999,
+    border: "1px solid rgba(255,255,255,0.22)",
+    background: "rgba(0,0,0,0.58)",
+    color: "white",
+    fontSize: 30,
+    lineHeight: "34px",
+    fontWeight: 800,
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 0,
+    boxShadow: "0 6px 18px rgba(0,0,0,0.32)",
+  };
 }
 
 function VideoTile({
