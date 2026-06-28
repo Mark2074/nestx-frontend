@@ -497,6 +497,14 @@ function OtherProfileView({ userId }: { userId: string }) {
     return false;
   }, [p, rel, isBlocked, isMuted, isAdminViewer]);
 
+  const postsPrivacyLocked = Boolean(
+    p?.isPrivate &&
+      !isBlocked &&
+      !isMuted &&
+      !isAdminViewer &&
+      rel !== "accepted",
+  );
+
   const canSeeEventCard = useMemo(() => {
     if (!p) return false;
     if (isBlocked) return false;
@@ -1609,6 +1617,7 @@ function OtherProfileView({ userId }: { userId: string }) {
         userId={userId}
         userName={String(p?.username || p?.displayName || "This user")}
         canSeePosts={canSeePosts}
+        postsPrivacyLocked={postsPrivacyLocked}
         canSeeEventCard={canSeeEventCard}
         canSeeOldLive={canSeeOldLive}
         profileAvatarUrl={avatar}
@@ -1622,6 +1631,7 @@ function OtherProfileTabs({
   userId,
   userName,
   canSeePosts,
+  postsPrivacyLocked,
   canSeeEventCard,
   canSeeOldLive,
   profileAvatarUrl,
@@ -1629,6 +1639,7 @@ function OtherProfileTabs({
   userId: string;
   userName?: string;
   canSeePosts: boolean;
+  postsPrivacyLocked: boolean;
   canSeeEventCard: boolean;
   canSeeOldLive: boolean;
   profileAvatarUrl?: string;
@@ -1743,7 +1754,13 @@ function OtherProfileTabs({
             ) : null}
 
             {!canSeePosts ? (
-              <p style={{ opacity: 0.8 }}>{userLabel} hasn’t posted anything yet.</p>
+              postsPrivacyLocked ? (
+                <p style={{ opacity: 0.8 }}>
+                  This profile is private. Follow this user to see their posts.
+                </p>
+              ) : (
+                <p style={{ opacity: 0.8 }}>{userLabel} hasn’t posted anything yet.</p>
+              )
             ) : postsErr ? (
               <p style={{ color: "#ffb3b3" }}>Errore Post: {postsErr}</p>
             ) : posts === null ? (
