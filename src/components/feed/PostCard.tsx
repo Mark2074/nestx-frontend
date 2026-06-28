@@ -32,6 +32,14 @@ const REPORT_REASON_OPTIONS = [
   { value: "other", label: "Other" },
 ];
 
+function getPostLiked(post: any) {
+  if (typeof post?.likedByMe === "boolean") return post.likedByMe;
+  if (typeof post?.isLiked === "boolean") return post.isLiked;
+  if (typeof post?.liked === "boolean") return post.liked;
+  if (typeof post?.hasLiked === "boolean") return post.hasLiked;
+  return false;
+}
+
 export default function PostCard({
   item,
   me,
@@ -42,7 +50,7 @@ export default function PostCard({
   const post = item?.data ?? item;
   const postId = String(post?._id || "");
   const [likeCount, setLikeCount] = React.useState<number>(post?.likeCount ?? 0);
-  const [likedByMe, setLikedByMe] = React.useState<boolean>(!!post?.likedByMe);
+  const [likedByMe, setLikedByMe] = React.useState<boolean>(getPostLiked(post));
   const [likeBusy, setLikeBusy] = React.useState(false);
   const [isCommentsOpen, setIsCommentsOpen] = React.useState(false);
   const [commentsBusy, setCommentsBusy] = React.useState(false);
@@ -148,9 +156,9 @@ export default function PostCard({
 
   React.useEffect(() => {
     setLikeCount(post?.likeCount ?? 0);
-    setLikedByMe(!!post?.likedByMe);
+    setLikedByMe(getPostLiked(post));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [postId, post?.likeCount, post?.likedByMe]);
+  }, [postId, post?.likeCount, post?.likedByMe, post?.isLiked, post?.liked, post?.hasLiked]);
 
   const onOpenComments = () => {
     setCommentErr("");
