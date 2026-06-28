@@ -60,7 +60,7 @@ export default function PostCard({
   const [commentErr, setCommentErr] = React.useState("");
   const [commentRetryUntil, setCommentRetryUntil] = React.useState<number | null>(null);
   const poll = post?.poll || null;
-  const [viewer, setViewer] = React.useState<{ url: string; type: "image" | "video" } | null>(null);
+  const [viewer, setViewer] = React.useState<{ index: number } | null>(null);
   const [viewerIsVip, setViewerIsVip] = React.useState<boolean>(Boolean(me?.isVip));
   const [reportOpen, setReportOpen] = React.useState(false);
   const [reportReasonCode, setReportReasonCode] = React.useState("other");
@@ -132,6 +132,50 @@ export default function PostCard({
   React.useEffect(() => {
     setActiveMediaIndex(0);
   }, [postId, mediaItems.length]);
+
+  React.useEffect(() => {
+    if (!viewer) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      const key = String(event.key || "").toLowerCase();
+
+      if (key === "escape") {
+        event.preventDefault();
+        setViewer(null);
+        return;
+      }
+
+      if (key === "arrowleft" && mediaItems.length > 1) {
+        event.preventDefault();
+        setViewer((current) => {
+          if (!current) return current;
+          const next = (current.index - 1 + mediaItems.length) % mediaItems.length;
+          setActiveMediaIndex(next);
+          return { index: next };
+        });
+        return;
+      }
+
+      if (key === "arrowright" && mediaItems.length > 1) {
+        event.preventDefault();
+        setViewer((current) => {
+          if (!current) return current;
+          const next = (current.index + 1) % mediaItems.length;
+          setActiveMediaIndex(next);
+          return { index: next };
+        });
+        return;
+      }
+
+      if (key === "s") {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown, { capture: true });
+    return () => window.removeEventListener("keydown", onKeyDown, { capture: true });
+  }, [viewer, mediaItems.length]);
 
   const pollEndsAt = pollLocal?.endsAt ? new Date(pollLocal.endsAt) : null;
   const pollIsClosed =
@@ -473,8 +517,6 @@ export default function PostCard({
     moderationStatus !== "visible";
 
   const shouldOpenPostDetail = context === "feed" || !context;
-  const allowInlineMediaViewer = mediaItems.length > 1;
-
   const openPostDetail = () => {
     if (!postId) return;
     if (!shouldOpenPostDetail) return;
@@ -512,25 +554,16 @@ export default function PostCard({
     } catch {}
   };
 
-  const openMediaItem = (m: { type: "image" | "video"; url: string }) => {
-    if (shouldOpenPostDetail) {
-      if (allowInlineMediaViewer) {
-        setViewer({ url: m.url, type: m.type === "video" ? "video" : "image" });
-        return;
-      }
+  const openMediaItem = (
+    m: { type: "image" | "video"; url: string },
+    index?: number,
+  ) => {
+    const mediaIndex =
+      typeof index === "number"
+        ? index
+        : Math.max(0, mediaItems.findIndex((item) => item.url === m.url));
 
-      openPostDetail();
-      return;
-    }
-
-    if (m.type === "image") {
-      setViewer({ url: m.url, type: "image" });
-      return;
-    }
-
-    if (m.type === "video" && mediaItems.length > 1) {
-      setViewer({ url: m.url, type: "video" });
-    }
+    setViewer({ index: mediaIndex >= 0 ? mediaIndex : 0 });
   };
 
   const goToMedia = (direction: -1 | 1) => {
@@ -541,6 +574,15 @@ export default function PostCard({
       if (next >= mediaItems.length) return 0;
       return next;
     });
+  };
+
+  const goToViewerMedia = (direction: -1 | 1) => {
+    if (mediaItems.length <= 1 || !viewer) return;
+
+    const next =
+      (viewer.index + direction + mediaItems.length) % mediaItems.length;
+    setViewer({ index: next });
+    setActiveMediaIndex(next);
   };
 
   return (
@@ -648,7 +690,7 @@ export default function PostCard({
               title="Open"
               onClick={(e) => {
                 e.stopPropagation();
-                openMediaItem(mediaItems[0]);
+                openMediaItem(mediaItems[0], 0);
               }}
             >
               {mediaItems[0].type === "video" ? (
@@ -696,7 +738,7 @@ export default function PostCard({
                 return activeItem.type === "video" ? (
                   <VideoPreviewTile
                     url={activeItem.url}
-                    onOpen={() => openMediaItem(activeItem)}
+                    onOpen={() => openMediaItem(activeItem, activeMediaIndex)}
                     stopCtx={stopCtx}
                   />
                 ) : (
@@ -704,7 +746,7 @@ export default function PostCard({
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      openMediaItem(activeItem);
+                      openMediaItem(activeItem, activeMediaIndex);
                     }}
                     onContextMenu={stopCtx}
                     style={{
@@ -811,80 +853,174 @@ export default function PostCard({
       {viewer ? (
         <div
           onClick={() => setViewer(null)}
+          onContextMenu={stopCtx}
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.72)",
+            background: "rgba(0,0,0,0.96)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            padding: 20,
+            padding: 0,
             zIndex: 9999,
+            userSelect: "none",
+            WebkitUserSelect: "none",
+            touchAction: "none",
           }}
         >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            onContextMenu={stopCtx}
-            style={{
-              width: "min(920px, 96vw)",
-              maxHeight: "90vh",
-              borderRadius: 16,
-              overflow: "hidden",
-              border: "1px solid rgba(255,255,255,0.16)",
-              background: "rgba(20,20,20,0.98)",
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "flex-end", padding: 12 }}>
-              <button
-                onClick={() => setViewer(null)}
-                style={{
-                  padding: "6px 10px",
-                  borderRadius: 10,
-                  border: "1px solid rgba(255,255,255,0.15)",
-                  background: "rgba(255,255,255,0.06)",
-                  color: "inherit",
-                  cursor: "pointer",
-                }}
-              >
-                Close
-              </button>
-            </div>
+          {(() => {
+            const viewerIndex = Math.min(
+              Math.max(0, viewer.index),
+              Math.max(0, mediaItems.length - 1),
+            );
+            const viewerItem = mediaItems[viewerIndex];
 
-            <div style={{ padding: 12 }}>
-              {viewer.type === "image" ? (
-                <img
-                  src={viewer.url}
-                  alt="preview"
-                  draggable={false}
-                  onContextMenu={stopCtx}
-                  style={{
-                    width: "100%",
-                    maxHeight: "78vh",
-                    objectFit: "contain",
-                    display: "block",
-                    borderRadius: 12,
-                    background: "rgba(255,255,255,0.03)",
+            if (!viewerItem) return null;
+
+            return (
+              <>
+                <button
+                  type="button"
+                  aria-label="Close media viewer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setViewer(null);
                   }}
-                />
-              ) : (
-                <video
-                  src={viewer.url}
-                  controls
-                  controlsList="nodownload"
-                  onContextMenu={stopCtx}
                   style={{
-                    width: "100%",
-                    maxHeight: "78vh",
-                    display: "block",
-                    borderRadius: 12,
-                    background: "rgba(255,255,255,0.03)",
+                    position: "fixed",
+                    top: 18,
+                    right: 18,
+                    width: 42,
+                    height: 42,
+                    borderRadius: 999,
+                    border: "1px solid rgba(255,255,255,0.22)",
+                    background: "rgba(20,20,20,0.82)",
+                    color: "white",
+                    fontSize: 24,
+                    lineHeight: "38px",
+                    fontWeight: 900,
+                    cursor: "pointer",
+                    zIndex: 2,
                   }}
-                />
-              )}
-            </div>
-          </div>
+                  title="Close"
+                >
+                  ×
+                </button>
+
+                {mediaItems.length > 1 ? (
+                  <>
+                    <button
+                      type="button"
+                      aria-label="Previous media"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        goToViewerMedia(-1);
+                      }}
+                      style={lightboxButtonStyle("left")}
+                    >
+                      ‹
+                    </button>
+
+                    <button
+                      type="button"
+                      aria-label="Next media"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        goToViewerMedia(1);
+                      }}
+                      style={lightboxButtonStyle("right")}
+                    >
+                      ›
+                    </button>
+                  </>
+                ) : null}
+
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  onContextMenu={stopCtx}
+                  onDragStart={(e) => e.preventDefault()}
+                  style={{
+                    width: "100vw",
+                    height: "100vh",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "64px 72px 54px",
+                    boxSizing: "border-box",
+                    userSelect: "none",
+                    WebkitUserSelect: "none",
+                  }}
+                >
+                  {viewerItem.type === "image" ? (
+                    <img
+                      src={viewerItem.url}
+                      alt="preview"
+                      draggable={false}
+                      onDragStart={(e) => e.preventDefault()}
+                      onContextMenu={stopCtx}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        maxWidth: "100%",
+                        maxHeight: "100%",
+                        objectFit: "contain",
+                        display: "block",
+                        userSelect: "none",
+                        WebkitUserSelect: "none",
+                        pointerEvents: "auto",
+                      }}
+                    />
+                  ) : (
+                    <video
+                      src={viewerItem.url}
+                      controls
+                      controlsList="nodownload"
+                      disablePictureInPicture
+                      playsInline
+                      onContextMenu={stopCtx}
+                      onDragStart={(e) => e.preventDefault()}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        maxWidth: "100%",
+                        maxHeight: "100%",
+                        objectFit: "contain",
+                        display: "block",
+                        background: "black",
+                        userSelect: "none",
+                        WebkitUserSelect: "none",
+                      }}
+                    />
+                  )}
+                </div>
+
+                {mediaItems.length > 1 ? (
+                  <div
+                    style={{
+                      position: "fixed",
+                      left: "50%",
+                      bottom: 18,
+                      transform: "translateX(-50%)",
+                      borderRadius: 999,
+                      background: "rgba(20,20,20,0.82)",
+                      border: "1px solid rgba(255,255,255,0.18)",
+                      color: "white",
+                      padding: "7px 12px",
+                      fontSize: 13,
+                      fontWeight: 900,
+                      zIndex: 2,
+                      pointerEvents: "none",
+                    }}
+                  >
+                    {viewerIndex + 1}/{mediaItems.length}
+                  </div>
+                ) : null}
+              </>
+            );
+          })()}
         </div>
       ) : null}
+
 
       {/* Poll */}
       {poll?.question ? (
@@ -1511,6 +1647,31 @@ function carouselButtonStyle(side: "left" | "right"): React.CSSProperties {
     justifyContent: "center",
     padding: 0,
     boxShadow: "0 6px 18px rgba(0,0,0,0.32)",
+  };
+}
+
+function lightboxButtonStyle(side: "left" | "right"): React.CSSProperties {
+  return {
+    position: "fixed",
+    top: "50%",
+    [side]: 22,
+    transform: "translateY(-50%)",
+    width: 48,
+    height: 56,
+    borderRadius: 14,
+    border: "1px solid rgba(255,255,255,0.22)",
+    background: "rgba(20,20,20,0.72)",
+    color: "white",
+    fontSize: 40,
+    lineHeight: "48px",
+    fontWeight: 800,
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 0,
+    boxShadow: "0 10px 24px rgba(0,0,0,0.36)",
+    zIndex: 2,
   };
 }
 
