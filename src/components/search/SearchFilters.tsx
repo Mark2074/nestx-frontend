@@ -333,14 +333,19 @@ function vipOnlyLabel(canUseVipFilters: boolean) {
 function canUseFilter(
   tab: SearchTab,
   filter: "profileType" | "country" | "language",
-  canUseVipFilters: boolean
+  canUseVipFilters: boolean,
+  isStoreVariant: boolean
 ) {
   if (tab === "events") {
     if (filter === "language") return canUseVipFilters;
     return true; // profileType + country => base + vip
   }
 
-  // posts/users: VIP or admin
+  if (tab === "users") {
+    return isStoreVariant || canUseVipFilters;
+  }
+
+  // posts: VIP or admin
   return canUseVipFilters;
 }
 
@@ -348,6 +353,7 @@ export default function SearchFilters(props: {
   tab: SearchTab;
   isVip: boolean;
   isAdmin?: boolean;
+  isStoreVariant?: boolean;
 
   profileType: string;
   country: string;
@@ -361,6 +367,7 @@ export default function SearchFilters(props: {
     tab,
     isVip,
     isAdmin = false,
+    isStoreVariant = false,
     profileType,
     country,
     language,
@@ -372,7 +379,7 @@ export default function SearchFilters(props: {
   const [countryOpen, setCountryOpen] = useState(false);
   const [countryContinent, setCountryContinent] = useState<Continent | null>(null);
   const canUseVipFilters = isVip || isAdmin;
-  const countryFilterEnabled = canUseFilter(tab, "country", canUseVipFilters);
+  const countryFilterEnabled = canUseFilter(tab, "country", canUseVipFilters, isStoreVariant);
 
   return (
     <div
@@ -389,12 +396,12 @@ export default function SearchFilters(props: {
         <select
           value={profileType}
           onChange={(e) => setProfileType(e.target.value)}
-          disabled={!canUseFilter(tab, "profileType", canUseVipFilters)}
-          title={!canUseFilter(tab, "profileType", canUseVipFilters) ? vipOnlyLabel(canUseVipFilters) : ""}
+          disabled={!canUseFilter(tab, "profileType", canUseVipFilters, isStoreVariant)}
+          title={!canUseFilter(tab, "profileType", canUseVipFilters, isStoreVariant) ? vipOnlyLabel(canUseVipFilters) : ""}
           style={{
             ...selectStyle,
             color: "inherit",
-            opacity: !canUseFilter(tab, "profileType", canUseVipFilters) ? 0.55 : 1,
+            opacity: !canUseFilter(tab, "profileType", canUseVipFilters, isStoreVariant) ? 0.55 : 1,
           }}
         >
           <option value="">Any</option>
@@ -498,12 +505,12 @@ export default function SearchFilters(props: {
         <select
           value={language}
           onChange={(e) => setLanguage(e.target.value)}
-          disabled={!canUseFilter(tab, "language", canUseVipFilters)}
-          title={!canUseFilter(tab, "language", canUseVipFilters) ? vipOnlyLabel(canUseVipFilters) : ""}
+          disabled={!canUseFilter(tab, "language", canUseVipFilters, isStoreVariant)}
+          title={!canUseFilter(tab, "language", canUseVipFilters, isStoreVariant) ? vipOnlyLabel(canUseVipFilters) : ""}
           style={{
             ...selectStyle,
             color: "inherit",
-            opacity: !canUseFilter(tab, "language", canUseVipFilters) ? 0.55 : 1,
+            opacity: !canUseFilter(tab, "language", canUseVipFilters, isStoreVariant) ? 0.55 : 1,
           }}
         >
           <option value="">Any</option>

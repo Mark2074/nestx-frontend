@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, type MeProfile, type SearchType } from "../api/nestxApi";
+import { getAppVariant } from "../utils/appVariant";
 import SearchFilters from "../components/search/SearchFilters";
 import PostCard from "../components/feed/PostCard";
 import EventCard from "../components/feed/EventCard";
@@ -14,6 +15,8 @@ export default function SearchPage() {
   const isVip = me?.isVip === true;
   const isAdmin = me?.accountType === "admin";
   const canUseVipFilters = isVip || isAdmin;
+  const isStoreVariant = getAppVariant() === "store";
+  const canUseUserFilters = isStoreVariant || canUseVipFilters;
 
   const [tab, setTab] = useState<Tab>("posts");
 
@@ -56,7 +59,16 @@ export default function SearchPage() {
       return f;
     }
 
-    // posts/users: advanced filters allowed for VIP or admin
+    if (tab === "users") {
+      if (!canUseUserFilters) {
+        f.profileType = null;
+        f.country = null;
+        f.language = null;
+      }
+      return f;
+    }
+
+    // posts: advanced filters allowed for VIP or admin
     if (!canUseVipFilters) {
       f.profileType = null;
       f.country = null;
@@ -64,7 +76,7 @@ export default function SearchPage() {
     }
 
     return f;
-  }, [tab, profileType, country, language, canUseVipFilters]);
+  }, [tab, profileType, country, language, canUseVipFilters, canUseUserFilters]);
 
   const canRunWithoutQ = useMemo(() => {
     const hasAnyFilter = !!(
@@ -83,10 +95,11 @@ export default function SearchPage() {
       );
     }
 
-    return canUseVipFilters;
+    return tab === "users" ? canUseUserFilters : canUseVipFilters;
   }, [
     tab,
     canUseVipFilters,
+    canUseUserFilters,
     effectiveFilters.profileType,
     effectiveFilters.country,
     effectiveFilters.language,
@@ -254,6 +267,7 @@ export default function SearchPage() {
         tab={tab}
         isVip={isVip}
         isAdmin={isAdmin}
+        isStoreVariant={isStoreVariant}
         profileType={profileType}
         country={country}
         language={language}
