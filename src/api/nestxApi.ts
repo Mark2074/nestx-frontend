@@ -1418,6 +1418,7 @@ export const api = {
     limit?: number;
     profileType?: string | null;
     country?: string | null;
+    continent?: string | null;
     language?: string | null;
   }) => {
     const q = String(params?.q || "").trim();
@@ -1433,6 +1434,7 @@ export const api = {
 
     if (params?.profileType) sp.set("profileType", String(params.profileType));
     if (params?.country) sp.set("country", String(params.country));
+    if (params?.continent) sp.set("continent", String(params.continent));
     if (params?.language) sp.set("language", String(params.language));
 
     return request<SocialSearchResponse>(`/search?${sp.toString()}`, { method: "GET" });
