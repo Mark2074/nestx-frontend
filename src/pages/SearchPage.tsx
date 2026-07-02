@@ -5,7 +5,7 @@ import { getAppVariant } from "../utils/appVariant";
 import SearchFilters from "../components/search/SearchFilters";
 import PostCard from "../components/feed/PostCard";
 import EventCard from "../components/feed/EventCard";
-import { useFeatureFlag } from "../config/FeatureFlagsProvider";
+import { useEffectiveVipPrivileges, useFeatureFlag } from "../config/FeatureFlagsProvider";
 
 type Tab = "posts" | "users" | "events";
 
@@ -14,8 +14,9 @@ export default function SearchPage() {
 
   const [me, setMe] = useState<MeProfile | null>(null);
   const isVip = me?.isVip === true;
+  const hasEffectiveVip = useEffectiveVipPrivileges(isVip);
   const isAdmin = me?.accountType === "admin";
-  const canUseVipFilters = isVip || isAdmin;
+  const canUseVipFilters = hasEffectiveVip || isAdmin;
   const isStoreVariant = getAppVariant() === "store";
   const canUseUserFilters = isStoreVariant || canUseVipFilters;
   const liveEnabled = useFeatureFlag("LIVE");
@@ -274,7 +275,7 @@ export default function SearchPage() {
 
       <SearchFilters
         tab={tab}
-        isVip={isVip}
+        isVip={hasEffectiveVip}
         isAdmin={isAdmin}
         isStoreVariant={isStoreVariant}
         profileType={profileType}

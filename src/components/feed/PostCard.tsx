@@ -1,6 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { api, mapApiErrorMessage, getApiRetryAfterMs, formatRetryAfterLabel } from "../../api/nestxApi";
+import { useEffectiveVipPrivileges } from "../../config/FeatureFlagsProvider";
 import MentionText from "../social/MentionText";
 
 type PostCardProps = {
@@ -62,6 +63,7 @@ export default function PostCard({
   const poll = post?.poll || null;
   const [viewer, setViewer] = React.useState<{ index: number } | null>(null);
   const [viewerIsVip, setViewerIsVip] = React.useState<boolean>(Boolean(me?.isVip));
+  const hasEffectiveVip = useEffectiveVipPrivileges(me?.isVip === true || viewerIsVip);
   const [reportOpen, setReportOpen] = React.useState(false);
   const [reportReasonCode, setReportReasonCode] = React.useState("other");
   const [reportNote, setReportNote] = React.useState("");
@@ -289,7 +291,7 @@ export default function PostCard({
     if (!pollLocal?.question) return;
     if (pollIsClosed) return;
 
-    const isVip = !!me?.isVip;
+    const isVip = hasEffectiveVip;
 
     // Base: se ha già votato, non può cambiare
     if (myVoteIndex !== null && myVoteIndex !== idx && !isVip) {
@@ -379,7 +381,7 @@ export default function PostCard({
   const onDeleteComment = async (commentId: string) => {
     if (!postId) return;
 
-    if (!viewerIsVip) {
+    if (!hasEffectiveVip) {
       alert("Only VIP users can delete comments.");
       return;
     }
@@ -1092,7 +1094,7 @@ export default function PostCard({
               ? "Voting is closed."
               : myVoteIndex === null
                 ? "Tap an option to vote."
-                : (me?.isVip ? "Tap another option to change vote (VIP)." : "Vote submitted.")}
+                : (hasEffectiveVip ? "Tap another option to change vote." : "Vote submitted.")}
           </div>
         </div>
       ) : null}
@@ -1266,7 +1268,7 @@ export default function PostCard({
                     const cAvatar = c?.authorId?.avatar || "";
 
                     // ⬇️ usa SOLO il flag deciso dal backend
-                    const canDelete = Boolean((c as any)?.canDelete) && viewerIsVip;
+                    const canDelete = Boolean((c as any)?.canDelete) && hasEffectiveVip;
 
                     const commentModerationStatus = String(c?.moderation?.status || "visible");
                     const commentIsDeleted = c?.isDeleted === true || c?.moderation?.isDeleted === true;

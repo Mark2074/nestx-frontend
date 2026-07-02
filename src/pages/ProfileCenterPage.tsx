@@ -11,7 +11,7 @@ import ProfileComposer from "../components/profile/ProfileComposer";
 import ProfileTabsMy from "../components/profile/ProfileTabsMy";
 import ProfileEditorCard from "../components/profile/ProfileEditorCard";
 import { formatProfileLanguage } from "../utils/profileLanguage";
-import { useFeatureFlag } from "../config/FeatureFlagsProvider";
+import { useEffectiveVipPrivileges, useFeatureFlag } from "../config/FeatureFlagsProvider";
 
 type PublicProfile = {
   _id: string;
@@ -135,6 +135,7 @@ export default function ProfileCenterPage() {
   const [err, setErr] = useState<string>("");
 
   const isVip = !!me?.isVip;
+  const hasEffectiveVip = useEffectiveVipPrivileges(isVip);
 
   const [composerOpen, setComposerOpen] = useState(false);
   const [composerType, setComposerType] = useState<"text" | "poll">("text");
@@ -261,7 +262,7 @@ export default function ProfileCenterPage() {
         return;
       }
 
-      if (!isVip) {
+      if (!hasEffectiveVip) {
         setComposerError("Polls are a VIP feature.");
         return;
       }
@@ -421,7 +422,7 @@ export default function ProfileCenterPage() {
             handleSubmitPost={handleSubmitPost}
             resetComposer={resetComposer}
             setComposerOpen={setComposerOpen}
-            isVip={isVip}
+            isVip={hasEffectiveVip}
             postText={postText}
             setPostText={setPostText}
             pollQuestion={pollQuestion}

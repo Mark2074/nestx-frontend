@@ -59,3 +59,9 @@ export function useFeatureFlag(name: FeatureFlagName) {
   const features = useFeatureFlags();
   return name === "ECONOMY" ? features.economyEnabled : features.liveEnabled;
 }
+
+export function useEffectiveVipPrivileges(realIsVip: boolean | null | undefined) {
+  const features = useFeatureFlags();
+  if (!features.loaded) return realIsVip === true;
+  return features.economyEnabled === false || realIsVip === true;
+}
