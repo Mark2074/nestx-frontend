@@ -2311,6 +2311,14 @@ export type AdminTestAccountItem = {
   eligibleForTestGrants?: boolean;
   isVip?: boolean;
   vipExpiresAt?: string | null;
+  isCreator?: boolean;
+  creatorEnabled?: boolean;
+  creatorState?: "base" | "creator" | string;
+  creatorVerification?: {
+    status?: string;
+    verifiedAt?: string | null;
+    note?: string | null;
+  };
   tokenBalance?: number;
   tokenPurchased?: number;
   tokenEarnings?: number;
@@ -2337,6 +2345,33 @@ export const adminGrantTestVip = (
   payload?: { days?: number; note?: string | null },
 ) =>
   request<any>(`/admin/economy/test-accounts/${userId}/grant-vip`, {
+    method: "POST",
+    body: JSON.stringify(payload || {}),
+  });
+
+export const adminRevokeTestVip = (
+  userId: string,
+  payload?: { note?: string | null },
+) =>
+  request<any>(`/admin/economy/test-accounts/${userId}/revoke-vip`, {
+    method: "POST",
+    body: JSON.stringify(payload || {}),
+  });
+
+export const adminAssignTestCreator = (
+  userId: string,
+  payload?: { note?: string | null },
+) =>
+  request<any>(`/admin/economy/test-accounts/${userId}/assign-creator`, {
+    method: "POST",
+    body: JSON.stringify(payload || {}),
+  });
+
+export const adminRevokeTestCreator = (
+  userId: string,
+  payload?: { note?: string | null },
+) =>
+  request<any>(`/admin/economy/test-accounts/${userId}/revoke-creator`, {
     method: "POST",
     body: JSON.stringify(payload || {}),
   });

@@ -2,9 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { panel } from "./adminUi";
 import {
+  adminAssignTestCreator,
   adminGrantTestTokens,
   adminGrantTestVip,
   adminListTestAccounts,
+  adminRevokeTestCreator,
+  adminRevokeTestVip,
   type AdminTestAccountItem,
 } from "../../api/nestxApi";
 
@@ -23,6 +26,15 @@ function userLabel(user: AdminTestAccountItem) {
   return user.username || user.displayName || user.email || user._id;
 }
 
+function isEligibleTestAccount(account: AdminTestAccountItem) {
+  return account.eligibleForTestGrants === true || account.isInternalTest === true;
+}
+
+function getCreatorState(account: AdminTestAccountItem) {
+  const state = String(account.creatorState || account.accountType || "").trim().toLowerCase();
+  return state === "creator" || account.isCreator === true ? "creator" : "base";
+}
+
 export default function AdminTestAccountsPage() {
   const nav = useNavigate();
   const [accounts, setAccounts] = useState<AdminTestAccountItem[]>([]);
@@ -35,7 +47,7 @@ export default function AdminTestAccountsPage() {
   const [notes, setNotes] = useState<Record<string, string>>({});
 
   const visibleAccounts = useMemo(
-    () => accounts.filter((account) => account.isInternalTest === true),
+    () => accounts.filter(isEligibleTestAccount),
     [accounts],
   );
 
@@ -57,7 +69,7 @@ export default function AdminTestAccountsPage() {
   }, []);
 
   async function grantTokens(account: AdminTestAccountItem) {
-    if (account.isInternalTest !== true) {
+    if (!isEligibleTestAccount(account)) {
       setErr("Denied: target user is not an internal test account.");
       return;
     }
@@ -87,7 +99,7 @@ export default function AdminTestAccountsPage() {
   }
 
   async function grantVip(account: AdminTestAccountItem) {
-    if (account.isInternalTest !== true) {
+    if (!isEligibleTestAccount(account)) {
       setErr("Denied: target user is not an internal test account.");
       return;
     }
@@ -111,6 +123,76 @@ export default function AdminTestAccountsPage() {
       await load();
     } catch (e: any) {
       setErr(e?.message || "Failed to grant test VIP.");
+    } finally {
+      setBusyKey(null);
+    }
+  }
+
+  async function revokeVip(account: AdminTestAccountItem) {
+    if (!isEligibleTestAccount(account)) {
+      setErr("Denied: target user is not an internal test account.");
+      return;
+    }
+
+    if (!window.confirm(`Revoke VIP for ${userLabel(account)}?`)) return;
+
+    setBusyKey(`${account._id}:vip`);
+    setErr(null);
+    setNotice(null);
+    try {
+      await adminRevokeTestVip(account._id, {
+        note: notes[account._id]?.trim() || null,
+      });
+      setNotice(`Revoked test VIP for ${userLabel(account)}.`);
+      await load();
+    } catch (e: any) {
+      setErr(e?.message || "Failed to revoke test VIP.");
+    } finally {
+      setBusyKey(null);
+    }
+  }
+
+  async function assignCreator(account: AdminTestAccountItem) {
+    if (!isEligibleTestAccount(account)) {
+      setErr("Denied: target user is not an internal test account.");
+      return;
+    }
+
+    setBusyKey(`${account._id}:creator`);
+    setErr(null);
+    setNotice(null);
+    try {
+      await adminAssignTestCreator(account._id, {
+        note: notes[account._id]?.trim() || null,
+      });
+      setNotice(`Assigned test Creator to ${userLabel(account)}.`);
+      await load();
+    } catch (e: any) {
+      setErr(e?.message || "Failed to assign test Creator.");
+    } finally {
+      setBusyKey(null);
+    }
+  }
+
+  async function revokeCreator(account: AdminTestAccountItem) {
+    if (!isEligibleTestAccount(account)) {
+      setErr("Denied: target user is not an internal test account.");
+      return;
+    }
+
+    if (!window.confirm(`Revoke Creator for ${userLabel(account)}?`)) return;
+
+    setBusyKey(`${account._id}:creator`);
+    setErr(null);
+    setNotice(null);
+    try {
+      await adminRevokeTestCreator(account._id, {
+        note: notes[account._id]?.trim() || null,
+      });
+      setNotice(`Revoked test Creator for ${userLabel(account)}.`);
+      await load();
+    } catch (e: any) {
+      setErr(e?.message || "Failed to revoke test Creator.");
     } finally {
       setBusyKey(null);
     }
@@ -165,7 +247,9 @@ export default function AdminTestAccountsPage() {
         {visibleAccounts.map((account) => {
           const tokenBusy = busyKey === `${account._id}:tokens`;
           const vipBusy = busyKey === `${account._id}:vip`;
-          const disabled = !!busyKey || account.isInternalTest !== true;
+          const creatorBusy = busyKey === `${account._id}:creator`;
+          const disabled = !!busyKey || !isEligibleTestAccount(account);
+          const creatorState = getCreatorState(account);
 
           return (
             <div
@@ -201,7 +285,7 @@ export default function AdminTestAccountsPage() {
                 >
                   <div style={{ fontWeight: 950 }}>{account.email || "No email"}</div>
                   <div style={{ marginTop: 4, opacity: 0.78, fontSize: 13 }}>
-                    @{account.username || account.displayName || "unknown"} · {account.accountType || "user"}
+                    @{account.username || account.displayName || "unknown"} - {creatorState}
                   </div>
                   <div style={{ marginTop: 6, opacity: 0.72, fontSize: 12 }}>{account._id}</div>
                 </button>
@@ -217,7 +301,7 @@ export default function AdminTestAccountsPage() {
                 style={{
                   marginTop: 12,
                   display: "grid",
-                  gridTemplateColumns: "minmax(160px, 0.5fr) minmax(180px, 0.7fr) minmax(220px, 1fr) auto auto",
+                  gridTemplateColumns: "minmax(160px, 0.5fr) minmax(180px, 0.7fr) minmax(220px, 1fr) auto auto auto",
                   gap: 10,
                   alignItems: "center",
                 }}
@@ -254,8 +338,26 @@ export default function AdminTestAccountsPage() {
                   {tokenBusy ? "Granting..." : "Grant tokens"}
                 </button>
 
-                <button disabled={disabled} onClick={() => grantVip(account)} style={buttonStyle(disabled)}>
-                  {vipBusy ? "Granting..." : "Grant VIP"}
+                <button
+                  disabled={disabled}
+                  onClick={() => (account.isVip ? revokeVip(account) : grantVip(account))}
+                  style={buttonStyle(disabled)}
+                >
+                  {vipBusy ? (account.isVip ? "Revoking..." : "Granting...") : account.isVip ? "Revoke VIP" : "Grant VIP"}
+                </button>
+
+                <button
+                  disabled={disabled}
+                  onClick={() => (creatorState === "creator" ? revokeCreator(account) : assignCreator(account))}
+                  style={buttonStyle(disabled)}
+                >
+                  {creatorBusy
+                    ? creatorState === "creator"
+                      ? "Revoking..."
+                      : "Assigning..."
+                    : creatorState === "creator"
+                      ? "Revoke Creator"
+                      : "Assign Creator"}
                 </button>
               </div>
             </div>
