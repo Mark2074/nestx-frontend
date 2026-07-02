@@ -1,9 +1,12 @@
 import { useNavigate } from "react-router-dom";
+import { featureFlag } from "../config/featureFlags";
 
 const LOGO_SRC = "/legal/nestx-horizontal-dark.png";
 
 export default function DiscoverPage() {
   const nav = useNavigate();
+  const liveEnabled = featureFlag("LIVE");
+  const economyEnabled = featureFlag("ECONOMY");
 
   return (
     <div style={{ minHeight: "100vh", padding: 22, display: "flex", justifyContent: "center" }}>
@@ -29,7 +32,7 @@ export default function DiscoverPage() {
           <ul style={ulStyle}>
             <li>Follow profiles you are genuinely interested in  </li>
             <li>Browse a real and constantly updated feed</li>
-            <li>Join Live events  </li>
+            {liveEnabled ? <li>Join Live events  </li> : null}
             <li>Discover new profiles without wasting time</li>
           </ul>
 
@@ -40,7 +43,7 @@ export default function DiscoverPage() {
           <ul style={ulStyle}>
             <li>Publish content (photos, videos, posts)</li>
             <li>Build an audience over time</li>
-            <li>Turn your audience into participation through Live events</li>
+            {liveEnabled ? <li>Turn your audience into participation through Live events</li> : null}
             <li>Grow steadily, without relying on a single moment</li>
           </ul>
 
@@ -53,8 +56,8 @@ export default function DiscoverPage() {
           <ul style={ulStyle}>
             <li>Publish content that represents who you are  </li>
             <li>Build an audience that truly follows you</li>
-            <li>Create Live events or join other creators’ events</li>
-            <li>Monetize over time, based on what you share and how you choose to evolve</li>
+            {liveEnabled ? <li>Create Live events or join other creators’ events</li> : null}
+            {economyEnabled ? <li>Monetize over time, based on what you share and how you choose to evolve</li> : null}
           </ul>
 
           <p style={{ opacity: 0.9 }}>

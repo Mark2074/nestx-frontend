@@ -4,6 +4,7 @@ import type { MeProfile } from "../../api/nestxApi";
 import PostCard from "../feed/PostCard";
 import EventCard from "../feed/EventCard";
 import ProfileEventBannerCard from "./ProfileEventBannerCard";
+import { featureFlag } from "../../config/featureFlags";
 
 function TabButton({
   active,
@@ -33,6 +34,8 @@ function TabButton({
 }
 
 export default function ProfileTabsMy({ me }: { me: MeProfile }) {
+  const liveEnabled = featureFlag("LIVE");
+  const economyEnabled = featureFlag("ECONOMY");
   const [tab, setTab] = useState<"posts" | "following" | "oldLive">("posts");
 
   // --- Token info UI (first experience) ---
@@ -45,6 +48,7 @@ export default function ProfileTabsMy({ me }: { me: MeProfile }) {
   const acceptedAt = (me as any)?.tokenInfoAcceptedAt || null;
 
   const showTokenInfo =
+    economyEnabled &&
     (!acceptedAt || acceptedVersion < TOKEN_INFO_VERSION) &&
     !dismissedOnce;
 
@@ -98,6 +102,12 @@ export default function ProfileTabsMy({ me }: { me: MeProfile }) {
   }
 
   useEffect(() => {
+    if (!liveEnabled && tab === "oldLive") {
+      setTab("posts");
+    }
+  }, [liveEnabled, tab]);
+
+  useEffect(() => {
     void loadPosts();
   }, [tab]);
 
@@ -116,6 +126,10 @@ export default function ProfileTabsMy({ me }: { me: MeProfile }) {
 
   useEffect(() => {
     async function loadBanner() {
+      if (!liveEnabled) {
+        setBannerEvent(null);
+        return;
+      }
       if (tab !== "posts") return;
       try {
         const ev = await api.profileEventBanner(me._id);
@@ -125,7 +139,7 @@ export default function ProfileTabsMy({ me }: { me: MeProfile }) {
       }
     }
     loadBanner();
-  }, [tab, me._id]);
+  }, [liveEnabled, tab, me._id]);
 
   useEffect(() => {
     async function loadFollowing() {
@@ -157,6 +171,7 @@ export default function ProfileTabsMy({ me }: { me: MeProfile }) {
 
   useEffect(() => {
     async function loadOldLive() {
+      if (!liveEnabled) return;
       if (tab !== "oldLive") return;
       setOldLiveErr("");
       setOldLive(null);
@@ -168,10 +183,14 @@ export default function ProfileTabsMy({ me }: { me: MeProfile }) {
       }
     }
     loadOldLive();
-  }, [tab, me._id]);
+  }, [liveEnabled, tab, me._id]);
 
   useEffect(() => {
     async function probeOldLive() {
+      if (!liveEnabled) {
+        setHasOldLive(false);
+        return;
+      }
       try {
         const items = await api.oldLive(me._id);
         setHasOldLive(items.length > 0);
@@ -180,7 +199,7 @@ export default function ProfileTabsMy({ me }: { me: MeProfile }) {
       }
     }
     probeOldLive();
-  }, [me._id]);
+  }, [liveEnabled, me._id]);
 
   function getPostAuthorId(it: any): string {
     const post = it?.data ?? it;
@@ -273,7 +292,7 @@ export default function ProfileTabsMy({ me }: { me: MeProfile }) {
             else setTab("following");
           }}
         />
-        {hasOldLive ? (
+        {liveEnabled && hasOldLive ? (
           <TabButton active={tab === "oldLive"} label="Old live" onClick={() => setTab("oldLive")} />
         ) : null}
       </div>
@@ -282,7 +301,7 @@ export default function ProfileTabsMy({ me }: { me: MeProfile }) {
         {tab === "posts" ? (
           <div>
             {tokenInfoBanner}
-            {bannerEvent ? (
+            {liveEnabled && bannerEvent ? (
               <div style={{ marginBottom: 12 }}>
                 <ProfileEventBannerCard event={bannerEvent} />
               </div>
@@ -350,6 +369,7 @@ export default function ProfileTabsMy({ me }: { me: MeProfile }) {
                       t === "event_scheduled" ||
                       t === "scheduled_event"
                     ) {
+                      if (!liveEnabled) return null;
                       return <EventCard key={it.data?._id || it.data?.eventId || idx} item={it} />;
                     }
 

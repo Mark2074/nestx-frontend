@@ -11,6 +11,7 @@ import ProfileComposer from "../components/profile/ProfileComposer";
 import ProfileTabsMy from "../components/profile/ProfileTabsMy";
 import ProfileEditorCard from "../components/profile/ProfileEditorCard";
 import { formatProfileLanguage } from "../utils/profileLanguage";
+import { featureFlag } from "../config/featureFlags";
 
 type PublicProfile = {
   _id: string;
@@ -445,6 +446,7 @@ export default function ProfileCenterPage() {
 }
 
 function OtherProfileView({ userId }: { userId: string }) {
+  const economyEnabled = featureFlag("ECONOMY");
   const [p, setP] = useState<PublicProfile | null>(null);
   const [rel, setRel] = useState<FollowRelationship>("none");
   const [err, setErr] = useState<string>("");
@@ -1175,7 +1177,7 @@ function OtherProfileView({ userId }: { userId: string }) {
             </button>
 
             {/* Donate (only if target profile is VIP) */}
-            {p?.isVip ? (
+            {economyEnabled && p?.isVip ? (
             <button
               type="button"
               onClick={handleDonate}
@@ -1645,6 +1647,7 @@ function OtherProfileTabs({
   canSeeOldLive: boolean;
   profileAvatarUrl?: string;
 }) {
+  const liveEnabled = featureFlag("LIVE");
   const [tab, setTab] = useState<"posts" | "oldLive">("posts");
 
   const [posts, setPosts] = useState<any[] | null>(null);
@@ -1657,9 +1660,19 @@ function OtherProfileTabs({
   const [oldLiveErr, setOldLiveErr] = useState<string>("");
   const [hasOldLive, setHasOldLive] = useState<boolean>(false);
 
+  useEffect(() => {
+    if (!liveEnabled && tab === "oldLive") {
+      setTab("posts");
+    }
+  }, [liveEnabled, tab]);
+
   // banner evento: SOLO se accepted (da memo)
   useEffect(() => {
     async function loadBanner() {
+      if (!liveEnabled) {
+        setBannerEvent(null);
+        return;
+      }
       if (tab !== "posts") return;
       if (!canSeeEventCard) {
         setBannerEvent(null);
@@ -1673,7 +1686,7 @@ function OtherProfileTabs({
       }
     }
     loadBanner();
-  }, [tab, userId, canSeeEventCard]);
+  }, [liveEnabled, tab, userId, canSeeEventCard]);
 
   // posts altri utenti
   useEffect(() => {
@@ -1700,6 +1713,10 @@ function OtherProfileTabs({
   // old live tab visibility probe (solo se accepted)
   useEffect(() => {
     async function probeOldLive() {
+      if (!liveEnabled) {
+        setHasOldLive(false);
+        return;
+      }
       if (!canSeeOldLive) {
         setHasOldLive(false);
         return;
@@ -1712,11 +1729,12 @@ function OtherProfileTabs({
       }
     }
     probeOldLive();
-  }, [userId, canSeeOldLive]);
+  }, [liveEnabled, userId, canSeeOldLive]);
 
   // old live load
   useEffect(() => {
     async function loadOldLive() {
+      if (!liveEnabled) return;
       if (tab !== "oldLive") return;
       setOldLiveErr("");
       setOldLive(null);
@@ -1734,13 +1752,13 @@ function OtherProfileTabs({
       }
     }
     loadOldLive();
-  }, [tab, userId, canSeeOldLive]);
+  }, [liveEnabled, tab, userId, canSeeOldLive]);
 
   return (
     <div style={{ marginTop: 16 }}>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         <TabButton active={tab === "posts"} label="Posts" onClick={() => setTab("posts")} />
-        {hasOldLive ? (
+        {liveEnabled && hasOldLive ? (
           <TabButton active={tab === "oldLive"} label="Old Live" onClick={() => setTab("oldLive")} />
         ) : null}
       </div>
@@ -1748,7 +1766,7 @@ function OtherProfileTabs({
       <div style={{ marginTop: 14 }}>
         {tab === "posts" ? (
           <div>
-            {bannerEvent ? (
+            {liveEnabled && bannerEvent ? (
               <div style={{ marginBottom: 12 }}>
                 <ProfileEventBannerCard event={bannerEvent} profileAvatarUrl={profileAvatarUrl || ""} />
               </div>

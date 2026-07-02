@@ -5,6 +5,7 @@ import { getAppVariant } from "../utils/appVariant";
 import SearchFilters from "../components/search/SearchFilters";
 import PostCard from "../components/feed/PostCard";
 import EventCard from "../components/feed/EventCard";
+import { featureFlag } from "../config/featureFlags";
 
 type Tab = "posts" | "users" | "events";
 
@@ -17,6 +18,7 @@ export default function SearchPage() {
   const canUseVipFilters = isVip || isAdmin;
   const isStoreVariant = getAppVariant() === "store";
   const canUseUserFilters = isStoreVariant || canUseVipFilters;
+  const liveEnabled = featureFlag("LIVE");
 
   const [tab, setTab] = useState<Tab>("posts");
 
@@ -44,6 +46,13 @@ export default function SearchPage() {
   useEffect(() => {
     setPage(1);
   }, [tab, q, profileType, country, language]);
+
+  useEffect(() => {
+    if (!liveEnabled && tab === "events") {
+      setTab("posts");
+      setEvents([]);
+    }
+  }, [liveEnabled, tab]);
 
   const effectiveFilters = useMemo(() => {
     const f = {
@@ -122,7 +131,7 @@ export default function SearchPage() {
       const res = await api.socialSearch({
 
         q,
-        type: tab as SearchType,
+        type: (liveEnabled ? tab : tab === "events" ? "posts" : tab) as SearchType,
         page,
         limit: 10,
         profileType: effectiveFilters.profileType,
@@ -143,7 +152,7 @@ export default function SearchPage() {
         : rawPosts;
 
       setPosts(filteredPosts);
-      setEvents(Array.isArray(res.events) ? res.events : []);
+      setEvents(liveEnabled && Array.isArray(res.events) ? res.events : []);
     } catch (e: any) {
       setUsers([]);
       setPosts([]);
@@ -245,7 +254,7 @@ export default function SearchPage() {
 
       {/* Tabs */}
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-        {(["posts", "users", "events"] as Tab[]).map((t) => (
+        {(["posts", "users", ...(liveEnabled ? ["events"] : [])] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}

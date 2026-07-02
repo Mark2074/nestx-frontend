@@ -2,6 +2,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { api } from "../api/nestxApi";
 import type { CSSProperties } from "react";
+import { featureFlag } from "../config/featureFlags";
 
 const LOGO_SRC = "/legal/nestx-horizontal-dark.png";
 
@@ -52,6 +53,8 @@ function readSidebarIdentity(): SidebarIdentity {
 export default function ProfileLeftPage() {
   const nav = useNavigate();
   const loc = useLocation();
+  const liveEnabled = featureFlag("LIVE");
+  const economyEnabled = featureFlag("ECONOMY");
   const [identity, setIdentity] = useState<SidebarIdentity>(() => readSidebarIdentity());
   const avatar = identity.avatar;
   const username = identity.username;
@@ -274,7 +277,11 @@ export default function ProfileLeftPage() {
 
       {/* Nav */}
       <div style={{ padding: 10, display: "flex", flexDirection: "column", gap: 12 }}>
-        {items.map((it) => {
+        {items.filter((it) => {
+          if (it.path === "/app/live") return liveEnabled;
+          if (it.path === "/app/tokens") return economyEnabled;
+          return true;
+        }).map((it) => {
           const active = isActive(it.path);
           const isProfile = it.path === "/app/profile";
           const isLive = it.path === "/app/live";
@@ -469,10 +476,14 @@ export default function ProfileLeftPage() {
                       },
                     },
                     { label: "Verification", onClick: () => nav("/app/profile/verification") },
-                    { label: "Creator / Payout", onClick: () => nav("/app/profile/manage") },
+                    ...(economyEnabled
+                      ? [{ label: "Creator / Payout", onClick: () => nav("/app/profile/manage") }]
+                      : []),
                     { label: "Privacy & Security", onClick: () => nav("/app/profile/privacy") },
                     { label: "Connections", onClick: () => nav("/app/profile/connections") },
-                    { label: "VIP", onClick: () => nav("/app/profile/vip-feed") },
+                    ...(economyEnabled
+                      ? [{ label: "VIP", onClick: () => nav("/app/profile/vip-feed") }]
+                      : []),
                   ].map((x) => (
                     <button
                       key={x.label}
