@@ -952,14 +952,10 @@ function OtherProfileView({ userId }: { userId: string }) {
 
             <div style={{ flex: 1 }}>
               <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                <div>
-                  <h2 style={{ margin: 0 }}>{name}</h2>
-                  {p.username ? (
-                    <div style={{ marginTop: 2, opacity: 0.85 }}>@{p.username}</div>
-                  ) : null}
-                </div>
-
-                {p.isVip ? <PillBadge>VIP</PillBadge> : null}
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0, flex: "1 1 260px" }}>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", minWidth: 0 }}>
+                    <h2 style={{ margin: 0 }}>{name}</h2>
+                    {p.isVip ? <PillBadge>VIP</PillBadge> : null}
                 {(p.isVerified || (p as any)?.verifiedUser) ? (
                   <IconBadge title="Verified" bg="#2ecc71" glyph="✓" />
                 ) : null}
@@ -968,6 +964,11 @@ function OtherProfileView({ userId }: { userId: string }) {
                   <IconBadge title="Payout approved" bg="#16a34a" glyph="$" />
                 ) : null}
                 {p.isPrivate ? <PillBadge>PRIVATE</PillBadge> : null}
+                  </div>
+                  {p.username ? (
+                    <div style={{ opacity: 0.85 }}>@{p.username}</div>
+                  ) : null}
+                </div>
 
                 {/* menu azioni (unificato) */}
                 <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
