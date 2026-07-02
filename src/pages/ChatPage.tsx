@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { api, mapApiErrorMessage, getApiRetryAfterMs, formatRetryAfterLabel } from "../api/nestxApi";
-import { useEffectiveVipPrivileges } from "../config/FeatureFlagsProvider";
+import { useEffectiveVipPrivileges, useFeatureFlags } from "../config/FeatureFlagsProvider";
 
 type ConvItem = {
   conversationKey: string;
@@ -32,6 +32,7 @@ export default function ChatPage() {
 
   const [meId, setMeId] = useState<string>("");
   const [isVip, setIsVip] = useState<boolean>(false);
+  const featureFlags = useFeatureFlags();
   const hasEffectiveVip = useEffectiveVipPrivileges(isVip);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -709,7 +710,9 @@ export default function ChatPage() {
                 </button>
               </div>
               <div style={{ marginTop: 8, opacity: 0.72, fontSize: 12, lineHeight: 1.35 }}>
-                {hasEffectiveVip
+                {featureFlags.loaded && featureFlags.economyEnabled === false
+                  ? "Daily message limit: up to 100 messages."
+                  : hasEffectiveVip
                   ? "VIP messages limit: up to 100 messages per day."
                   : "Base messages limit: up to 10 messages per day. Upgrade to VIP for up to 100 messages per day."}
               </div>
