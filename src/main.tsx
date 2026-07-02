@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import App from "./App";
 import "./index.css";
+import { FeatureFlagsProvider } from "./config/FeatureFlagsProvider";
 
 const ProfileCenterPage = React.lazy(() => import("./pages/ProfileCenterPage"));
 const LoginTestPage = React.lazy(() => import("./pages/LoginTestPage"));
@@ -76,8 +77,9 @@ function RequireNonAdmin({ children }: { children: React.ReactElement }) {
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <BrowserRouter>
-      <React.Suspense fallback={<div style={{ padding: 20 }}>Loading...</div>}>
+    <FeatureFlagsProvider>
+      <BrowserRouter>
+        <React.Suspense fallback={<div style={{ padding: 20 }}>Loading...</div>}>
       <Routes>
         <Route path="/" element={<App />} />
 
@@ -334,7 +336,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route index element={<BecomeCreatorPage />} />
         </Route>
       </Routes>
-      </React.Suspense>
-    </BrowserRouter>
+        </React.Suspense>
+      </BrowserRouter>
+    </FeatureFlagsProvider>
   </React.StrictMode>
 );

@@ -4,7 +4,7 @@ import type { MeProfile } from "../../api/nestxApi";
 import PostCard from "../feed/PostCard";
 import EventCard from "../feed/EventCard";
 import ProfileEventBannerCard from "./ProfileEventBannerCard";
-import { featureFlag } from "../../config/featureFlags";
+import { useFeatureFlag } from "../../config/FeatureFlagsProvider";
 
 function TabButton({
   active,
@@ -34,8 +34,8 @@ function TabButton({
 }
 
 export default function ProfileTabsMy({ me }: { me: MeProfile }) {
-  const liveEnabled = featureFlag("LIVE");
-  const economyEnabled = featureFlag("ECONOMY");
+  const liveEnabled = useFeatureFlag("LIVE");
+  const economyEnabled = useFeatureFlag("ECONOMY");
   const [tab, setTab] = useState<"posts" | "following" | "oldLive">("posts");
 
   // --- Token info UI (first experience) ---

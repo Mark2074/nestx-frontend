@@ -11,7 +11,7 @@ import ProfileComposer from "../components/profile/ProfileComposer";
 import ProfileTabsMy from "../components/profile/ProfileTabsMy";
 import ProfileEditorCard from "../components/profile/ProfileEditorCard";
 import { formatProfileLanguage } from "../utils/profileLanguage";
-import { featureFlag } from "../config/featureFlags";
+import { useFeatureFlag } from "../config/FeatureFlagsProvider";
 
 type PublicProfile = {
   _id: string;
@@ -446,7 +446,7 @@ export default function ProfileCenterPage() {
 }
 
 function OtherProfileView({ userId }: { userId: string }) {
-  const economyEnabled = featureFlag("ECONOMY");
+  const economyEnabled = useFeatureFlag("ECONOMY");
   const [p, setP] = useState<PublicProfile | null>(null);
   const [rel, setRel] = useState<FollowRelationship>("none");
   const [err, setErr] = useState<string>("");
@@ -1647,7 +1647,7 @@ function OtherProfileTabs({
   canSeeOldLive: boolean;
   profileAvatarUrl?: string;
 }) {
-  const liveEnabled = featureFlag("LIVE");
+  const liveEnabled = useFeatureFlag("LIVE");
   const [tab, setTab] = useState<"posts" | "oldLive">("posts");
 
   const [posts, setPosts] = useState<any[] | null>(null);

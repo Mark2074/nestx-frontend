@@ -2,7 +2,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { api } from "../api/nestxApi";
 import type { CSSProperties } from "react";
-import { featureFlag } from "../config/featureFlags";
+import { useFeatureFlag } from "../config/FeatureFlagsProvider";
 
 const LOGO_SRC = "/legal/nestx-horizontal-dark.png";
 
@@ -53,8 +53,8 @@ function readSidebarIdentity(): SidebarIdentity {
 export default function ProfileLeftPage() {
   const nav = useNavigate();
   const loc = useLocation();
-  const liveEnabled = featureFlag("LIVE");
-  const economyEnabled = featureFlag("ECONOMY");
+  const liveEnabled = useFeatureFlag("LIVE");
+  const economyEnabled = useFeatureFlag("ECONOMY");
   const [identity, setIdentity] = useState<SidebarIdentity>(() => readSidebarIdentity());
   const avatar = identity.avatar;
   const username = identity.username;

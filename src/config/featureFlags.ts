@@ -1,10 +1,18 @@
 export type FeatureFlagName = "ECONOMY" | "LIVE";
 
-export function featureFlag(name: FeatureFlagName) {
-  const env =
-    name === "ECONOMY"
-      ? import.meta.env.VITE_ECONOMY_ENABLED
-      : import.meta.env.VITE_LIVE_ENABLED;
+export type RuntimeFeatures = {
+  liveEnabled: boolean;
+  economyEnabled: boolean;
+};
 
-  return String(env).toLowerCase() === "true";
+export const DEFAULT_RUNTIME_FEATURES: RuntimeFeatures = {
+  liveEnabled: false,
+  economyEnabled: false,
+};
+
+export function normalizeRuntimeFeatures(payload: Partial<RuntimeFeatures> | null | undefined): RuntimeFeatures {
+  return {
+    liveEnabled: payload?.liveEnabled === true,
+    economyEnabled: payload?.economyEnabled === true,
+  };
 }

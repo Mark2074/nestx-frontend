@@ -1,4 +1,5 @@
 import { getAppVariant } from "../utils/appVariant";
+import type { RuntimeFeatures } from "../config/featureFlags";
 
 export type ApiWrapped<T> = { status: "success" | "error"; data?: T; message?: string };
 
@@ -725,6 +726,11 @@ export type ShowcaseAllResponse = {
 };
 
 export const api = {
+  getFeatures: () =>
+    request<RuntimeFeatures>(`/features`, {
+      method: "GET",
+    }),
+
   login: (email: string, password: string) =>
   request<{
     token: string;

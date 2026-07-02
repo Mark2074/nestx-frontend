@@ -5,7 +5,7 @@ import { getAppVariant } from "../utils/appVariant";
 import SearchFilters from "../components/search/SearchFilters";
 import PostCard from "../components/feed/PostCard";
 import EventCard from "../components/feed/EventCard";
-import { featureFlag } from "../config/featureFlags";
+import { useFeatureFlag } from "../config/FeatureFlagsProvider";
 
 type Tab = "posts" | "users" | "events";
 
@@ -18,7 +18,7 @@ export default function SearchPage() {
   const canUseVipFilters = isVip || isAdmin;
   const isStoreVariant = getAppVariant() === "store";
   const canUseUserFilters = isStoreVariant || canUseVipFilters;
-  const liveEnabled = featureFlag("LIVE");
+  const liveEnabled = useFeatureFlag("LIVE");
 
   const [tab, setTab] = useState<Tab>("posts");
 

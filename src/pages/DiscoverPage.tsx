@@ -1,12 +1,12 @@
 import { useNavigate } from "react-router-dom";
-import { featureFlag } from "../config/featureFlags";
+import { useFeatureFlag } from "../config/FeatureFlagsProvider";
 
 const LOGO_SRC = "/legal/nestx-horizontal-dark.png";
 
 export default function DiscoverPage() {
   const nav = useNavigate();
-  const liveEnabled = featureFlag("LIVE");
-  const economyEnabled = featureFlag("ECONOMY");
+  const liveEnabled = useFeatureFlag("LIVE");
+  const economyEnabled = useFeatureFlag("ECONOMY");
 
   return (
     <div style={{ minHeight: "100vh", padding: 22, display: "flex", justifyContent: "center" }}>
