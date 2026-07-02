@@ -6,8 +6,10 @@ import FedRightWidget from "../components/profile/FedRightWidget";
 import AdvRightWidget from "../components/profile/AdvRightWidget";
 import ShowcaseRightWidget from "../components/profile/ShowcaseRightWidget";
 import UpdatesRightWidget from "../components/profile/UpdatesRightWidget";
+import { useFeatureFlag } from "../config/FeatureFlagsProvider";
 
 export default function ProfileRightPage() {
+  const economyEnabled = useFeatureFlag("ECONOMY");
   const [me, setMe] = React.useState<MeProfile | null>(null);
 
   React.useEffect(() => {
@@ -34,8 +36,8 @@ export default function ProfileRightPage() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <FedRightWidget me={me} />
-      {emailVerified ? <AdvRightWidget /> : null}
-      {emailVerified ? <ShowcaseRightWidget /> : null}
+      {economyEnabled && emailVerified ? <AdvRightWidget /> : null}
+      {economyEnabled && emailVerified ? <ShowcaseRightWidget /> : null}
       <UpdatesRightWidget />
     </div>
   );
